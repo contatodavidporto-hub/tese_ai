@@ -1,0 +1,24 @@
+# Alternativa LOCAL ao Supabase (Postgres + pgvector). Opcional — o projeto usa
+# Supabase gerenciado (sa-east-1) por padrão. Útil para dev offline.
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#   DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/tese
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tese
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
