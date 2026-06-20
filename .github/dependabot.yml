@@ -1,0 +1,18 @@
+# Mantém actions e dependências atualizadas (e permite fixar actions por SHA
+# com atualização automática, recomendação OWASP/SLSA contra supply chain).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"

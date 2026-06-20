@@ -1,5 +1,8 @@
 name: CI
 
+# Hardening: actions fixadas por tag; o Dependabot (.github/dependabot.yml)
+# gerencia atualizações. Para hardening máximo, fixe por SHA de commit completo.
+
 on:
   push:
     branches: [main]

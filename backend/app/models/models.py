@@ -163,7 +163,8 @@ class Documento(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # tenant_id: reservado para tenancy por organização (futuro); NÃO aplicado por RLS hoje.
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     titulo: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
@@ -186,7 +187,8 @@ class Chunk(Base):
     documento_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documentos.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # tenant_id: reservado para tenancy por organização (futuro); NÃO aplicado por RLS hoje.
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     texto: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))

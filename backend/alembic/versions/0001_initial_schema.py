@@ -9,6 +9,11 @@ eventos_geopoliticos): RLS ON, leitura para `authenticated`.
 Tabelas de dados do usuário (teses, tese_versoes, documentos, chunks):
 RLS ON, acesso owner-only via `auth.uid() = user_id`. `service_role`
 (backend) ignora RLS por padrão.
+
+A coluna `tenant_id` (documentos/chunks) é RESERVADA para tenancy por
+organização no futuro e NÃO é aplicada por RLS hoje — o isolamento atual
+é por usuário (`user_id`, NOT NULL). Toda consulta vetorial executada pelo
+backend (service_role) DEVE filtrar `user_id` explicitamente.
 """
 
 from collections.abc import Sequence
@@ -101,7 +106,7 @@ create index ix_tese_versoes_tese on tese_versoes (tese_id);
 
 create table documentos (
     id          uuid primary key default gen_random_uuid(),
-    user_id     uuid references auth.users (id) on delete cascade,
+    user_id     uuid not null references auth.users (id) on delete cascade,
     tenant_id   uuid,
     titulo      text,
     url         text,
@@ -113,7 +118,7 @@ create index ix_documentos_user on documentos (user_id);
 create table chunks (
     id              uuid primary key default gen_random_uuid(),
     documento_id    uuid not null references documentos (id) on delete cascade,
-    user_id         uuid references auth.users (id) on delete cascade,
+    user_id         uuid not null references auth.users (id) on delete cascade,
     tenant_id       uuid,
     texto           text not null,
     embedding       vector(1536),

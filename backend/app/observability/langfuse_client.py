@@ -33,5 +33,6 @@ def get_langfuse() -> Any | None:
         logger.info("langfuse_enabled", host=settings.langfuse_host)
         return client
     except Exception as exc:  # pragma: no cover - defensivo
-        logger.warning("langfuse_init_failed", error=str(exc))
+        # Loga só o tipo da exceção (não o texto cru, que pode conter segredos do SDK).
+        logger.warning("langfuse_init_failed", error_type=type(exc).__name__)
         return None
