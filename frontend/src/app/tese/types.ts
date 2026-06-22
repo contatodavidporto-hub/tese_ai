@@ -3,10 +3,10 @@
 export type TeseStatus = "processing" | "ready" | "error";
 
 export type Fonte = {
-  id: string;
-  url: string;
+  id: string | null;
+  url: string | null;
   descricao: string;
-  dt_referencia: string;
+  dt_referencia: string | null;
 };
 
 export type Citacao = {

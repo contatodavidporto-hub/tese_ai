@@ -31,7 +31,10 @@ from app.core.logging import get_logger
 from app.models.models import Empresa, Fonte, Fundamento, MacroSerie, Tese, TeseVersao
 from app.observability.langfuse_client import get_langfuse
 from app.services import dados as dados_svc
+from app.services.avaliacao import avaliar_tese
 from app.services.demo_user import get_or_create_demo_user
+
+_DISCLAIMER = "> Não é recomendação de investimento. Tese estruturada a partir de dados públicos."
 
 logger = get_logger(__name__)
 
@@ -59,8 +62,12 @@ decisão é do leitor (postura regulatória CVM).
 sua leitura/cenário ("interpretação:", "cenário:").
 4. A camada geopolítica é raciocínio causal (evento→commodity→setor→empresa) e é \
 INTERPRETAÇÃO: ancore-a apenas nos dados fornecidos (ex.: câmbio) e NÃO afirme \
-eventos específicos (guerras, decisões da OPEP, sanções) como fato se eles não \
-estiverem nos documentos — nesse caso, marque "dado não encontrado".
+eventos específicos (guerras, decisões da OPEP, sanções, embargos) como fato se \
+eles não estiverem nos documentos. Use SOMENTE raciocínio condicional com hedge \
+explícito ("cenário:", "caso", "se houver") — nunca afirme um evento como ocorrido.
+5. MACRO sem confusão de unidade: a Selic DIÁRIA (% a.d.) é um número pequeno e é \
+diferente da META Selic anual (% a.a.). Não as confunda nem anualize sem fonte; \
+use o rótulo humano de cada série exatamente como vem no documento.
 
 ESTRUTURA DA SAÍDA (markdown, exatamente estas seções):
 # Tese — {TICKER} ({EMPRESA})
@@ -115,9 +122,12 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
         fonte = session.get(Fonte, m.fonte_id) if m.fonte_id else None
         if fonte is None:
             continue
+        # Rótulo humano adjacente ao número (ex.: "Meta Selic - Copom (% a.a.)") —
+        # evita ler a Selic diária como anual. O rótulo está em fonte.descricao após ": ".
+        rotulo = fonte.descricao.split(": ", 1)[-1] if fonte.descricao else m.codigo
         texto = (
-            f"Indicador macro {m.codigo}: {float(m.valor)} "
-            f"(referência {m.data}; {fonte.descricao})."
+            f"Indicador macro — {rotulo}: {float(m.valor)} "
+            f"(série {m.codigo}, referência {m.data}; {fonte.descricao})."
         )
         itens.append((fonte, texto))
 
@@ -179,21 +189,48 @@ def _synthesize(
     index_to_fonte: list[Fonte],
     ticker: str,
     nome: str,
-) -> tuple[str, list[dict], object]:
-    """Chamada Opus com Citations (streaming). Devolve (markdown, citações, usage)."""
+) -> tuple[str, list[dict], object, str]:
+    """Chamada Opus com Citations (streaming).
+
+    Devolve (markdown, citações, usage, prompt_hash). O `prompt_hash` cobre
+    system + documentos + instrução + modelo + parâmetros de geração, para que a
+    trilha de auditoria identifique unicamente a configuração que gerou a tese.
+    """
     instrucao = (
         f"Com base EXCLUSIVAMENTE nos documentos-fonte acima, monte a tese para "
         f"{ticker} ({nome}). Cite cada número à sua fonte. Onde faltar um dado, "
         f"escreva 'dado não encontrado'. Nunca recomende comprar ou vender."
     )
     content = [*documents, {"type": "text", "text": instrucao}]
+    prompt_hash = hashlib.sha256(
+        json.dumps(
+            {
+                "system": _SYSTEM,
+                "model": model,
+                "instrucao": instrucao,
+                "documents": [d.get("source") for d in documents],
+                "thinking": "adaptive",
+                "effort": "high",
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
 
+    # Langfuse: abre um observation 'generation' de forma tolerante a versão
+    # (langfuse 4.x usa start_as_current_observation; no-op sem chaves).
     lf = get_langfuse()
     gen_cm = None
     if lf is not None:
         try:
-            gen_cm = lf.start_as_current_generation(name="tese.synthesize", model=model)
-            gen_cm.__enter__()
+            starter = getattr(lf, "start_as_current_observation", None)
+            if starter is not None:
+                gen_cm = starter(name="tese.synthesize", as_type="generation", model=model)
+            else:
+                legacy = getattr(lf, "start_as_current_generation", None)
+                gen_cm = legacy(name="tese.synthesize", model=model) if legacy else None
+            if gen_cm is not None:
+                gen_cm.__enter__()
         except Exception as exc:  # pragma: no cover - tracing best-effort
             logger.warning("langfuse_gen_falhou", error_type=type(exc).__name__)
             gen_cm = None
@@ -208,6 +245,22 @@ def _synthesize(
             output_config={"effort": "high"},
         ) as stream:
             final = stream.get_final_message()
+        if gen_cm is not None:  # registra uso no trace (best-effort)
+            try:
+                u = final.usage
+                upd = getattr(lf, "update_current_generation", None)
+                if upd is not None:
+                    upd(
+                        model=model,
+                        usage_details={
+                            "input": getattr(u, "input_tokens", 0) or 0,
+                            "output": getattr(u, "output_tokens", 0) or 0,
+                            "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0)
+                            or 0,
+                        },
+                    )
+            except Exception as exc:  # pragma: no cover - tracing best-effort
+                logger.debug("langfuse_usage_falhou", error_type=type(exc).__name__)
     finally:
         if gen_cm is not None:
             try:
@@ -236,7 +289,7 @@ def _synthesize(
                     "fonte": _fonte_dict(fonte) if fonte else None,
                 }
             )
-    return "".join(partes), citacoes, final.usage
+    return "".join(partes), citacoes, final.usage, prompt_hash
 
 
 def _extract_metadata_haiku(client: anthropic.Anthropic, model: str, markdown: str) -> dict | None:
@@ -274,12 +327,28 @@ def _detect_lacunas(markdown: str) -> list[str]:
 
 
 def _fonte_dict(fonte: Fonte) -> dict:
+    # Só expõe URLs http/https — neutraliza esquemas perigosos (javascript:, data:)
+    # caso uma fonte futura seja influenciada por dado externo. A UI usa isto como href.
+    url = (
+        fonte.url if (fonte.url and fonte.url.lower().startswith(("https://", "http://"))) else None
+    )
     return {
         "id": str(fonte.id),
-        "url": fonte.url,
+        "url": url,
         "descricao": fonte.descricao,
         "dt_referencia": fonte.dt_referencia.isoformat() if fonte.dt_referencia else None,
     }
+
+
+def _mensagem_estavel(exc: Exception) -> str:
+    """Mensagem estável p/ o usuário (não vaza internals/segredos). Detalhe vai ao log."""
+    if isinstance(exc, dados_svc.DadoNaoEncontrado):
+        return "dado não encontrado para este ticker."
+    if isinstance(exc, RuntimeError) and "ANTHROPIC_API_KEY" in str(exc):
+        return "configuração do backend incompleta (chave de IA ausente)."
+    if isinstance(exc, anthropic.APIError):
+        return "falha ao chamar o provedor de IA — tente novamente em instantes."
+    return "falha ao gerar a tese."
 
 
 def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
@@ -317,9 +386,13 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         documents, index_to_fonte = _build_documents(itens)
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
-        markdown, citacoes, usage = _synthesize(
+        markdown, citacoes, usage, prompt_hash = _synthesize(
             client, settings.tese_model_synthesis, documents, index_to_fonte, ticker, empresa.nome
         )
+        # Garante o disclaimer NO PRÓPRIO conteúdo (não confia só no LLM).
+        if "não é recomendação" not in markdown.lower():
+            markdown = _DISCLAIMER + "\n\n" + markdown
+
         metadata = _extract_metadata_haiku(client, settings.tese_model_extraction, markdown)
         lacunas = _detect_lacunas(markdown)
         fontes = [_fonte_dict(f) for f in index_to_fonte]
@@ -334,11 +407,15 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             "metadata": metadata,
             "gerado_em": dt.datetime.now(dt.UTC).isoformat(),
         }
-        prompt_hash = hashlib.sha256(
-            (
-                _SYSTEM + json.dumps([d.get("source") for d in documents], ensure_ascii=False)
-            ).encode()
-        ).hexdigest()
+
+        # Gate de confiança ACOPLADO ao caminho de produção (S12). Bloqueante
+        # (recomendação / evento sem fonte / fonte sem URL) => NÃO serve como pronta:
+        # grava status=error com os motivos. O envelope + laudo ficam persistidos
+        # para a trilha de auditoria.
+        laudo = avaliar_tese(envelope)
+        envelope["avaliacao"] = laudo
+        if laudo["bloqueante"]:
+            envelope["erro"] = "Tese reprovada no gate de confiança: " + "; ".join(laudo["motivos"])
 
         versao = TeseVersao(
             tese_id=tese.id,
@@ -348,18 +425,24 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             prompt_hash=prompt_hash,
         )
         session.add(versao)
-        tese.status = "ready"
+        tese.status = "error" if laudo["bloqueante"] else "ready"
         session.commit()
         logger.info(
             "tese_gerada",
             tese_id=str(tese.id),
             ticker=ticker,
+            status=tese.status,
             citacoes=len(citacoes),
             lacunas=len(lacunas),
+            aprovado=laudo["aprovado"],
+            bloqueante=laudo["bloqueante"],
+            cobertura_fontes=laudo["cobertura_fontes"],
             custo_estimado_usd=uso.get("custo_estimado_usd"),
         )
     except Exception as exc:
         session.rollback()
+        # Detalhe completo só no log (redator de segredos); usuário recebe msg estável.
+        logger.warning("tese_falhou", tese_id=str(tese_id), ticker=ticker, erro=str(exc))
         tese = session.get(Tese, tese_id)
         if tese is not None:
             tese.status = "error"
@@ -367,15 +450,12 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
                 TeseVersao(
                     tese_id=tese.id,
                     user_id=tese.user_id,
-                    conteudo=json.dumps({"erro": str(exc)}, ensure_ascii=False),
+                    conteudo=json.dumps({"erro": _mensagem_estavel(exc)}, ensure_ascii=False),
                     modelo=None,
                     prompt_hash=None,
                 )
             )
             session.commit()
-        logger.warning(
-            "tese_falhou", tese_id=str(tese_id), ticker=ticker, error_type=type(exc).__name__
-        )
 
 
 def criar_tese(session: Session, ticker: str) -> Tese:

@@ -228,21 +228,33 @@ function ErrorCard({ message }: { message: string }) {
   );
 }
 
-// Banner regulatório de NÃO-recomendação — sempre visível quando há tese.
+// Disclaimer regulatório de NÃO-recomendação. NUNCA pode sumir: se o backend
+// não enviar o aviso, caímos numa constante fixa no front (controle de conformidade).
+const AVISO_PADRAO =
+  "Não é recomendação de investimento. Tese estruturada a partir de dados públicos; a decisão é do leitor.";
+
 function AvisoBanner({ aviso }: { aviso: string }) {
-  if (!aviso?.trim()) return null;
+  const texto = aviso?.trim() || AVISO_PADRAO;
   return (
     <div
       role="note"
       className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
     >
       <span className="font-semibold">Aviso: </span>
-      {aviso}
+      {texto}
     </div>
   );
 }
 
 function FonteLink({ fonte }: { fonte: Fonte }) {
+  // Sem URL (ou esquema neutralizado no backend) -> texto, não link quebrado.
+  if (!fonte.url) {
+    return (
+      <span className="font-medium text-neutral-700 dark:text-neutral-300">
+        {fonte.descricao}
+      </span>
+    );
+  }
   return (
     <a
       href={fonte.url}
@@ -295,7 +307,7 @@ function Resultado({ tese }: { tese: TeseOut }) {
                 key={i}
                 className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
               >
-                {c.fonte ? (
+                {c.fonte?.url ? (
                   <a
                     href={c.fonte.url}
                     target="_blank"
