@@ -38,6 +38,14 @@ class Settings(BaseSettings):
 
     # LLM (Anthropic) — usado a partir do Estágio 1B.
     anthropic_api_key: str | None = None
+    # Modelos do motor de tese (cascata). Opus para a síntese narrada com citações;
+    # Haiku para a extração de metadados (etapa 2, sem citações). Sobrepujáveis via .env.
+    tese_model_synthesis: str = "claude-opus-4-8"
+    tese_model_extraction: str = "claude-haiku-4-5-20251001"
+
+    # Usuário-demo do slice: as teses (RLS owner-only) precisam de um dono real em
+    # `auth.users`. Resolvido sob demanda via Admin API do Supabase (service_role).
+    demo_user_email: str = "demo@tese-ai.local"
 
     # Observabilidade (Langfuse) — opcional; cliente vira no-op se ausente.
     langfuse_public_key: str | None = None

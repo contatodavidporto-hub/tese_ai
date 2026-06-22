@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.observability.langfuse_client import get_langfuse
+from app.routers import teses as teses_router
 
 settings = get_settings()
 configure_logging(settings.app_env)
@@ -39,3 +40,6 @@ app.add_middleware(
 def health() -> dict[str, str]:
     """Liveness check. Não toca no banco — sempre responde se a app está de pé."""
     return {"status": "ok"}
+
+
+app.include_router(teses_router.router)
