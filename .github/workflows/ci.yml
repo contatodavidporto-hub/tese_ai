@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
 
 permissions:
@@ -28,16 +28,18 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv venv --python 3.12
+          uv pip install -e ".[dev]"
 
       - name: Ruff (lint)
-        run: ruff check .
+        run: .venv/bin/ruff check .
 
       - name: Black (format check)
-        run: black --check .
+        run: .venv/bin/black --check .
 
       - name: Pytest
-        run: pytest -q
+        run: .venv/bin/pytest -q
 
   security:
     name: Secrets + Vuln scan
@@ -52,11 +54,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Trivy (filesystem scan)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "1"
+      # Instalacao direta do trivy (o wrapper trivy-action fixava um
+      # setup-trivy@v0.2.1 ja removido). Scanner de vulnerabilidades; segredos
+      # ficam por conta do gitleaks acima.
+      - name: Trivy (filesystem vuln scan)
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy"
+          "$RUNNER_TEMP/trivy/trivy" fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .

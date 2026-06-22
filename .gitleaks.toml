@@ -1,0 +1,18 @@
+# Config do gitleaks — tese-ai
+#
+# Estende o ruleset padrao e marca como NAO-segredo apenas as chaves
+# "publishable"/"anon" do Supabase: elas sao PUBLICAS por design (vao no bundle
+# do cliente) e o isolamento real e feito por RLS (provado no Estagio 2 — anon
+# nao le dado de usuario). A service_role e quaisquer JWTs/segredos NAO sao
+# allowlistados e continuam sendo bloqueados.
+title = "gitleaks config - tese-ai"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chaves publishable/anon do Supabase sao publicas (protegidas por RLS), nao segredos."
+regexTarget = "line"
+regexes = [
+  '''sb_publishable_[A-Za-z0-9_\-]+''',
+]
