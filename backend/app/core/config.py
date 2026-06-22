@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +43,23 @@ class Settings(BaseSettings):
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_db_driver(cls, v: str | None) -> str | None:
+        """Força o driver psycopg (v3) no SQLAlchemy.
+
+        O URI 'Session pooler' do dashboard do Supabase vem como
+        `postgresql://...` (ou `postgres://...`), que o SQLAlchemy mapeia para
+        psycopg2 (não instalado). O projeto usa psycopg 3 → `postgresql+psycopg://`.
+        """
+        if not v or v.startswith("postgresql+psycopg://"):
+            return v
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+psycopg://", 1)
+        return v
 
     @property
     def cors_origins_list(self) -> list[str]:
