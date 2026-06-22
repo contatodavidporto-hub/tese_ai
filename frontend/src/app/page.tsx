@@ -1,3 +1,8 @@
+// Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
+// ser aplicado em cada resposta. O fetch no-store abaixo já tornaria a rota dinâmica;
+// deixamos explícito para garantir o nonce.
+export const dynamic = "force-dynamic";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type Health = { ok: boolean; detail: string };
