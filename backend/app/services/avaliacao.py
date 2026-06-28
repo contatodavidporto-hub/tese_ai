@@ -75,6 +75,24 @@ _HEDGE_RE = re.compile(
     r"interpreta[çc][ãa]o|poss[íi]vel|condicional|tens[õo]es geopol)",
     re.IGNORECASE,
 )
+# NEGAÇÃO da OCORRÊNCIA/AFIRMAÇÃO do evento: o disclaimer do próprio motor cita os
+# termos de evento (guerra/OPEP/sanção…) só para NEGÁ-los ("não há … embargos/OPEP",
+# "não afirmo nenhum evento", "Nenhuma guerra … é afirmada como ocorrida"). Isso não
+# é afirmação dura — não pode disparar o alerta. O guard é DELIBERADAMENTE estreito
+# para não criar falso-negativo (achado do auditor): exige que a negação trave a
+# ocorrência/afirmação do evento, não um "não"/"nenhum" qualquer. Assim seguem
+# BLOQUEANDO: "A guerra não acabou.", "Não resta nenhuma dúvida de que a OPEP cortou
+# a produção." (nega a dúvida, afirma o evento) e "Nenhuma guerra foi declarada, mas
+# houve um atentado." (nega um evento, afirma outro).
+_NEGACAO_RE = re.compile(
+    r"n[ãa]o\s+h[áa]\b"
+    r"|n[ãa]o\s+afirm"
+    r"|n[ãa]o\s+(é|e|foi|s[ãa]o)\s+afirmad"
+    r"|\bsem\s+(evento|registro)\b"
+    r"|\binexist"
+    r"|\bnenhum[ao]?\b[^.;]*?\b(afirmad|afirma|ocorrid|ocorre|registrad|registro|mencionad|confirmad)",
+    re.IGNORECASE,
+)
 
 _COBERTURA_MINIMA = 0.5
 
@@ -111,7 +129,11 @@ def _alertas_geopolitica(markdown: str) -> list[str]:
     secao = _secao_geopolitica(markdown)
     alertas: list[str] = []
     for frase in re.split(r"(?<=[.;])\s+|\n", secao):
-        if _EVENTO_RE.search(frase) and not _HEDGE_RE.search(frase):
+        if (
+            _EVENTO_RE.search(frase)
+            and not _HEDGE_RE.search(frase)
+            and not _NEGACAO_RE.search(frase)
+        ):
             alertas.append(frase.strip()[:160])
     return alertas
 
