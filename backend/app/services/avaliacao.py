@@ -84,6 +84,15 @@ _HEDGE_RE = re.compile(
 # BLOQUEANDO: "A guerra não acabou.", "Não resta nenhuma dúvida de que a OPEP cortou
 # a produção." (nega a dúvida, afirma o evento) e "Nenhuma guerra foi declarada, mas
 # houve um atentado." (nega um evento, afirma outro).
+# LIMITAÇÃO conhecida (heurística — a garantia forte é o system prompt + revisão,
+# ver docstring): a exenção vale para a FRASE inteira (split só em `.;`/quebra). Uma
+# frase que negue um evento E afirme OUTRO na mesma oração ligada por vírgula/
+# adversativa ("… não há registro, mas a OPEP cortou …") pode escapar. NÃO dividimos
+# em vírgula/adversativa de propósito: quebraria a lista do disclaimer ("Nenhuma
+# guerra, sanção, …") em fragmentos soltos e/ou isolaria o hedge da sua oração
+# condicional ("Cenário: caso …, mas … embargos") → reintroduziria o falso-positivo
+# que este fix corrige. Probabilidade baixa: o motor teria de emitir disclaimer
+# correto E afirmação dura na mesma frase, o que o system prompt veda.
 _NEGACAO_RE = re.compile(
     r"n[ãa]o\s+h[áa]\b"
     r"|n[ãa]o\s+afirm"
