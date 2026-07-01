@@ -25,11 +25,14 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.models.models import Empresa, Fundamento, MacroSerie
+from app.services import http_client
 from app.services.fontes import get_or_create_fonte
 
 logger = get_logger(__name__)
 
-_UA = {"User-Agent": "tese-ai/0.1 (+https://github.com/contatodavidporto-hub/tese_ai)"}
+# Compat: o User-Agent canônico agora mora em http_client (com e-mail de contato,
+# exigido pela SEC). Reexportado aqui para não quebrar imports existentes.
+_UA = {"User-Agent": http_client.UA}
 
 # Registro mínimo ticker -> (CD_CVM, nome, setor). Sem heurística: se o ticker
 # não está aqui, abstemos. Ampliar conforme novas empresas entram no slice.
@@ -119,7 +122,7 @@ def ensure_empresa(session: Session, ticker: str) -> Empresa:
 def bcb_sgs(codigo: int, n: int = 1) -> list[dict]:
     """Últimos N pontos de uma série do SGS. Devolve [{data, valor}]."""
     url = BCB_SGS_URL.format(codigo=codigo, n=n)
-    resp = httpx.get(url, headers=_UA, timeout=30.0)
+    resp = http_client.get_keyless(url, timeout=30.0)
     resp.raise_for_status()
     return resp.json()
 
@@ -178,9 +181,7 @@ def ingest_macro(session: Session) -> list[MacroSerie]:
 # ---------------------------------------------------------------------------
 def _baixar_dfp_zip(ano: int) -> bytes:
     url = CVM_DFP_URL.format(ano=ano)
-    resp = httpx.get(url, headers=_UA, timeout=180.0, follow_redirects=True)
-    resp.raise_for_status()
-    return resp.content
+    return http_client.download_zip(url, timeout=180.0)
 
 
 def _extrair_contas(
