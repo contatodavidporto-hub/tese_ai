@@ -96,23 +96,25 @@ def _parse_data(raw: str) -> dt.date | None:
 # Empresa
 # ---------------------------------------------------------------------------
 def ensure_empresa(session: Session, ticker: str) -> Empresa:
-    """Idempotente. Abstém (DadoNaoEncontrado) se o ticker não é conhecido."""
+    """Idempotente. Resolve o ticker via cadastro CVM UNIVERSAL (cache + seed);
+    abstém (DadoNaoEncontrado) se desconhecido — funciona para qualquer empresa B3."""
+    # Import tardio: quebra o ciclo dados <-> cvm_cadastro (que importa deste módulo).
+    from app.services import cvm_cadastro
+
     ticker = ticker.upper().strip()
-    info = TICKER_CD_CVM.get(ticker)
-    if info is None:
-        raise DadoNaoEncontrado(
-            f"ticker {ticker} não está no registro CVM do slice (dado não encontrado)"
-        )
-    cd_cvm, nome, setor = info
+    cd_cvm, cnpj, nome, setor = cvm_cadastro.resolve_ticker(session, ticker)
 
     empresa = session.execute(select(Empresa).where(Empresa.cd_cvm == cd_cvm)).scalar_one_or_none()
     if empresa is None:
-        empresa = Empresa(cd_cvm=cd_cvm, ticker=ticker, nome=nome, setor=setor)
+        empresa = Empresa(cd_cvm=cd_cvm, ticker=ticker, nome=nome, setor=setor, cnpj=cnpj)
         session.add(empresa)
         session.flush()
         logger.info("empresa_criada", ticker=ticker, cd_cvm=cd_cvm)
-    elif empresa.ticker != ticker:
-        empresa.ticker = ticker
+    else:
+        if empresa.ticker != ticker:
+            empresa.ticker = ticker
+        if cnpj and not empresa.cnpj:
+            empresa.cnpj = cnpj
     return empresa
 
 
