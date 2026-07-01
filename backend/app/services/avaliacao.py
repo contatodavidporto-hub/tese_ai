@@ -162,6 +162,14 @@ def avaliar_tese(envelope: dict) -> dict:
     fontes_sem_url = [
         (f.get("descricao") or f.get("id") or "?") for f in fontes if not f.get("url")
     ]
+    # Elo de correlação (D5) só vale ancorado nas DUAS pontas (achado A4). Elo citado
+    # sem fonte numa ponta é ungrounded => bloqueia (defesa em profundidade).
+    elos = envelope.get("elos") or []
+    elos_sem_fonte = [
+        (e.get("dimensao") or "?")
+        for e in elos
+        if not e.get("origem_fonte_id") or not e.get("destino_fonte_id")
+    ]
 
     fontes_citadas: set[str] = set()
     for c in citacoes:
@@ -174,13 +182,17 @@ def avaliar_tese(envelope: dict) -> dict:
     lacunas_no_texto = sum(1 for ln in markdown.splitlines() if "dado não encontrado" in ln.lower())
 
     # Subconjunto INEGOCIÁVEL — nunca pode ser servido como tese pronta.
-    bloqueante = bool(violacoes) or bool(alertas_geo) or bool(fontes_sem_url)
+    bloqueante = (
+        bool(violacoes) or bool(alertas_geo) or bool(fontes_sem_url) or bool(elos_sem_fonte)
+    )
 
     motivos: list[str] = []
     if violacoes:
         motivos.append(f"linguagem de recomendação detectada: {sorted(set(violacoes))}")
     if alertas_geo:
         motivos.append(f"afirmação de evento geopolítico sem fonte/hedge: {alertas_geo}")
+    if elos_sem_fonte:
+        motivos.append(f"elo de correlação sem fonte numa das pontas: {elos_sem_fonte}")
     if not citacoes:
         motivos.append("nenhuma citação ancorada à fonte")
     if fontes_sem_url:
@@ -205,6 +217,8 @@ def avaliar_tese(envelope: dict) -> dict:
         "cobertura_fontes": round(cobertura, 3),
         "cobertura_minima": _COBERTURA_MINIMA,
         "fontes_sem_url": fontes_sem_url,
+        "elos_sem_fonte": elos_sem_fonte,
+        "elos_total": len(elos),
         "lacunas_total": len(lacunas),
         "lacunas_no_texto": lacunas_no_texto,
         "motivos": motivos,

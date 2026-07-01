@@ -17,7 +17,14 @@ rígidas (achado A4 do red-team):
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from dataclasses import dataclass, field
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.models import Elo as EloModel
+from app.models.models import Empresa, Fundamento, MacroSerie, Par, ParFundamento
 
 MIN_N = 24  # mínimo de observações para um co-movimento não ser espúrio
 
@@ -250,6 +257,97 @@ def montar_grafo(contexto: dict) -> list[Elo]:
             elos.append(elo)
 
     return [e for e in elos if e.validada]
+
+
+def coletar_contexto(session: Session, empresa: Empresa) -> dict:
+    """Reúne do banco o contexto para o grafo (último ponto por série macro, uma
+    fonte-âncora de fundamento da empresa, presença de pares)."""
+    macro: dict[str, dict] = {}
+    for m in session.execute(
+        select(MacroSerie).order_by(MacroSerie.codigo, MacroSerie.data.desc())
+    ).scalars():
+        if m.codigo not in macro and m.valor is not None:
+            macro[m.codigo] = {"valor": float(m.valor), "data": m.data, "fonte_id": m.fonte_id}
+
+    fund = (
+        session.execute(
+            select(Fundamento)
+            .where(Fundamento.empresa_id == empresa.id, Fundamento.fonte_id.is_not(None))
+            .order_by(Fundamento.dt_refer.desc())
+        )
+        .scalars()
+        .first()
+    )
+
+    par_fund = (
+        session.execute(
+            select(ParFundamento)
+            .join(Par, Par.id == ParFundamento.par_id)
+            .where(Par.empresa_id == empresa.id, ParFundamento.fonte_id.is_not(None))
+        )
+        .scalars()
+        .first()
+    )
+
+    return {
+        "setor": empresa.setor,
+        "macro": macro,
+        "empresa_fonte_id": fund.fonte_id if fund else None,
+        "tem_pares": par_fund is not None,
+        "pares_fonte_id": par_fund.fonte_id if par_fund else None,
+    }
+
+
+def construir_grafo(session: Session, empresa: Empresa) -> list[Elo]:
+    """Coleta o contexto do banco e monta o grafo (só elos validados)."""
+    return montar_grafo(coletar_contexto(session, empresa))
+
+
+def persistir_elos(
+    session: Session,
+    empresa_id: uuid.UUID,
+    elos: list[Elo],
+    tese_versao_id: uuid.UUID | None = None,
+) -> None:
+    """Grava os elos validados (trilha de auditoria do raciocínio)."""
+    for e in elos:
+        session.add(
+            EloModel(
+                empresa_id=empresa_id,
+                dimensao=e.dimensao,
+                origem_label=e.origem_label,
+                origem_fonte_id=e.origem_fonte_id,
+                destino_label=e.destino_label,
+                destino_fonte_id=e.destino_fonte_id,
+                ligacao_causal=e.ligacao_causal,
+                metodo=e.metodo,
+                forca_ligacao=e.forca_ligacao,
+                n_amostras=e.n_amostras,
+                periodo=e.periodo,
+                hedge=e.hedge,
+                validada=e.validada,
+                tese_versao_id=tese_versao_id,
+            )
+        )
+
+
+def elos_para_envelope(elos: list[Elo]) -> list[dict]:
+    """Serializa elos para o envelope da tese (auditoria + checagem do gate)."""
+    return [
+        {
+            "dimensao": e.dimensao,
+            "origem_label": e.origem_label,
+            "origem_fonte_id": str(e.origem_fonte_id) if e.origem_fonte_id else None,
+            "destino_label": e.destino_label,
+            "destino_fonte_id": str(e.destino_fonte_id) if e.destino_fonte_id else None,
+            "metodo": e.metodo,
+            "forca_ligacao": e.forca_ligacao,
+            "n_amostras": e.n_amostras,
+            "hedge": e.hedge,
+            "ligacao_causal": e.ligacao_causal,
+        }
+        for e in elos
+    ]
 
 
 def elos_para_llm(elos: list[Elo]) -> list[str]:
