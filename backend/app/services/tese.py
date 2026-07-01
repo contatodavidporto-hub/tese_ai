@@ -419,13 +419,14 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             raise RuntimeError("ANTHROPIC_API_KEY ausente — configure o backend/.env para gerar.")
 
         empresa = dados_svc.ensure_empresa(session, ticker)
-        # Garante dados reais; ingere sob demanda se a empresa ainda não tem fundamentos.
+        # Garante dados reais; ingere as 5 dimensões sob demanda (falha isolada por
+        # fonte) se a empresa ainda não tem fundamentos. Import tardio evita ciclo.
         if not session.execute(
             select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
         ).first():
-            dados_svc.ingest_fundamentos(session, empresa)
-            dados_svc.ingest_macro(session)
-            session.commit()
+            from app.services import orquestracao
+
+            orquestracao.ingest_completo(session, empresa)
 
         itens = _coletar(session, empresa)
         if not itens:
