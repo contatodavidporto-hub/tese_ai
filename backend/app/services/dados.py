@@ -167,6 +167,9 @@ def ingest_macro(session: Session) -> list[MacroSerie]:
         "SELIC_DIARIA": (11, "Selic diária (% a.d.)"),
         "SELIC_META_ANUAL": (432, "Meta Selic - Copom (% a.a.)"),
         "USD_VENDA": (1, "Dólar venda (R$/US$)"),
+        # D3 ampliado — inflação doméstica (rótulos sem ambiguidade de unidade).
+        "IPCA_MENSAL": (433, "IPCA - variação mensal (% a.m.)"),
+        "IGP_M_MENSAL": (189, "IGP-M - variação mensal (% a.m.)"),
     }
     gravados: list[MacroSerie] = []
     for nome, (codigo, rotulo) in series.items():

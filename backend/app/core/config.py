@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Conectores premium BEHIND CONFIG (dados de maior frequência). Opcionais: sem
+    # a chave, os conectores keyless (fredgraph/World Bank/CVM/BCB) seguem sozinhos
+    # e a arquitetura não é bloqueada. Segredo só no .env — nunca no código.
+    fred_api_key: str | None = None
+    eia_api_key: str | None = None
+
     @field_validator("database_url")
     @classmethod
     def _normalize_db_driver(cls, v: str | None) -> str | None:
