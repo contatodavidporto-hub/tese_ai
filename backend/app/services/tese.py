@@ -555,6 +555,60 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             session.commit()
 
 
+def buscar_tese_cache(session: Session, ticker: str, ttl_horas: int) -> Tese | None:
+    """Última tese `ready` do ticker dentro da janela de cache — ou None.
+
+    Cache de "tese pública": todas as teses pertencem ao demo_user, então uma tese
+    `ready` recente do mesmo ticker pode ser reaproveitada em vez de gastar o LLM de
+    novo (idempotência + custo). `ttl_horas <= 0` desliga (sempre regenera).
+    """
+    if ttl_horas <= 0:
+        return None
+    alvo = ticker.upper().strip()
+    limite = dt.datetime.now(dt.UTC) - dt.timedelta(hours=ttl_horas)
+    return session.execute(
+        select(Tese)
+        .where(Tese.ticker == alvo, Tese.status == "ready", Tese.criado_em >= limite)
+        .order_by(Tese.criado_em.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def reaper_teses_orfas(session: Session, timeout_min: int) -> int:
+    """Marca como `error` teses presas em `processing` além do timeout. Devolve o nº.
+
+    Integridade: um crash no meio da geração deixaria a tese `processing` para
+    sempre. Chamado de forma oportunista (barato: UPDATE indexado por status) e/ou
+    por schedule. `timeout_min <= 0` desliga.
+    """
+    if timeout_min <= 0:
+        return 0
+    limite = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=timeout_min)
+    orfas = (
+        session.execute(select(Tese).where(Tese.status == "processing", Tese.criado_em < limite))
+        .scalars()
+        .all()
+    )
+    for tese in orfas:
+        tese.status = "error"
+        session.add(
+            TeseVersao(
+                tese_id=tese.id,
+                user_id=tese.user_id,
+                conteudo=json.dumps(
+                    {"erro": "geração expirou (timeout) — nenhuma versão produzida."},
+                    ensure_ascii=False,
+                ),
+                modelo=None,
+                prompt_hash=None,
+            )
+        )
+    if orfas:
+        session.commit()
+        logger.info("reaper_teses_orfas", marcadas=len(orfas), timeout_min=timeout_min)
+    return len(orfas)
+
+
 def criar_tese(session: Session, ticker: str) -> Tese:
     """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda."""
     user_id = get_or_create_demo_user()

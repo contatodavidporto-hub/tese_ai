@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
     max_request_bytes: int = 64 * 1024
 
+    # --- Cache de tese pública + reaper (Fase 2) --------------------------------
+    # Janela em que uma tese `ready` do mesmo ticker é REAPROVEITADA em vez de
+    # regenerada via LLM (custo + latência). 0 desliga o cache (sempre regenera).
+    tese_cache_horas: int = 24
+    # Uma tese presa em `processing` além deste tempo (crash no meio da geração) é
+    # marcada `error` pelo reaper (integridade — sem órfãs eternas). 0 desliga.
+    tese_processing_timeout_min: int = 15
+
     @field_validator("database_url")
     @classmethod
     def _normalize_db_driver(cls, v: str | None) -> str | None:

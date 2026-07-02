@@ -239,6 +239,9 @@ def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(teses_router, "criar_tese", lambda s, t: _FakeTese())
     monkeypatch.setattr(teses_router, "_run_generation", lambda tid: None)
+    # Neutraliza reaper/cache (tocam a sessão) — este teste só valida o 429.
+    monkeypatch.setattr(teses_router, "reaper_teses_orfas", lambda s, t: 0)
+    monkeypatch.setattr(teses_router, "buscar_tese_cache", lambda s, t, h: None)
     app.dependency_overrides[get_session] = lambda: iter([None])
     with contextlib.suppress(Exception):
         app.state.limiter.reset()

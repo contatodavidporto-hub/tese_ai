@@ -120,9 +120,47 @@ _NEGACAO_RE = re.compile(
 
 _COBERTURA_MINIMA = 0.5
 
+# Número "significativo" no texto: pelo menos 2 dígitos, com separadores de milhar/
+# decimal BR (497.549.000.000,00 · 14,25 · 71,59). Ignora anos soltos e números de
+# 1 dígito (ruído). Usado no proxy de fidelidade numérica.
+_NUMERO_RE = re.compile(r"\d[\d.]*(?:,\d+)?")
+
 
 def _strip_disclaimer(texto: str) -> str:
     return _DISCLAIMER_RE.sub("", texto)
+
+
+def _numeros_significativos(texto: str) -> set[str]:
+    """Tokens numéricos "de claim" (normalizados sem separadores) do texto.
+
+    Qualifica quem tem separador de milhar/decimal (valor financeiro/taxa: 14,25 ·
+    497.549.000.000,00) OU >=5 dígitos. Exclui ano solto (2025) e inteiros curtos —
+    metadados de data/referência, não afirmações a ancorar.
+    """
+    achados: set[str] = set()
+    for m in _NUMERO_RE.findall(texto or ""):
+        tem_separador = "." in m or "," in m
+        digitos = m.replace(".", "").replace(",", "")
+        if tem_separador or len(digitos) >= 5:
+            achados.add(digitos)
+    return achados
+
+
+def _faithfulness_numerica(markdown: str, citacoes: list) -> float | None:
+    """Fração dos números do markdown que aparecem em ALGUM texto citado.
+
+    Proxy determinístico e sem-modelo de fidelidade (RAGAS/NLI-lite): a Anthropic
+    Citations garante que `texto_citado` veio da fonte, então um número do corpo
+    que também está num trecho citado está ancorado na fonte. `None` se não há
+    número no corpo (métrica não se aplica — abstenção não é infidelidade).
+    """
+    nums_texto = _numeros_significativos(markdown)
+    if not nums_texto:
+        return None
+    citado = " ".join((c.get("texto_citado") or "") for c in citacoes if isinstance(c, dict))
+    nums_citados = _numeros_significativos(citado)
+    ancorados = sum(1 for n in nums_texto if n in nums_citados)
+    return round(ancorados / len(nums_texto), 3)
 
 
 def _violacoes_recomendacao(texto: str) -> list[str]:
@@ -221,9 +259,12 @@ def avaliar_tese(envelope: dict) -> dict:
         not bloqueante and len(citacoes) > 0 and (not fontes or cobertura >= _COBERTURA_MINIMA)
     )
 
+    faithfulness = _faithfulness_numerica(markdown, citacoes)
+
     return {
         "aprovado": aprovado,
         "bloqueante": bloqueante,
+        "faithfulness_numerica": faithfulness,
         "violacoes_recomendacao": sorted(set(violacoes)),
         "alertas_geopolitica": alertas_geo,
         "citacoes_total": len(citacoes),

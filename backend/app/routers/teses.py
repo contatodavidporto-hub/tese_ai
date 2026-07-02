@@ -20,7 +20,7 @@ from app.core.ratelimit import limiter
 from app.db.session import SessionLocal, get_session
 from app.models.models import Tese, TeseVersao
 from app.schemas.tese import TeseCreateIn, TeseCreateOut, TeseOut
-from app.services.tese import criar_tese, gerar_tese
+from app.services.tese import buscar_tese_cache, criar_tese, gerar_tese, reaper_teses_orfas
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/teses", tags=["teses"])
@@ -57,6 +57,16 @@ def post_tese(
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
 ) -> TeseCreateOut:
+    # Reaper oportunista: limpa teses `processing` órfãs (crash) — barato e indexado.
+    reaper_teses_orfas(session, _settings.tese_processing_timeout_min)
+
+    # Cache/idempotência: reaproveita uma tese `ready` recente do mesmo ticker em vez
+    # de gastar o LLM de novo (custo + latência). Não dispara geração no hit.
+    cache = buscar_tese_cache(session, body.ticker, _settings.tese_cache_horas)
+    if cache is not None:
+        logger.info("tese_cache_hit", tese_id=str(cache.id), ticker=cache.ticker)
+        return TeseCreateOut(id=cache.id, ticker=cache.ticker, status=cache.status)
+
     tese = criar_tese(session, body.ticker)
     background.add_task(_run_generation, tese.id)
     logger.info("tese_enfileirada", tese_id=str(tese.id), ticker=tese.ticker)
