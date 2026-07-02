@@ -1,5 +1,7 @@
 """Testes offline do gate de avaliação (anti-recomendação / citação / abstenção)."""
 
+import pytest
+
 from app.services.avaliacao import avaliar_tese
 
 _FONTE = {
@@ -52,6 +54,43 @@ def test_recomendacao_explicita_reprova():
     laudo = avaliar_tese(_envelope(md))
     assert laudo["aprovado"] is False
     assert laudo["violacoes_recomendacao"]  # não vazio
+
+
+@pytest.mark.parametrize(
+    "frase",
+    [
+        # Inglês direcional (research/sell-side) — a tese é PT-BR; vazamento.
+        "## Síntese\nOur rating for this stock is a Strong Buy.",
+        "## Síntese\nWe set a target price of R$ 45.",
+        "## Síntese\nInvestors, you should buy PETR4 now.",
+        "## Síntese\nWe recommend a buy rating on the shares.",
+        "## Síntese\nAccumulate the position at current levels.",
+        "## Síntese\nPrice target: R$ 50. Rating: Buy.",
+        # PT que faltava.
+        "## Síntese\nNossa recomendação de compra permanece.",
+        "## Síntese\nSugiro adquirir as ações agora.",
+        "## Síntese\nAloque capital neste ativo.",
+    ],
+)
+def test_recomendacao_multi_idioma_reprova(frase: str):
+    laudo = avaliar_tese(_envelope(frase))
+    assert laudo["bloqueante"] is True
+    assert laudo["violacoes_recomendacao"]  # não vazio
+
+
+@pytest.mark.parametrize(
+    "frase",
+    [
+        # Não podem ser falso-positivo (termos contábeis/factuais legítimos).
+        "## Fundamentos\nA holding controla 60% das ações ordinárias.",
+        "## Pares\nComparável: Household International (relatório anual).",
+        "## Macro\nO IPCA acumulado no ano foi de 4,2% (BCB).",
+        "## Fundamentos\nReceita de Venda de Bens e/ou Serviços: R$ 497,5 bi.",
+    ],
+)
+def test_termos_legitimos_nao_sao_falso_positivo(frase: str):
+    laudo = avaliar_tese(_envelope(frase))
+    assert laudo["violacoes_recomendacao"] == []
 
 
 def test_sem_citacao_reprova():

@@ -1,7 +1,8 @@
 name: CI
 
-# Hardening: actions fixadas por tag; o Dependabot (.github/dependabot.yml)
-# gerencia atualizações. Para hardening máximo, fixe por SHA de commit completo.
+# Hardening: actions fixadas por SHA de commit completo (imutável — mitiga
+# supply-chain via reescrita de tag). O comentário `# vX.Y` registra a versão; o
+# Dependabot (.github/dependabot.yml) atualiza os SHAs automaticamente.
 
 on:
   push:
@@ -19,10 +20,10 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
 
       - name: Set up Python
         run: uv python install 3.12
@@ -54,21 +55,21 @@ jobs:
     name: Secrets + SAST + Vuln + SBOM
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Gitleaks (secret scan)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Semgrep SAST com rulesets de segurança (Python/JS + OWASP). Falha em erros.
+      # Semgrep SAST — rulesets de SEGURANÇA (não p/default, que traz regras de
+      # estilo/correção ruidosas). Falha o build em achado de segurança.
       - name: Semgrep (SAST)
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: >-
-            p/default
             p/security-audit
             p/secrets
             p/python
@@ -90,7 +91,7 @@ jobs:
           "$RUNNER_TEMP/syft/syft" dir:. -o cyclonedx-json="$RUNNER_TEMP/sbom.cyclonedx.json"
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom-cyclonedx
           path: ${{ runner.temp }}/sbom.cyclonedx.json
@@ -102,10 +103,10 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm

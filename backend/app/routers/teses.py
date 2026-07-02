@@ -10,7 +10,7 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,6 +52,7 @@ def _run_generation(tese_id: uuid.UUID) -> None:
 @_rate_limit_criar()
 def post_tese(
     request: Request,
+    response: Response,  # exigido pelo slowapi p/ injetar os headers X-RateLimit-*
     body: TeseCreateIn,
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],

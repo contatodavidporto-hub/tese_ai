@@ -53,6 +53,21 @@ _PADROES_RECOMENDACAO = [
     r"\b(up|down)side de\b",
     r"\bsegur(e|ar)\s+(a\s+)?(a[çc][ãa]o|posi[çc][ãa]o)\b",
     r"\brating[:\s]+(compra|venda|manter|neutro)\b",
+    # --- PT que faltava (gap de idioma do gate — achado ALTO do auditor) ---
+    # "recomendação de compra/venda" NÃO colide com o disclaimer, que é
+    # "recomendação de investimento" (removido antes da varredura).
+    r"\brecomenda[çc][ãa]o\s+(de\s+)?(compra|venda|comprar|vender)\b",
+    r"\b(sugiro|sugerimos|recomendo|recomendamos)\s+(adquirir|alienar|alocar)\b",
+    r"\baloqu?e(m|mos)?\s+(capital|recursos)\b",
+    # --- INGLÊS direcional (research/sell-side em EN) — a tese é PT-BR, então
+    #     estes termos no output só aparecem como recomendação vazada. ---
+    r"\bstrong\s+buy\b",
+    r"\btarget\s+price\b",
+    r"\byou\s+should\s+(buy|sell)\b",
+    r"\b(buy|sell|hold|accumulate|overweight|underweight)\s+(rating|recommendation)\b",
+    r"\b(buy|sell|hold|accumulate)\s+(the\s+)?(stock|shares|position)\b",
+    r"\bprice\s+target\b",
+    r"\brating[:\s]+(buy|sell|hold|neutral|overweight|underweight)\b",
 ]
 _RECOMENDACAO_RE = re.compile("|".join(_PADROES_RECOMENDACAO), re.IGNORECASE)
 

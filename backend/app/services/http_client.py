@@ -130,17 +130,45 @@ def get_keyless(
     raise ultimo_erro
 
 
+# Teto de bytes para downloads (defesa contra resposta ilimitada / zip-bomb no
+# transporte). Os ZIPs da CVM (DFP/FCA) ficam na casa de dezenas de MB; 512 MB dá
+# folga larga e ainda barra um payload malicioso gigante.
+_MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
+
+
+class RespostaGrandeDemais(httpx.RequestError):
+    """Download excedeu o teto de bytes — aborta (anti-DoS de memória)."""
+
+
 def download_zip(
     url: str,
     *,
     timeout: float = 180.0,
     transport: httpx.BaseTransport | None = None,
+    max_bytes: int = _MAX_DOWNLOAD_BYTES,
 ) -> bytes:
     """Baixa um recurso binário (ex.: ZIP da CVM) e devolve os bytes.
 
-    Levanta `httpx.HTTPStatusError` (subclasse de `HTTPError`) em status != 2xx,
-    compatível com os `except httpx.HTTPError` dos conectores.
+    STREAMA com teto de tamanho: aborta se o corpo passar de `max_bytes` (defesa
+    contra resposta ilimitada — a resposta externa é não-confiável). Levanta
+    `httpx.HTTPStatusError` em status != 2xx e `RespostaGrandeDemais` no estouro,
+    ambos subclasses de `HTTPError`/`RequestError` (tratados pelos conectores).
     """
-    resp = get_keyless(url, timeout=timeout, transport=transport)
-    resp.raise_for_status()
-    return resp.content
+    if transport is None:
+        _validar_url(url)  # anti-SSRF antes de abrir a conexão
+    hooks = {"request": [lambda req: _validar_url(str(req.url))]} if transport is None else {}
+    with httpx.Client(
+        timeout=timeout, follow_redirects=True, transport=transport, event_hooks=hooks
+    ) as client:
+        with client.stream("GET", url, headers=_HEADERS) as resp:
+            resp.raise_for_status()
+            # Content-Length adiantado (quando presente) evita começar o download.
+            declarado = resp.headers.get("content-length")
+            if declarado is not None and declarado.isdigit() and int(declarado) > max_bytes:
+                raise RespostaGrandeDemais(f"content-length {declarado} > teto {max_bytes}")
+            buffer = bytearray()
+            for chunk in resp.iter_bytes():
+                buffer.extend(chunk)
+                if len(buffer) > max_bytes:
+                    raise RespostaGrandeDemais(f"download excedeu {max_bytes} bytes")
+            return bytes(buffer)
