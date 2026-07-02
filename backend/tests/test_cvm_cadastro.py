@@ -71,6 +71,98 @@ def test_montar_faz_join_por_cd_cvm_nao_por_razao_social() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Layout REAL do FCA 2026 (verificado ao vivo em 2026-07-02): o valor_mobiliario
+# NÃO publica CD_CVM — o join é por CNPJ (dígitos) contra o CAD. Regressão do
+# bug que zerava o bootstrap (0 linhas persistidas).
+# ---------------------------------------------------------------------------
+_VM_CSV_REAL_2026 = (
+    "CNPJ_Companhia;Data_Referencia;Versao;ID_Documento;Nome_Empresarial;"
+    "Valor_Mobiliario;Sigla_Classe_Acao_Preferencial;Classe_Acao_Preferencial;"
+    "Codigo_Negociacao;Composicao_BDR_Unit;Mercado;Sigla_Entidade_Administradora;"
+    "Entidade_Administradora;Data_Inicio_Negociacao;Data_Fim_Negociacao;Segmento;"
+    "Data_Inicio_Listagem;Data_Fim_Listagem\n"
+    "33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;"
+    "Ações Ordinárias;;;PETR3;;Bolsa;B3;B3 S.A.;2018-05-14;;Nível 2;1977-07-20;\n"
+    "33.000.167/0001-01;2026-01-01;1;156276;PETROLEO BRASILEIRO S.A. PETROBRAS;"
+    "Ações Preferenciais;;;PETR4;;Bolsa;B3;B3 S.A.;2018-05-14;;Nível 2;1977-07-20;\n"
+    "99.999.999/0001-99;2026-01-01;1;1;EMPRESA SEM CAD;"
+    "Ações Ordinárias;;;XXXX3;;Bolsa;B3;B3 S.A.;2020-01-01;;Básico;2020-01-01;\n"
+).encode("latin-1")
+
+
+def test_parse_vm_layout_real_2026_sem_cd_cvm_captura_cnpj() -> None:
+    linhas = parse_valor_mobiliario(_VM_CSV_REAL_2026)
+    assert {ln["comneg"] for ln in linhas} == {"PETR3", "PETR4", "XXXX3"}
+    petr4 = next(ln for ln in linhas if ln["comneg"] == "PETR4")
+    assert petr4["cd_cvm"] is None  # o VM real não publica CD_CVM
+    assert petr4["cnpj"] == "33.000.167/0001-01"
+    assert petr4["nome_empresarial"].startswith("PETROLEO BRASILEIRO")
+
+
+def test_parse_vm_descarta_placeholder_nao_ha() -> None:
+    # O FCA real usa "NÃO HÁ" p/ papéis não negociados; várias empresas compartilham
+    # esse valor e colidiriam no unique (comneg, especie). Não é ticker -> descarta.
+    csv_real = (
+        "CNPJ_Companhia;Valor_Mobiliario;Codigo_Negociacao\n"
+        "00.249.786/0001-85;Ações Ordinárias;NÃO HÁ\n"
+        "11.111.111/0001-11;Ações Ordinárias;NÃO HÁ\n"
+        "33.000.167/0001-01;Ações Preferenciais;PETR4\n"
+    ).encode("latin-1")
+    linhas = parse_valor_mobiliario(csv_real)
+    assert [ln["comneg"] for ln in linhas] == ["PETR4"]
+
+
+def test_parse_vm_aceita_formatos_reais_de_ticker() -> None:
+    csv_ok = (
+        "CNPJ_Companhia;Codigo_Negociacao\n"
+        "1;B3SA3\n"  # raiz com dígito
+        "2;TAEE11\n"  # unit
+        "3;AAPL34\n"  # BDR
+    ).encode("latin-1")
+    assert {ln["comneg"] for ln in parse_valor_mobiliario(csv_ok)} == {"B3SA3", "TAEE11", "AAPL34"}
+
+
+def test_montar_join_por_cnpj_quando_vm_nao_tem_cd_cvm() -> None:
+    idx = parse_cad_cia_aberta(_CAD_CSV)
+    montadas = montar_linhas_cadastro(parse_valor_mobiliario(_VM_CSV_REAL_2026), idx)
+    petr4 = next(m for m in montadas if m["comneg"] == "PETR4")
+    assert petr4["cd_cvm"] == 9512  # derivado do CAD via CNPJ em dígitos
+    assert petr4["setor"] == "Petróleo"
+    assert petr4["denom_social"].startswith("PETROLEO BRASILEIRO")
+
+
+def test_montar_abstem_quando_cnpj_nao_esta_no_cad() -> None:
+    idx = parse_cad_cia_aberta(_CAD_CSV)
+    montadas = montar_linhas_cadastro(parse_valor_mobiliario(_VM_CSV_REAL_2026), idx)
+    assert all(m["comneg"] != "XXXX3" for m in montadas)  # sem join -> descartada
+
+
+def test_montar_poe_listagem_ativa_por_ultimo_para_upsert_last_wins() -> None:
+    vm = [
+        {
+            "cd_cvm": 1,
+            "comneg": "AAAA3",
+            "especie": "ON",
+            "fim_negociacao": False,
+            "dt_referencia": None,
+            "cnpj": None,
+            "nome_empresarial": "Ativa",
+        },
+        {
+            "cd_cvm": 2,
+            "comneg": "AAAA3",
+            "especie": "ON",
+            "fim_negociacao": True,
+            "dt_referencia": None,
+            "cnpj": None,
+            "nome_empresarial": "Encerrada",
+        },
+    ]
+    montadas = montar_linhas_cadastro(vm, {})
+    assert [m["cd_cvm"] for m in montadas] == [2, 1]  # encerrada antes; ativa vence
+
+
+# ---------------------------------------------------------------------------
 # Resolução (A2: multi-classe + abstenção)
 # ---------------------------------------------------------------------------
 def _linhas_montadas() -> list[dict]:

@@ -13,11 +13,13 @@ import time
 
 import httpx
 
-# User-Agent com contato (política de acesso justo da SEC pede e-mail). O contato
-# é o operacional do projeto (público), não um segredo.
+# User-Agent no formato DOCUMENTADO da SEC ("Nome contato@email") + Accept-Encoding.
+# Verificado ao vivo (2026-07-02): o formato "nome/versao (+url; email)" leva 403 no
+# WAF da SEC (www e data) e também derrubou o BCB SGS; o formato abaixo passa nos dois.
+# O contato é o operacional do projeto (público), não um segredo.
 _CONTATO = "contato.davidporto@gmail.com"
-UA = f"tese-ai/0.1 (+https://github.com/contatodavidporto-hub/tese_ai; {_CONTATO})"
-_HEADERS = {"User-Agent": UA}
+UA = f"tese-ai/0.1 {_CONTATO}"
+_HEADERS = {"User-Agent": UA, "Accept-Encoding": "gzip, deflate"}
 
 _BACKOFF_BASE = 0.5  # segundos; só dorme entre tentativas que falharam por rede
 

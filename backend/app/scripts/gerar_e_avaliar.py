@@ -24,6 +24,9 @@ logger = get_logger(__name__)
 
 def main(ticker: str) -> int:
     configure_logging("development")
+    # Console Windows (cp1252) não encoda todo o markdown da tese (ex.: "≈").
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     if SessionLocal is None:
         print("ERRO: DATABASE_URL ausente (.env).")
         return 2

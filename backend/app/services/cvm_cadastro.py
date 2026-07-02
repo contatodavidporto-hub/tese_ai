@@ -4,12 +4,15 @@ Substitui o registro manual de 4 tickers por dados públicos da CVM, generalizan
 para QUALQUER companhia aberta listada:
 
 - **FCA** (Formulário Cadastral), membro `fca_cia_aberta_valor_mobiliario_{ano}.csv`:
-  mapeia o **código de negociação** (ticker/COMNEG) -> CD_CVM/CNPJ. É a fonte de
-  verdade do ticker (o `cad_cia_aberta.csv` NÃO publica ticker; a B3 não publica
-  CD_CVM/CNPJ).
-- **CAD_CIA_ABERTA** (`cad_cia_aberta.csv`): enriquece **por CD_CVM** com razão
-  social, setor e situação de registro. O JOIN é por `cd_cvm` — NUNCA por razão
-  social (fuzzy match é fonte de alucinação — achado A2 do red-team).
+  mapeia o **código de negociação** (ticker/COMNEG) -> CNPJ. É a fonte de verdade
+  do ticker (o `cad_cia_aberta.csv` NÃO publica ticker; a B3 não publica
+  CD_CVM/CNPJ). ATENÇÃO (verificado ao vivo no layout 2026): o VM **não publica
+  CD_CVM** — só `CNPJ_Companhia`.
+- **CAD_CIA_ABERTA** (`cad_cia_aberta.csv`): dá o **CD_CVM** e enriquece com razão
+  social, setor e situação. O JOIN VM->CAD é por **CNPJ (dígitos, chave exata)**;
+  o enriquecimento interno é por `cd_cvm`. NUNCA por razão social (fuzzy match é
+  fonte de alucinação — achado A2 do red-team). Linha sem join possível é
+  descartada (abstém).
 
 Formato CVM: latin-1, separador ';'. Nenhuma linha sem CD_CVM/ticker é usada
 (abstém). Enquanto o cache não é populado, o `TICKER_CD_CVM` (seed) mantém os
@@ -25,6 +28,7 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import io
+import re
 import zipfile
 
 from sqlalchemy import select
@@ -53,6 +57,14 @@ _COL_DENOM = ("DENOM_SOCIAL", "DENOM_COMERC")
 _COL_SETOR = ("SETOR_ATIV", "SETOR")
 _COL_SIT = ("SIT", "SIT_REG")
 _COL_DT = ("DT_REFER", "DT_REG", "DATA_REFERENCIA")
+_COL_NOME_VM = ("NOME_EMPRESARIAL",)
+_COL_FIM_NEG = ("DATA_FIM_NEGOCIACAO",)
+
+# Código de negociação B3 válido: raiz de 4 alfanuméricos iniciada por letra +
+# 1-2 dígitos (PETR4, B3SA3, TAEE11, AAPL34). O FCA real traz placeholders como
+# "NÃO HÁ" para papéis não negociados — não são tickers e colidiriam entre
+# empresas distintas no unique (comneg, especie). Verificado ao vivo em 2026-07-02.
+_TICKER_B3_RE = re.compile(r"^[A-Z][A-Z0-9]{3}[0-9]{1,2}$")
 
 
 def _norm(row: dict[str, str]) -> dict[str, str]:
@@ -75,6 +87,12 @@ def _int_cdcvm(bruto: str | None) -> int | None:
         return int(bruto.strip())
     except ValueError:
         return None
+
+
+def _cnpj_digits(bruto: str | None) -> str | None:
+    """CNPJ normalizado para dígitos (chave exata do JOIN VM->CAD)."""
+    digitos = "".join(ch for ch in (bruto or "") if ch.isdigit())
+    return digitos or None
 
 
 def _ler_csv(csv_bytes: bytes) -> list[dict[str, str]]:
@@ -103,39 +121,71 @@ def parse_cad_cia_aberta(csv_bytes: bytes) -> dict[int, dict]:
 
 
 def parse_valor_mobiliario(csv_bytes: bytes) -> list[dict]:
-    """FCA/VLMO valor mobiliário -> [{cd_cvm, cnpj, comneg, especie, dt}].
+    """FCA/VLMO valor mobiliário -> [{cd_cvm?, cnpj, comneg, especie, dt, ...}].
 
-    `comneg` (ticker) vem SÓ daqui. Linhas sem cd_cvm ou sem ticker são descartadas
+    `comneg` (ticker) vem SÓ daqui. O layout real 2026 NÃO traz CD_CVM (verificado
+    ao vivo) — `cd_cvm` fica None e o join por CNPJ acontece no `montar`. Linhas sem
+    ticker ou sem NENHUMA chave de join (cd_cvm e cnpj ausentes) são descartadas
     (abstém — nunca inventa).
     """
     linhas: list[dict] = []
     for row in _ler_csv(csv_bytes):
         cd_cvm = _int_cdcvm(_col(row, _COL_CDCVM))
         comneg = _col(row, _COL_TICKER)
-        if cd_cvm is None or not comneg:
+        cnpj = _col(row, _COL_CNPJ)
+        if not comneg or (cd_cvm is None and not cnpj):
             continue
+        if not _TICKER_B3_RE.match(comneg.upper().strip()):
+            continue  # placeholder ("NÃO HÁ") ou código não-B3 — não é ticker
         linhas.append(
             {
                 "cd_cvm": cd_cvm,
-                "cnpj": _col(row, _COL_CNPJ),
+                "cnpj": cnpj,
                 "comneg": comneg.upper(),
                 "especie": _col(row, _COL_ESPECIE),
                 "dt_referencia": _parse_data(_col(row, _COL_DT) or ""),
+                "nome_empresarial": _col(row, _COL_NOME_VM),
+                "fim_negociacao": bool(_col(row, _COL_FIM_NEG)),
             }
         )
     return linhas
 
 
 def montar_linhas_cadastro(vm_linhas: list[dict], cad_indice: dict[int, dict]) -> list[dict]:
-    """JOIN por cd_cvm: cada linha de ticker (VM) enriquecida pelo CAD. Pura."""
+    """JOIN determinístico VM->CAD. Pura.
+
+    Chave: `cd_cvm` quando o VM o traz; senão **CNPJ em dígitos** -> CD_CVM do CAD
+    (o layout 2026 do VM não publica CD_CVM). Linha sem cd_cvm resolvível é
+    descartada (abstém). Saída ordenada com listagens encerradas ANTES das ativas
+    e mais antigas antes das recentes — o upsert por (comneg, especie) é
+    last-wins, então a listagem ativa/mais recente prevalece.
+    """
+    cd_por_cnpj: dict[str, int] = {}
+    for cd, dados in cad_indice.items():
+        digitos = _cnpj_digits(dados.get("cnpj"))
+        if digitos:
+            cd_por_cnpj[digitos] = cd
+
+    ordenadas = sorted(
+        vm_linhas,
+        key=lambda vm: (
+            0 if vm.get("fim_negociacao") else 1,
+            vm.get("dt_referencia") or dt.date.min,
+        ),
+    )
     montadas: list[dict] = []
-    for vm in vm_linhas:
-        cad = cad_indice.get(vm["cd_cvm"], {})
+    for vm in ordenadas:
+        cd_cvm = vm.get("cd_cvm")
+        if cd_cvm is None:
+            cd_cvm = cd_por_cnpj.get(_cnpj_digits(vm.get("cnpj")) or "")
+        if cd_cvm is None:
+            continue  # sem join possível — abstém, nunca inventa
+        cad = cad_indice.get(cd_cvm, {})
         montadas.append(
             {
-                "cd_cvm": vm["cd_cvm"],
+                "cd_cvm": cd_cvm,
                 "cnpj": vm.get("cnpj") or cad.get("cnpj"),
-                "denom_social": cad.get("denom_social") or "",
+                "denom_social": cad.get("denom_social") or vm.get("nome_empresarial") or "",
                 "comneg": vm["comneg"],
                 "especie": vm.get("especie"),
                 "setor": cad.get("setor"),
@@ -204,6 +254,16 @@ def ingest_cvm_cadastro(session: Session) -> int:
     cad_indice = parse_cad_cia_aberta(cad_bytes) if cad_bytes else {}
     vm_linhas = parse_valor_mobiliario(vm_bytes)
     montadas = montar_linhas_cadastro(vm_linhas, cad_indice)
+    logger.info(
+        "cvm_cadastro_join",
+        ano=ano,
+        vm_linhas=len(vm_linhas),
+        cad_empresas=len(cad_indice),
+        montadas=len(montadas),
+    )
+    if vm_linhas and not montadas:
+        # VM sem CD_CVM (layout 2026) + CAD indisponível => nenhum join possível.
+        logger.warning("cvm_cadastro_join_vazio", ano=ano, cad_disponivel=bool(cad_indice))
 
     fonte_id = get_or_create_fonte(
         session,
@@ -211,18 +271,19 @@ def ingest_cvm_cadastro(session: Session) -> int:
         descricao=f"CVM FCA {ano} — valores mobiliários (ticker↔CD_CVM) + CAD_CIA_ABERTA",
         dt_referencia=dt.date(ano, 12, 31),
     )
+    # Dedup em memória por (comneg, especie), last-wins (montar já ordena com a
+    # listagem ativa/mais recente por último). Necessário: a sessão tem
+    # autoflush=False, então duplicatas pendentes não seriam vistas pelo SELECT
+    # e estourariam o unique no commit (verificado ao vivo em 2026-07-02).
+    dedup: dict[tuple[str, str | None], dict] = {(m["comneg"], m["especie"]): m for m in montadas}
+    existentes: dict[tuple[str, str | None], CvmCadastro] = {
+        (obj.comneg, obj.especie): obj
+        for obj in session.execute(select(CvmCadastro)).scalars()
+        if obj.comneg is not None
+    }
     gravados = 0
-    for m in montadas:
-        existente = session.execute(
-            select(CvmCadastro).where(
-                CvmCadastro.comneg == m["comneg"],
-                (
-                    CvmCadastro.especie.is_(m["especie"])
-                    if m["especie"] is None
-                    else CvmCadastro.especie == m["especie"]
-                ),
-            )
-        ).scalar_one_or_none()
+    for chave, m in dedup.items():
+        existente = existentes.get(chave)
         if existente is None:
             session.add(CvmCadastro(fonte_id=fonte_id, **m))
         else:
