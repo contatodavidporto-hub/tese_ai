@@ -86,6 +86,14 @@ def get_tese(tese_id: uuid.UUID, session: Annotated[Session, Depends(get_session
         env = {"markdown": versao.conteudo}
 
     out.erro = env.get("erro")
+    # Defesa em profundidade (achado MÉDIO do auditor-mor): se a tese foi reprovada
+    # pelo gate ou falhou (status=error / envelope com 'erro'), NÃO servir o markdown
+    # nem as citações — só o erro e as lacunas. Um conteúdo que vazou recomendação
+    # não pode chegar ao cliente mesmo com o status sinalizando falha.
+    if tese.status == "error" or env.get("erro"):
+        out.lacunas = env.get("lacunas", []) or []
+        return out
+
     out.markdown = env.get("markdown")
     out.citacoes = env.get("citacoes", []) or []
     out.fontes = env.get("fontes", []) or []

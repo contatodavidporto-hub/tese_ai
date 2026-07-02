@@ -167,6 +167,58 @@ def test_corpo_grande_demais_rejeitado_413() -> None:
     assert r.status_code == 413
 
 
+def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Defesa em profundidade: tese com status=error não vaza markdown/citações."""
+    import json
+    import uuid
+
+    from app.db.session import get_session
+    from app.routers import teses as teses_router
+
+    tid = uuid.uuid4()
+    envelope = {
+        "markdown": "## Síntese\nRecomendo comprar — conteúdo que vazou o gate.",
+        "citacoes": [{"texto_citado": "x", "fonte": {"id": "1"}}],
+        "fontes": [{"id": "1", "url": "https://dados.cvm.gov.br/x", "descricao": "CVM"}],
+        "lacunas": ["algo: dado não encontrado"],
+        "erro": "Tese reprovada no gate de confiança: recomendação detectada",
+    }
+
+    class _FakeTese:
+        id = tid
+        ticker = "PETR4"
+        status = "error"
+        criado_em = None
+
+    class _FakeVersao:
+        conteudo = json.dumps(envelope, ensure_ascii=False)
+
+    class _FakeSession:
+        def get(self, _model, _id):
+            return _FakeTese()
+
+        def execute(self, _stmt):
+            class _R:
+                def scalar_one_or_none(self_inner):
+                    return _FakeVersao()
+
+            return _R()
+
+    app.dependency_overrides[get_session] = lambda: _FakeSession()
+    monkeypatch.setattr(teses_router, "Tese", _FakeTese)
+    try:
+        r = client.get(f"/teses/{tid}")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+    assert r.status_code == 200
+    corpo = r.json()
+    assert corpo["status"] == "error"
+    assert corpo["erro"]  # o erro é servido
+    assert corpo["markdown"] is None  # markdown ofensivo NÃO é servido
+    assert corpo["citacoes"] == []  # citações também não
+    assert corpo["lacunas"]  # lacunas seguem visíveis
+
+
 def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prova que o decorator de rate-limit está PLUGADO em post_tese (10/h por IP).
 
