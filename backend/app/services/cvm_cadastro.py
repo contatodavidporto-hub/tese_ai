@@ -61,10 +61,12 @@ _COL_NOME_VM = ("NOME_EMPRESARIAL",)
 _COL_FIM_NEG = ("DATA_FIM_NEGOCIACAO",)
 
 # Código de negociação B3 válido: raiz de 4 alfanuméricos iniciada por letra +
-# 1-2 dígitos (PETR4, B3SA3, TAEE11, AAPL34). O FCA real traz placeholders como
-# "NÃO HÁ" para papéis não negociados — não são tickers e colidiriam entre
-# empresas distintas no unique (comneg, especie). Verificado ao vivo em 2026-07-02.
-_TICKER_B3_RE = re.compile(r"^[A-Z][A-Z0-9]{3}[0-9]{1,2}$")
+# 1-2 dígitos (PETR4, B3SA3, TAEE11, AAPL34) + sufixo 'B' opcional (balcão
+# organizado: EQMA3B, FRRN5B — achado médio do auditor-mor, 10 tickers reais no
+# FCA 2026). O FCA real traz placeholders como "NÃO HÁ" para papéis não
+# negociados — não são tickers e colidiriam entre empresas distintas no unique
+# (comneg, especie). Verificado ao vivo em 2026-07-02.
+_TICKER_B3_RE = re.compile(r"^[A-Z][A-Z0-9]{3}[0-9]{1,2}B?$")
 
 
 def _norm(row: dict[str, str]) -> dict[str, str]:

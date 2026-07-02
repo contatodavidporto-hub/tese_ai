@@ -118,8 +118,16 @@ def test_parse_vm_aceita_formatos_reais_de_ticker() -> None:
         "1;B3SA3\n"  # raiz com dígito
         "2;TAEE11\n"  # unit
         "3;AAPL34\n"  # BDR
+        "4;EQMA3B\n"  # balcão organizado, sufixo B (achado médio do auditor-mor)
+        "5;FRRN5B\n"  # idem
     ).encode("latin-1")
-    assert {ln["comneg"] for ln in parse_valor_mobiliario(csv_ok)} == {"B3SA3", "TAEE11", "AAPL34"}
+    assert {ln["comneg"] for ln in parse_valor_mobiliario(csv_ok)} == {
+        "B3SA3",
+        "TAEE11",
+        "AAPL34",
+        "EQMA3B",
+        "FRRN5B",
+    }
 
 
 def test_montar_join_por_cnpj_quando_vm_nao_tem_cd_cvm() -> None:
@@ -160,6 +168,35 @@ def test_montar_poe_listagem_ativa_por_ultimo_para_upsert_last_wins() -> None:
     ]
     montadas = montar_linhas_cadastro(vm, {})
     assert [m["cd_cvm"] for m in montadas] == [2, 1]  # encerrada antes; ativa vence
+
+
+def test_montar_desempata_por_dt_referencia_mais_recente_por_ultimo() -> None:
+    # Tie-break do last-wins (achado baixo do auditor-mor): entre duas listagens
+    # ativas, a de dt_referencia mais RECENTE deve vir por último (vence no upsert).
+    import datetime as dt
+
+    vm = [
+        {
+            "cd_cvm": 1,
+            "comneg": "AAAA3",
+            "especie": "ON",
+            "fim_negociacao": False,
+            "dt_referencia": dt.date(2026, 1, 1),
+            "cnpj": None,
+            "nome_empresarial": "Nova",
+        },
+        {
+            "cd_cvm": 2,
+            "comneg": "AAAA3",
+            "especie": "ON",
+            "fim_negociacao": False,
+            "dt_referencia": dt.date(2025, 1, 1),
+            "cnpj": None,
+            "nome_empresarial": "Velha",
+        },
+    ]
+    montadas = montar_linhas_cadastro(vm, {})
+    assert [m["cd_cvm"] for m in montadas] == [2, 1]  # 2025 antes; 2026 vence
 
 
 # ---------------------------------------------------------------------------
