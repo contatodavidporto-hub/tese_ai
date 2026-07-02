@@ -10,11 +10,13 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.ratelimit import limiter
 from app.db.session import SessionLocal, get_session
 from app.models.models import Tese, TeseVersao
 from app.schemas.tese import TeseCreateIn, TeseCreateOut, TeseOut
@@ -22,6 +24,16 @@ from app.services.tese import criar_tese, gerar_tese
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/teses", tags=["teses"])
+
+# Limite específico da criação de tese (dispara o LLM caro). No-op se desabilitado.
+_settings = get_settings()
+
+
+def _rate_limit_criar():
+    """Decorator de rate-limit da criação (no-op se desabilitado no settings)."""
+    if not _settings.rate_limit_criar_tese:
+        return lambda fn: fn
+    return limiter.limit(_settings.rate_limit_criar_tese)
 
 
 def _run_generation(tese_id: uuid.UUID) -> None:
@@ -37,7 +49,9 @@ def _run_generation(tese_id: uuid.UUID) -> None:
 
 
 @router.post("", response_model=TeseCreateOut, status_code=202)
+@_rate_limit_criar()
 def post_tese(
+    request: Request,
     body: TeseCreateIn,
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],

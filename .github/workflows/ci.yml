@@ -41,8 +41,17 @@ jobs:
       - name: Pytest
         run: .venv/bin/pytest -q
 
+      # SAST do nosso código (não do .venv). Falha em qualquer issue (bandit -ll
+      # = medium+). O código já roda limpo localmente.
+      - name: Bandit (SAST Python)
+        run: .venv/bin/bandit -r app -ll
+
+      # Vulnerabilidades conhecidas nas dependências Python (CVE/GHSA).
+      - name: pip-audit (deps Python)
+        run: .venv/bin/pip-audit --progress-spinner off --skip-editable
+
   security:
-    name: Secrets + Vuln scan
+    name: Secrets + SAST + Vuln + SBOM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +63,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Semgrep SAST com rulesets de segurança (Python/JS + OWASP). Falha em erros.
+      - name: Semgrep (SAST)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/default
+            p/security-audit
+            p/secrets
+            p/python
+            p/javascript
+
       # Instalacao direta do trivy (o wrapper trivy-action fixava um
       # setup-trivy@v0.2.1 ja removido). Scanner de vulnerabilidades; segredos
       # ficam por conta do gitleaks acima.
@@ -61,3 +81,46 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy"
           "$RUNNER_TEMP/trivy/trivy" fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .
+
+      # SBOM (CycloneDX) do repositório — inventário de dependências para auditoria
+      # e rastreabilidade de supply-chain. Publicado como artefato.
+      - name: Generate SBOM (syft)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b "$RUNNER_TEMP/syft"
+          "$RUNNER_TEMP/syft/syft" dir:. -o cyclonedx-json="$RUNNER_TEMP/sbom.cyclonedx.json"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: ${{ runner.temp }}/sbom.cyclonedx.json
+
+  frontend:
+    name: Lint + Audit (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # Falha só em HIGH/CRITICAL. Moderadas transitivas (ex.: postcss bundlado
+      # pelo Next) não bloqueiam — não processamos CSS de terceiros.
+      - name: npm audit (prod deps)
+        run: npm audit --omit=dev --audit-level=high

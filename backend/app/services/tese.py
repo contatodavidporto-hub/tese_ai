@@ -27,6 +27,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.limits import (
+    CUSTO_DIARIO,
+    GENERATION_SLOTS,
+    ConcorrenciaExcedida,
+    TetoCustoExcedido,
+)
 from app.core.logging import get_logger
 from app.models.models import (
     Empresa,
@@ -398,6 +404,10 @@ def _mensagem_estavel(exc: Exception) -> str:
         return "configuração do backend incompleta (chave de IA ausente)."
     if isinstance(exc, anthropic.APIError):
         return "falha ao chamar o provedor de IA — tente novamente em instantes."
+    if isinstance(exc, ConcorrenciaExcedida):
+        return "sistema ocupado gerando outras teses — tente novamente em instantes."
+    if isinstance(exc, TetoCustoExcedido):
+        return "capacidade diária de geração atingida — tente novamente amanhã."
     return "falha ao gerar a tese."
 
 
@@ -418,39 +428,47 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY ausente — configure o backend/.env para gerar.")
 
-        empresa = dados_svc.ensure_empresa(session, ticker)
-        # Garante dados reais; ingere as 5 dimensões sob demanda (falha isolada por
-        # fonte) se a empresa ainda não tem fundamentos. Import tardio evita ciclo.
-        if not session.execute(
-            select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
-        ).first():
-            from app.services import orquestracao
+        # Teto de custo diário (defesa de custo, por processo): excedido => abster.
+        CUSTO_DIARIO.verificar(settings.tese_teto_custo_usd_dia)
 
-            orquestracao.ingest_completo(session, empresa)
+        # Cap de concorrência: falha rápido (o caller grava status=error) se todas as
+        # vagas de geração estão ocupadas — protege pool de conexões e custo.
+        with GENERATION_SLOTS:
+            empresa = dados_svc.ensure_empresa(session, ticker)
+            # Garante dados reais; ingere as 5 dimensões sob demanda (falha isolada
+            # por fonte) se a empresa ainda não tem fundamentos. Import tardio evita ciclo.
+            if not session.execute(
+                select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
+            ).first():
+                from app.services import orquestracao
 
-        itens = _coletar(session, empresa)
-        if not itens:
-            raise dados_svc.DadoNaoEncontrado(
-                f"sem dados reais para {ticker} — abster (dado não encontrado)"
+                orquestracao.ingest_completo(session, empresa)
+
+            itens = _coletar(session, empresa)
+            if not itens:
+                raise dados_svc.DadoNaoEncontrado(
+                    f"sem dados reais para {ticker} — abster (dado não encontrado)"
+                )
+
+            documents, index_to_fonte = _build_documents(itens)
+            client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+            # D5 — grafo de correlação cross-dimensão (só elos validados: fonte nas
+            # duas pontas + hedge). Alimenta a síntese como fio condutor auditável.
+            elos = correlacao.construir_grafo(session, empresa)
+            elos_texto = "\n".join(correlacao.elos_para_llm(elos))
+
+            markdown, citacoes, usage, prompt_hash = _synthesize(
+                client,
+                settings.tese_model_synthesis,
+                documents,
+                index_to_fonte,
+                ticker,
+                empresa.nome,
+                elos_texto,
             )
-
-        documents, index_to_fonte = _build_documents(itens)
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
-        # D5 — grafo de correlação cross-dimensão (só elos validados: fonte nas duas
-        # pontas + hedge). Alimenta a síntese como fio condutor auditável.
-        elos = correlacao.construir_grafo(session, empresa)
-        elos_texto = "\n".join(correlacao.elos_para_llm(elos))
-
-        markdown, citacoes, usage, prompt_hash = _synthesize(
-            client,
-            settings.tese_model_synthesis,
-            documents,
-            index_to_fonte,
-            ticker,
-            empresa.nome,
-            elos_texto,
-        )
+        # Contabiliza o custo estimado no teto diário (fora do slot: I/O já terminou).
+        CUSTO_DIARIO.registrar(_estimar_custo(settings.tese_model_synthesis, usage))
         # Garante o disclaimer NO PRÓPRIO conteúdo (não confia só no LLM).
         if "não é recomendação" not in markdown.lower():
             markdown = _DISCLAIMER + "\n\n" + markdown
