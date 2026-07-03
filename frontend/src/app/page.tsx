@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
 // ser aplicado em cada resposta. O fetch no-store abaixo já tornaria a rota dinâmica;
 // deixamos explícito para garantir o nonce.
@@ -33,6 +35,13 @@ export default async function Home() {
           geopolítica, com cada afirmação rastreável.
         </p>
       </div>
+
+      <Link
+        href="/tese"
+        className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-400/50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+      >
+        Gerar tese
+      </Link>
 
       <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
         <span

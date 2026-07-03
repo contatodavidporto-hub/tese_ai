@@ -1,0 +1,414 @@
+"""Ingestão de dados REAIS e rastreáveis (CVM Dados Abertos + BCB SGS).
+
+Implementa o método da skill `extrair-dados-cvm` como serviço do backend.
+Princípio inegociável: **nunca inventar dado**. Toda gravação cria/linka uma
+`Fonte` (URL + data); quando a conta/empresa não é encontrada, abstemos
+("dado não encontrado") em vez de estimar.
+
+Fontes oficiais (públicas, redistribuíveis com atribuição):
+- CVM — DFP (anual): https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/
+  CSV em ZIP, encoding latin-1, separador ';', decimal ','. Licença ODbL.
+- BCB — API SGS: https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados
+  Selic = código 11 · Dólar venda = código 1.
+"""
+
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import io
+import uuid
+import zipfile
+
+import httpx
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.logging import get_logger
+from app.models.models import Empresa, Fundamento, MacroSerie
+from app.services import derivadas, http_client
+from app.services.fontes import get_or_create_fonte
+
+logger = get_logger(__name__)
+
+# Compat: o User-Agent canônico agora mora em http_client (com e-mail de contato,
+# exigido pela SEC). Reexportado aqui para não quebrar imports existentes.
+_UA = {"User-Agent": http_client.UA}
+
+# Registro mínimo ticker -> (CD_CVM, nome, setor). Sem heurística: se o ticker
+# não está aqui, abstemos. Ampliar conforme novas empresas entram no slice.
+TICKER_CD_CVM: dict[str, tuple[int, str, str]] = {
+    "PETR4": (9512, "Petróleo Brasileiro S.A. - Petrobras", "Petróleo, Gás e Biocombustíveis"),
+    "PETR3": (9512, "Petróleo Brasileiro S.A. - Petrobras", "Petróleo, Gás e Biocombustíveis"),
+    "VALE3": (4170, "Vale S.A.", "Mineração"),
+    "ITUB4": (19348, "Itaú Unibanco Holding S.A.", "Bancos"),
+}
+
+# Contas-alvo (validar sempre pelo DS_CONTA). Mapeia (demonstração padrão CVM, CD_CONTA).
+# D1 aprofundado: além de Receita/Lucro/PL, extrai componentes p/ dívida, EBIT e FCO.
+# Bancos/seguradoras têm plano de contas próprio → as contas abaixo não casam e as
+# métricas derivadas ABSTÊM (achado M2), nunca inventam.
+_CONTAS_DRE = {
+    "3.01": "Receita de Venda de Bens e/ou Serviços",
+    "3.05": "Resultado Antes do Resultado Financeiro e dos Tributos (EBIT)",
+    "3.11": "Lucro/Prejuízo do período",
+}
+_CONTAS_BPP = {
+    "2.01.04": "Empréstimos e Financiamentos (circulante)",
+    "2.02.01": "Empréstimos e Financiamentos (não circulante)",
+    "2.03": "Patrimônio líquido",
+}
+_CONTAS_BPA = {
+    "1.01.01": "Caixa e Equivalentes de Caixa",
+    "1.01.02": "Aplicações Financeiras",
+}
+_CONTAS_DFC = {"6.01": "Caixa Líquido das Atividades Operacionais (FCO)"}
+
+# "MILHAR"/"MILHARES" = mil (achado A1 do red-team: sem eles, valor em MILHAR entraria
+# 1000x menor — número errado COM fonte, pior que abster). "milhar" == mil por definição.
+_ESCALAS = {
+    "UNIDADE": 1,
+    "MIL": 1_000,
+    "MILHAR": 1_000,
+    "MILHARES": 1_000,
+    "MILHAO": 1_000_000,
+    "MILHÃO": 1_000_000,
+}
+
+CVM_DFP_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_{ano}.zip"
+BCB_SGS_URL = (
+    "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
+)
+
+# Anos a tentar para a DFP (mais recente primeiro). DFP é anual.
+_ANOS_DFP = (2025, 2024, 2023)
+
+
+class DadoNaoEncontrado(Exception):
+    """Levantada quando não há dado real para o pedido — nunca inventamos."""
+
+
+def _parse_valor(raw: str) -> float | None:
+    """Converte VL_CONTA (decimal brasileiro) em float. Vazio -> None."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    # Decimal ','. Se houver '.', é separador de milhar -> remover.
+    if "," in raw:
+        raw = raw.replace(".", "").replace(",", ".")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _aplicar_escala(valor: float | None, escala: str) -> float | None:
+    if valor is None:
+        return None
+    return valor * _ESCALAS.get((escala or "").strip().upper(), 1)
+
+
+def _parse_data(raw: str) -> dt.date | None:
+    raw = (raw or "").strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return dt.datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Empresa
+# ---------------------------------------------------------------------------
+def ensure_empresa(session: Session, ticker: str) -> Empresa:
+    """Idempotente. Resolve o ticker via cadastro CVM UNIVERSAL (cache + seed);
+    abstém (DadoNaoEncontrado) se desconhecido — funciona para qualquer empresa B3."""
+    # Import tardio: quebra o ciclo dados <-> cvm_cadastro (que importa deste módulo).
+    from app.services import cvm_cadastro
+
+    ticker = ticker.upper().strip()
+    cd_cvm, cnpj, nome, setor = cvm_cadastro.resolve_ticker(session, ticker)
+
+    empresa = session.execute(select(Empresa).where(Empresa.cd_cvm == cd_cvm)).scalar_one_or_none()
+    if empresa is None:
+        empresa = Empresa(cd_cvm=cd_cvm, ticker=ticker, nome=nome, setor=setor, cnpj=cnpj)
+        session.add(empresa)
+        session.flush()
+        logger.info("empresa_criada", ticker=ticker, cd_cvm=cd_cvm)
+    else:
+        if empresa.ticker != ticker:
+            empresa.ticker = ticker
+        if cnpj and not empresa.cnpj:
+            empresa.cnpj = cnpj
+    return empresa
+
+
+# ---------------------------------------------------------------------------
+# MACRO — BCB SGS
+# ---------------------------------------------------------------------------
+def bcb_sgs(codigo: int, n: int = 1) -> list[dict]:
+    """Últimos N pontos de uma série do SGS. Devolve [{data, valor}]."""
+    url = BCB_SGS_URL.format(codigo=codigo, n=n)
+    resp = http_client.get_keyless(url, timeout=30.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def ingest_macro(session: Session) -> list[MacroSerie]:
+    """Persiste o último ponto das séries macro do BCB SGS, com rótulos sem ambiguidade.
+
+    Importante: a série 11 é a Selic **diária** (% a.d.) — pequena por definição;
+    a 432 é a **Meta Selic** anual (% a.a.), o número de manchete. Rotulamos as duas
+    para que o motor de tese narre o macro corretamente (anti-alucinação).
+    """
+    # nome -> (código SGS, rótulo humano)
+    series: dict[str, tuple[int, str]] = {
+        "SELIC_DIARIA": (11, "Selic diária (% a.d.)"),
+        "SELIC_META_ANUAL": (432, "Meta Selic - Copom (% a.a.)"),
+        "USD_VENDA": (1, "Dólar venda (R$/US$)"),
+        # D3 ampliado — inflação doméstica (rótulos sem ambiguidade de unidade).
+        "IPCA_MENSAL": (433, "IPCA - variação mensal (% a.m.)"),
+        "IGP_M_MENSAL": (189, "IGP-M - variação mensal (% a.m.)"),
+    }
+    gravados: list[MacroSerie] = []
+    for nome, (codigo, rotulo) in series.items():
+        try:
+            pontos = bcb_sgs(codigo, n=1)
+        except httpx.HTTPError as exc:
+            logger.warning("bcb_falhou", serie=nome, codigo=codigo, erro=type(exc).__name__)
+            continue
+        if not pontos:
+            continue
+        ponto = pontos[-1]
+        data = _parse_data(ponto.get("data", ""))
+        valor = _parse_valor(str(ponto.get("valor", "")))
+        if data is None or valor is None:
+            continue
+        url = BCB_SGS_URL.format(codigo=codigo, n=1)
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=f"Banco Central — API SGS série {codigo}: {rotulo}",
+            dt_referencia=data,
+        )
+        existente = session.execute(
+            select(MacroSerie).where(MacroSerie.codigo == nome, MacroSerie.data == data)
+        ).scalar_one_or_none()
+        if existente is None:
+            ms = MacroSerie(codigo=nome, data=data, valor=valor, fonte_id=fonte_id)
+            session.add(ms)
+            gravados.append(ms)
+        else:
+            existente.valor = valor
+            existente.fonte_id = fonte_id
+            gravados.append(existente)
+        logger.info("macro_persistido", serie=nome, data=str(data), valor=valor)
+    return gravados
+
+
+# ---------------------------------------------------------------------------
+# FUNDAMENTOS — CVM DFP
+# ---------------------------------------------------------------------------
+def _baixar_dfp_zip(ano: int) -> bytes:
+    url = CVM_DFP_URL.format(ano=ano)
+    return http_client.download_zip(url, timeout=180.0)
+
+
+def _extrair_contas(
+    conteudo_zip: bytes,
+    ano: int,
+    cd_cvm: int,
+    membro: str,
+    contas: dict[str, str],
+) -> list[dict]:
+    """Lê um CSV (latin-1, ';') do ZIP e extrai as contas-alvo do exercício ÚLTIMO.
+
+    Devolve [{cd_conta, ds_conta, valor, dt_refer}]. Nunca inventa: só retorna o
+    que existe na fonte.
+    """
+    with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
+        if membro not in z.namelist():
+            return []
+        achados: list[dict] = []
+        with z.open(membro) as raw:
+            texto = io.TextIOWrapper(raw, encoding="latin-1", newline="")
+            leitor = csv.DictReader(texto, delimiter=";")
+            for linha in leitor:
+                if linha.get("ORDEM_EXERC", "").strip().upper() not in ("ÚLTIMO", "ULTIMO"):
+                    continue
+                try:
+                    if int(linha.get("CD_CVM", "0")) != cd_cvm:
+                        continue
+                except ValueError:
+                    continue
+                cd_conta = linha.get("CD_CONTA", "").strip()
+                if cd_conta not in contas:
+                    continue
+                valor = _aplicar_escala(
+                    _parse_valor(linha.get("VL_CONTA", "")),
+                    linha.get("ESCALA_MOEDA", ""),
+                )
+                if valor is None:
+                    continue
+                dt_refer = _parse_data(linha.get("DT_FIM_EXERC", "")) or _parse_data(
+                    linha.get("DT_REFER", "")
+                )
+                achados.append(
+                    {
+                        "cd_conta": cd_conta,
+                        "ds_conta": linha.get("DS_CONTA", "").strip(),
+                        "valor": valor,
+                        "dt_refer": dt_refer,
+                        "ano": ano,
+                    }
+                )
+    return achados
+
+
+def ingest_fundamentos(session: Session, empresa: Empresa) -> list[Fundamento]:
+    """Baixa a DFP mais recente disponível e persiste contas-chave com fonte.
+
+    Abstém (DadoNaoEncontrado) se nenhum exercício recente tem dados da empresa.
+    """
+    cd_cvm = empresa.cd_cvm
+    if cd_cvm is None:
+        raise DadoNaoEncontrado(f"empresa {empresa.ticker} sem CD_CVM")
+
+    for ano in _ANOS_DFP:
+        try:
+            conteudo = _baixar_dfp_zip(ano)
+        except httpx.HTTPError as exc:
+            logger.warning("dfp_falhou", ano=ano, erro=type(exc).__name__)
+            continue
+
+        # DRE + BPP + BPA + DFC (método indireto ou direto). Cada empresa filia
+        # só um método de DFC; o membro ausente devolve [] (não quebra).
+        membros = {
+            f"dfp_cia_aberta_DRE_con_{ano}.csv": _CONTAS_DRE,
+            f"dfp_cia_aberta_BPP_con_{ano}.csv": _CONTAS_BPP,
+            f"dfp_cia_aberta_BPA_con_{ano}.csv": _CONTAS_BPA,
+            f"dfp_cia_aberta_DFC_MI_con_{ano}.csv": _CONTAS_DFC,
+            f"dfp_cia_aberta_DFC_MD_con_{ano}.csv": _CONTAS_DFC,
+        }
+        achados: list[dict] = []
+        for membro, contas in membros.items():
+            achados.extend(_extrair_contas(conteudo, ano, cd_cvm, membro, contas))
+        if not achados:
+            logger.info("dfp_sem_dados_empresa", ano=ano, cd_cvm=cd_cvm)
+            continue
+
+        url = CVM_DFP_URL.format(ano=ano)
+        gravados: list[Fundamento] = []
+        for a in achados:
+            fonte_id = get_or_create_fonte(
+                session,
+                url=url,
+                descricao=(
+                    f"CVM DFP {ano} (consolidado) — {empresa.nome} "
+                    f"[{a['cd_conta']} {a['ds_conta']}], valores em reais"
+                ),
+                dt_referencia=a["dt_refer"],
+            )
+            conta_label = f"{a['ds_conta']} ({a['cd_conta']})"
+            gravados.append(
+                _upsert_fundamento(
+                    session, empresa, conta_label, a["valor"], a["dt_refer"], fonte_id
+                )
+            )
+
+        # Métricas derivadas (dívida bruta/líquida). Abstêm se faltar componente
+        # (ex.: bancos/seguradoras) — nunca gravam número estimado.
+        gravados.extend(_persistir_derivadas(session, empresa, achados, ano, url))
+
+        logger.info("fundamentos_persistidos", ano=ano, cd_cvm=cd_cvm, n=len(gravados))
+        return gravados
+
+    raise DadoNaoEncontrado(
+        f"sem DFP recente para {empresa.ticker} (CD_CVM {cd_cvm}) — dado não encontrado"
+    )
+
+
+def _upsert_fundamento(
+    session: Session,
+    empresa: Empresa,
+    conta_label: str,
+    valor: float | None,
+    dt_refer: dt.date,
+    fonte_id: uuid.UUID,
+) -> Fundamento:
+    """Idempotente por (empresa, conta, dt_refer)."""
+    existente = session.execute(
+        select(Fundamento).where(
+            Fundamento.empresa_id == empresa.id,
+            Fundamento.conta == conta_label,
+            Fundamento.dt_refer == dt_refer,
+        )
+    ).scalar_one_or_none()
+    if existente is None:
+        f = Fundamento(
+            empresa_id=empresa.id,
+            conta=conta_label,
+            valor=valor,
+            dt_refer=dt_refer,
+            fonte_id=fonte_id,
+        )
+        session.add(f)
+        return f
+    existente.valor = valor
+    existente.fonte_id = fonte_id
+    return existente
+
+
+def _persistir_derivadas(
+    session: Session, empresa: Empresa, achados: list[dict], ano: int, url: str
+) -> list[Fundamento]:
+    """Calcula e persiste as métricas derivadas com fonte COMPOSTA (contas-base).
+
+    Abstém (não grava) qualquer métrica cujo componente falte — a lacuna aparece
+    na tese como "dado não encontrado". Nunca usa 0 implícito (achado A1).
+    """
+    contas = {a["cd_conta"]: a["valor"] for a in achados if a["valor"] is not None}
+    dt_refer = next((a["dt_refer"] for a in achados if a["dt_refer"] is not None), None)
+    if dt_refer is None:
+        return []
+
+    gravados: list[Fundamento] = []
+    for nome, fn in derivadas.DERIVADAS.items():
+        valor, codigos = fn(contas)
+        if valor is None:
+            continue  # abstém — nunca estima
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=(
+                f"CVM DFP {ano} (consolidado) — {empresa.nome} "
+                f"[{nome} = função das contas {'+'.join(codigos)}], derivado, em reais"
+            ),
+            dt_referencia=dt_refer,
+        )
+        gravados.append(_upsert_fundamento(session, empresa, nome, valor, dt_refer, fonte_id))
+    return gravados
+
+
+# ---------------------------------------------------------------------------
+# Orquestração de ingestão
+# ---------------------------------------------------------------------------
+def ingest_ticker(session: Session, ticker: str) -> dict:
+    """Ingestão ponta-a-ponta de 1 ticker: empresa + fundamentos + macro.
+
+    Faz commit ao final. Devolve um resumo. Macro é compartilhada (não falha o
+    ticker se o BCB estiver indisponível).
+    """
+    empresa = ensure_empresa(session, ticker)
+    fundamentos = ingest_fundamentos(session, empresa)
+    macro = ingest_macro(session)
+    session.commit()
+    resumo = {
+        "ticker": empresa.ticker,
+        "cd_cvm": empresa.cd_cvm,
+        "fundamentos": len(fundamentos),
+        "macro": len(macro),
+    }
+    logger.info("ingest_concluida", **resumo)
+    return resumo

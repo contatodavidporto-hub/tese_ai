@@ -14,8 +14,10 @@ import uuid
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -110,6 +112,117 @@ class EventoGeopolitico(Base):
     descricao: Mapped[str] = mapped_column(Text, nullable=False)
     ativos_afetados: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CvmCadastro(Base):
+    """Cache do CAD_CIA_ABERTA + VLMO (CVM) — resolve qualquer ticker B3.
+
+    Fonte de verdade para COMNEG (ticker) -> CD_CVM/CNPJ/razão social/setor.
+    `comneg` vem SOMENTE do VLMO/FCA (o CAD não publica ticker); o enriquecimento
+    por setor/situação faz JOIN por `cd_cvm`, nunca por razão social (anti-alucinação).
+    """
+
+    __tablename__ = "cvm_cadastro"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    cd_cvm: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    cnpj: Mapped[str | None] = mapped_column(Text)
+    denom_social: Mapped[str] = mapped_column(Text, nullable=False)
+    comneg: Mapped[str | None] = mapped_column(Text, index=True)
+    especie: Mapped[str | None] = mapped_column(Text)
+    sit_reg: Mapped[str | None] = mapped_column(Text)
+    setor: Mapped[str | None] = mapped_column(Text)
+    dt_referencia: Mapped[dt.date | None] = mapped_column(Date)
+    fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Par(Base):
+    """Comparável global do setor — uma seleção INTERPRETATIVA (não par oficial).
+
+    `criterio_selecao` + `fonte_id` registram por que a empresa é tratada como par,
+    para que o motor rotule isso como interpretação e nunca como fato oficial.
+    """
+
+    __tablename__ = "pares"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    empresa_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    cik: Mapped[str | None] = mapped_column(Text)
+    ticker_ext: Mapped[str | None] = mapped_column(Text)
+    nome_ext: Mapped[str | None] = mapped_column(Text)
+    sic: Mapped[str | None] = mapped_column(Text)
+    taxonomia: Mapped[str | None] = mapped_column(Text)
+    criterio_selecao: Mapped[str | None] = mapped_column(Text)
+    fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ParFundamento(Base):
+    """Fato financeiro (XBRL/SEC EDGAR) de um par global, com taxonomia rotulada."""
+
+    __tablename__ = "pares_fundamentos"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    par_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pares.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    conceito: Mapped[str] = mapped_column(Text, nullable=False)
+    valor: Mapped[float | None] = mapped_column(Numeric)
+    moeda: Mapped[str | None] = mapped_column(Text)
+    dt_refer: Mapped[dt.date | None] = mapped_column(Date, index=True)
+    fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Elo(Base):
+    """Elo do grafo causal (D5) — fonte validada nas DUAS pontas.
+
+    `metodo` distingue co-movimento estatístico (Pearson, NÃO causal) de interpretação
+    causal com hedge; `n_amostras`/`periodo` tornam o coeficiente auditável. Um elo sem
+    fonte numa ponta é rejeitado (validada=False) — zero alucinação.
+    """
+
+    __tablename__ = "elos"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    empresa_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+    )
+    dimensao: Mapped[str | None] = mapped_column(Text)
+    origem_label: Mapped[str] = mapped_column(Text, nullable=False)
+    origem_fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    destino_label: Mapped[str] = mapped_column(Text, nullable=False)
+    destino_fonte_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("fontes.id"))
+    ligacao_causal: Mapped[str | None] = mapped_column(Text)
+    metodo: Mapped[str | None] = mapped_column(Text)
+    forca_ligacao: Mapped[float | None] = mapped_column(Float)
+    n_amostras: Mapped[int | None] = mapped_column(Integer)
+    periodo: Mapped[str | None] = mapped_column(Text)
+    hedge: Mapped[str | None] = mapped_column(Text)
+    validada: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    tese_versao_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tese_versoes.id", ondelete="SET NULL")
+    )
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
