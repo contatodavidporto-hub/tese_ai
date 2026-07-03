@@ -52,6 +52,34 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # Conectores premium BEHIND CONFIG (dados de maior frequência). Opcionais: sem
+    # a chave, os conectores keyless (fredgraph/World Bank/CVM/BCB) seguem sozinhos
+    # e a arquitetura não é bloqueada. Segredo só no .env — nunca no código.
+    fred_api_key: str | None = None
+    eia_api_key: str | None = None
+
+    # --- Capacidade / anti-abuso (Fase 1 de blindagem) --------------------------
+    # Rate limit da criação de tese (endpoint que dispara o LLM caro). Formato
+    # slowapi ("N/period"). Vazio desliga (ex.: testes). Chave por IP.
+    rate_limit_criar_tese: str = "10/hour"
+    rate_limit_global: str = "120/minute"
+    # Cap de gerações de tese concorrentes no processo (protege pool de conexões e
+    # custo). BackgroundTask além do teto abstém com "sistema ocupado".
+    tese_max_concorrencia: int = 2
+    # Teto de custo de LLM por dia (USD, por processo — defesa, não contabilidade
+    # global). Excedido => a geração abstém em vez de gastar. 0 desliga o teto.
+    tese_teto_custo_usd_dia: float = 10.0
+    # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
+    max_request_bytes: int = 64 * 1024
+
+    # --- Cache de tese pública + reaper (Fase 2) --------------------------------
+    # Janela em que uma tese `ready` do mesmo ticker é REAPROVEITADA em vez de
+    # regenerada via LLM (custo + latência). 0 desliga o cache (sempre regenera).
+    tese_cache_horas: int = 24
+    # Uma tese presa em `processing` além deste tempo (crash no meio da geração) é
+    # marcada `error` pelo reaper (integridade — sem órfãs eternas). 0 desliga.
+    tese_processing_timeout_min: int = 15
+
     @field_validator("database_url")
     @classmethod
     def _normalize_db_driver(cls, v: str | None) -> str | None:

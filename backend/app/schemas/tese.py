@@ -10,11 +10,24 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TeseCreateIn(BaseModel):
-    ticker: str = Field(..., min_length=4, max_length=12, examples=["PETR4"])
+    # Formato de ticker B3: raiz de 4 alfanuméricos iniciada por letra + 1-2 dígitos
+    # + sufixo 'B' opcional (balcão). Validar o FORMATO reduz a superfície de entrada
+    # (defesa em profundidade — o resolvedor de cadastro é a autoridade final).
+    ticker: str = Field(..., min_length=4, max_length=7, examples=["PETR4"])
+
+    @field_validator("ticker")
+    @classmethod
+    def _normalizar_e_validar(cls, v: str) -> str:
+        import re
+
+        alvo = (v or "").strip().upper()
+        if not re.fullmatch(r"[A-Z][A-Z0-9]{3}[0-9]{1,2}B?", alvo):
+            raise ValueError("ticker inválido (formato B3 esperado, ex.: PETR4)")
+        return alvo
 
 
 class TeseCreateOut(BaseModel):
