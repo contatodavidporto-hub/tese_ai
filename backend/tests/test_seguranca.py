@@ -179,6 +179,33 @@ def test_corpo_chunked_sem_content_length_rejeitado_413() -> None:
     assert r.status_code == 413
 
 
+def test_chave_rate_limit_usa_xff_mais_a_direita() -> None:
+    """Anti-spoof: a chave do rate-limit vem do valor MAIS À DIREITA do XFF (o único
+    que o cliente não controla atrás do edge). Rotacionar a parte esquerda do header
+    NÃO pode trocar de bucket; sem header, cai no IP do socket."""
+    from starlette.requests import Request as StarletteRequest
+
+    from app.core.ratelimit import _chave_por_ip
+
+    def _req(headers: dict[str, str]) -> StarletteRequest:
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "client": ("10.0.0.9", 1234),
+            "headers": [(k.encode(), v.encode()) for k, v in headers.items()],
+        }
+        return StarletteRequest(scope)
+
+    assert _chave_por_ip(_req({"x-forwarded-for": "forjado-1, 8.8.8.8"})) == "8.8.8.8"
+    assert _chave_por_ip(_req({"x-forwarded-for": "forjado-2, 8.8.8.8"})) == "8.8.8.8"
+    assert _chave_por_ip(_req({"x-forwarded-for": "203.0.113.7"})) == "203.0.113.7"
+    assert _chave_por_ip(_req({})) == "10.0.0.9"  # sem proxy: IP do socket
+
+
 def test_health_isento_do_rate_limit_global() -> None:
     """/health não pode tomar 429: atrás de proxy o healthcheck da plataforma pode
     dividir bucket com tráfego externo, e um 429 reiniciaria um serviço saudável."""

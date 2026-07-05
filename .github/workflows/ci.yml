@@ -28,10 +28,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Install dependencies
-        run: |
-          uv venv --python 3.12
-          uv pip install -e ".[dev]"
+      # Instala EXATAMENTE o conjunto pinado do uv.lock (o mesmo que a imagem de
+      # produção instala via `uv export --frozen`) + extra dev. `--frozen` também
+      # falha se o lock estiver desatualizado em relação ao pyproject.
+      - name: Install dependencies (pinned from uv.lock)
+        run: uv sync --frozen --extra dev
 
       - name: Ruff (lint)
         run: .venv/bin/ruff check .

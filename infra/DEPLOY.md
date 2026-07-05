@@ -25,10 +25,12 @@ Artefatos já prontos neste repo: `backend/Dockerfile`, `backend/.dockerignore`,
      (ex.: `https://tese-ai.vercel.app` ou `https://a.app,https://b.app`).
    - `APP_ENV` = `production` · `APP_BASE_URL` = URL do frontend de produção.
    - Opcionais: `FRED_API_KEY`, `EIA_API_KEY` (sem eles, D3/D4 keyless seguem; premium abstém), `LANGFUSE_*`.
-   - `FORWARDED_ALLOW_IPS` **não precisa ser setada**: a imagem já embute `*` (atrás do
-     edge-proxy da plataforma o IP real vem no `X-Forwarded-For`; sem isso o rate-limit
-     por IP colapsaria num bucket global). Só sobreponha (`127.0.0.1`) se algum dia a
-     imagem rodar exposta sem proxy na frente.
+   - `FORWARDED_ALLOW_IPS` **não precisa ser setada**: a imagem já embute `*` (scheme/logs
+     corretos atrás do edge-proxy). A **chave do rate-limit** não confia no que o cliente
+     manda: usa o valor **mais à direita** do `X-Forwarded-For` (escrito pelo edge, à prova
+     de spoof por rotação de header — ver `app/core/ratelimit.py`). Clientes atrás do mesmo
+     egress (ex.: usuários via proxy do Vercel) dividem bucket até existir login. Só
+     sobreponha (`127.0.0.1`) se algum dia a imagem rodar exposta sem proxy na frente.
 4. **Migrações:** já aplicadas (Supabase em `0003`). Se um dia precisar: one-off **`alembic upgrade head`**
    direto (o CLI já está no PATH da imagem; **não** use `uv run` dentro do container — criaria um venv).
 5. **Verificar:** `GET https://<backend-railway>/health` → `{"status":"ok"}` [200] com headers de segurança
@@ -65,6 +67,10 @@ Com o domínio de produção do Vercel definido, garanta `CORS_ORIGINS` no backe
 - [ ] `GET /health` do backend = 200 (headers de segurança presentes).
 - [ ] Frontend de produção abre; gera 1 tese; citações + banner OK; CSP sem erro no console.
 - [ ] Headers de segurança na resposta de produção do front (HSTS/CSP/nosniff/DENY).
+- [ ] **Rate-limit à prova de spoof:** 2+ requisições diretas ao backend com `X-Forwarded-For`
+      forjados DIFERENTES → os headers `X-RateLimit-Remaining` devem **decrescer juntos**
+      (mesmo bucket; a chave vem do valor mais à direita, que o edge escreve). Se cada
+      requisição ganhar bucket próprio, investigar antes de liberar tráfego.
 
 ## Rollback
 - **Vercel:** Deployments → deploy anterior → **Instant Rollback**.

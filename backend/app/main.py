@@ -64,6 +64,7 @@ class BodySizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        chunked = False
         for nome, valor in scope.get("headers") or []:
             if nome == b"content-length":
                 try:
@@ -73,6 +74,16 @@ class BodySizeLimitMiddleware:
                 except ValueError:
                     await self._responder(scope, send, 400, "content-length inválido")
                     return
+            elif nome == b"transfer-encoding":
+                chunked = True
+
+        # Só é preciso ler-e-reproduzir quando o corpo NÃO declara tamanho
+        # (chunked). Com Content-Length o servidor (h11/httptools) já rejeita
+        # corpo que exceda o declarado; e sem corpo nenhum, entrar no loop de
+        # leitura seguraria a conexão à espera de um corpo que nunca vem.
+        if not chunked:
+            await self.app(scope, receive, send)
+            return
 
         mensagens: list[Message] = []
         recebido = 0

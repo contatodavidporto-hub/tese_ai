@@ -37,10 +37,13 @@ USER appuser
 ENV PORT=8000
 EXPOSE 8000
 
-# Atrás do edge-proxy da plataforma, o IP real do cliente chega no X-Forwarded-For;
-# sem confiar nele o rate-limit "por IP" colapsa num bucket único global (DoS trivial
-# e 429 para todo mundo). O uvicorn lê esta env (proxy-headers já é default). Se a
-# imagem rodar exposta SEM proxy na frente, sobreponha com FORWARDED_ALLOW_IPS=127.0.0.1.
+# Atrás do edge-proxy da plataforma, scheme/host/IP reais chegam nos headers
+# X-Forwarded-*; esta env manda o uvicorn honrá-los (proxy-headers já é default) —
+# para logs e scheme corretos. A CHAVE do rate-limit NÃO depende disso: ela é
+# derivada em app/core/ratelimit.py do valor MAIS À DIREITA do X-Forwarded-For
+# (o único que o cliente não controla), imune a spoof por rotação de header —
+# o uvicorn com "*" usaria o mais à esquerda, forjável em acesso direto ao host.
+# Se a imagem rodar exposta SEM proxy, sobreponha com FORWARDED_ALLOW_IPS=127.0.0.1.
 ENV FORWARDED_ALLOW_IPS="*"
 
 # Healthcheck do container (a plataforma também aponta para /health).

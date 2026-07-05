@@ -246,10 +246,15 @@ function AvisoBanner({ aviso }: { aviso: string }) {
   );
 }
 
+// Só URLs http(s) viram link (javascript:, data:... -> texto). O backend já
+// valida; esta é a segunda linha de defesa no render.
+function urlHttp(url: string | null | undefined): url is string {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 function FonteLink({ fonte }: { fonte: Fonte }) {
-  // Sem URL, ou com esquema fora de http(s) (javascript:, data:...) -> texto, não
-  // link quebrado. O backend já valida; esta é a segunda linha de defesa no render.
-  if (!fonte.url || !/^https?:\/\//i.test(fonte.url)) {
+  // Sem URL http(s) -> texto, não link quebrado.
+  if (!urlHttp(fonte.url)) {
     return (
       <span className="font-medium text-neutral-700 dark:text-neutral-300">
         {fonte.descricao}
@@ -308,9 +313,9 @@ function Resultado({ tese }: { tese: TeseOut }) {
                 key={i}
                 className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
               >
-                {c.fonte?.url ? (
+                {urlHttp(c.fonte?.url) ? (
                   <a
-                    href={c.fonte.url}
+                    href={c.fonte!.url!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-neutral-800 underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-700 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-300"
