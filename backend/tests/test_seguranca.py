@@ -167,6 +167,76 @@ def test_corpo_grande_demais_rejeitado_413() -> None:
     assert r.status_code == 413
 
 
+def test_corpo_chunked_sem_content_length_rejeitado_413() -> None:
+    """Regressão: corpo `Transfer-Encoding: chunked` (sem Content-Length) não pode
+    contornar o teto — o middleware conta os bytes do stream real."""
+
+    def corpo():
+        for _ in range(65):  # 65 KiB > teto default de 64 KiB, em chunks de 1 KiB
+            yield b"x" * 1024
+
+    r = client.post("/teses", content=corpo(), headers={"content-type": "application/json"})
+    assert r.status_code == 413
+
+
+def test_chave_rate_limit_usa_xff_mais_a_direita() -> None:
+    """Anti-spoof: a chave do rate-limit vem do valor MAIS À DIREITA do XFF (o único
+    que o cliente não controla atrás do edge). Rotacionar a parte esquerda do header
+    NÃO pode trocar de bucket; sem header, cai no IP do socket."""
+    from starlette.requests import Request as StarletteRequest
+
+    from app.core.ratelimit import _chave_por_ip
+
+    def _req(headers: dict[str, str]) -> StarletteRequest:
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "client": ("10.0.0.9", 1234),
+            "headers": [(k.encode(), v.encode()) for k, v in headers.items()],
+        }
+        return StarletteRequest(scope)
+
+    assert _chave_por_ip(_req({"x-forwarded-for": "forjado-1, 8.8.8.8"})) == "8.8.8.8"
+    assert _chave_por_ip(_req({"x-forwarded-for": "forjado-2, 8.8.8.8"})) == "8.8.8.8"
+    assert _chave_por_ip(_req({"x-forwarded-for": "203.0.113.7"})) == "203.0.113.7"
+    assert _chave_por_ip(_req({})) == "10.0.0.9"  # sem proxy: IP do socket
+
+    # Header em MÚLTIPLAS LINHAS (edge que não coalesce): a última linha manda.
+    scope_multilinha = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("testserver", 80),
+        "client": ("10.0.0.9", 1234),
+        "headers": [
+            (b"x-forwarded-for", b"atacante-linha-1"),
+            (b"x-forwarded-for", b"9.9.9.9"),
+        ],
+    }
+    assert _chave_por_ip(StarletteRequest(scope_multilinha)) == "9.9.9.9"
+
+
+def test_health_isento_do_rate_limit_global() -> None:
+    """/health não pode tomar 429: atrás de proxy o healthcheck da plataforma pode
+    dividir bucket com tráfego externo, e um 429 reiniciaria um serviço saudável."""
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        app.state.limiter.reset()
+    try:
+        codigos = {client.get("/health").status_code for _ in range(125)}
+    finally:
+        with contextlib.suppress(Exception):
+            app.state.limiter.reset()
+    assert codigos == {200}  # 125 > teto global de 120/min; isento => nunca 429
+
+
 def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
     """Defesa em profundidade: tese com status=error não vaza markdown/citações."""
     import json
@@ -220,10 +290,10 @@ def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Prova que o decorator de rate-limit está PLUGADO em post_tese (10/h por IP).
+    """Prova que o decorator de rate-limit está PLUGADO em post_tese (30/h por chave).
 
     Sem DB/LLM reais: criar_tese e _run_generation são stubs; get_session é
-    sobreposto. O 202 no 1º request confirma partida limpa; o 429 antes do 12º
+    sobreposto. O 202 no 1º request confirma partida limpa; o 429 antes do 32º
     prova o teto ativo (regressão do achado 'rate-limit definido mas não aplicado').
     """
     import contextlib
@@ -246,10 +316,10 @@ def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> N
     with contextlib.suppress(Exception):
         app.state.limiter.reset()
     try:
-        codigos = [client.post("/teses", json={"ticker": "PETR4"}).status_code for _ in range(12)]
+        codigos = [client.post("/teses", json={"ticker": "PETR4"}).status_code for _ in range(32)]
     finally:
         app.dependency_overrides.pop(get_session, None)
         with contextlib.suppress(Exception):
             app.state.limiter.reset()
     assert codigos[0] == 202  # partida limpa
-    assert 429 in codigos  # o teto de 10/h dispara antes do 12º
+    assert 429 in codigos  # o teto de 30/h dispara antes do 32º

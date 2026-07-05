@@ -1,18 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { backendUrl } from "@/lib/backend";
+
 // Proxy SERVER-SIDE para o backend FastAPI.
 // O CSP do app (src/proxy.ts) tem `connect-src 'self'`, então o NAVEGADOR só pode
 // chamar a MESMA origem. O cliente chama /api/teses; este handler repassa ao backend.
 // Doc instalada: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.API_URL ??
-  "http://localhost:8000";
 
 // GET de Route Handler é dinâmico por padrão no Next 16; explicitamos para o POST proxy.
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const apiUrl = backendUrl();
+  if (!apiUrl) {
+    return NextResponse.json(
+      { detail: "Backend não configurado (defina API_URL no ambiente do servidor)." },
+      { status: 502 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -35,12 +41,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Repassa o x-forwarded-for (a Vercel injeta o IP real do cliente) para fins
+  // de log/auditoria no backend. A CHAVE do rate-limit usa o hop confiável (IP
+  // de egress deste proxy) até existir login — ver app/core/ratelimit.py.
+  const xff = request.headers.get("x-forwarded-for");
+
   try {
-    const upstream = await fetch(`${API_URL}/teses`, {
+    const upstream = await fetch(`${apiUrl}/teses`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(xff ? { "x-forwarded-for": xff } : {}),
+      },
       body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
       cache: "no-store",
+      // Sem timeout a função serverless ficaria pendurada até o maxDuration.
+      signal: AbortSignal.timeout(10_000),
     });
 
     const text = await upstream.text();

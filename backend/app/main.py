@@ -11,6 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
@@ -43,24 +44,79 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    """Rejeita corpos acima do teto (defesa contra payloads gigantes / DoS)."""
+class BodySizeLimitMiddleware:
+    """Rejeita corpos acima do teto (defesa contra payloads gigantes / DoS).
 
-    def __init__(self, app, max_bytes: int) -> None:
-        super().__init__(app)
+    ASGI puro. Além do fast-path pelo header Content-Length, o corpo é lido AQUI
+    (bufferizado até o teto) antes de invocar o app: um corpo `Transfer-Encoding:
+    chunked` não declara tamanho, e uma exceção lançada de dentro do `receive()`
+    seria engolida por camadas internas (o parse de body do FastAPI converte
+    qualquer falha em 400). Ler-e-reproduzir é a via confiável; o custo de memória
+    é limitado pelo próprio teto (default 64 KiB).
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+        self.app = app
         self._max = max_bytes
 
-    async def dispatch(self, request: Request, call_next):
-        cl = request.headers.get("content-length")
-        if cl is not None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        chunked = False
+        for nome, valor in scope.get("headers") or []:
+            if nome == b"content-length":
+                try:
+                    if int(valor) > self._max:
+                        await self._responder(scope, send, 413, "corpo da requisição grande demais")
+                        return
+                except ValueError:
+                    await self._responder(scope, send, 400, "content-length inválido")
+                    return
+            elif nome == b"transfer-encoding":
+                chunked = True
+
+        # Só é preciso ler-e-reproduzir quando o corpo NÃO declara tamanho
+        # (chunked). Com Content-Length o servidor (h11/httptools) já rejeita
+        # corpo que exceda o declarado; e sem corpo nenhum, entrar no loop de
+        # leitura seguraria a conexão à espera de um corpo que nunca vem.
+        if not chunked:
+            await self.app(scope, receive, send)
+            return
+
+        mensagens: list[Message] = []
+        recebido = 0
+        while True:
+            mensagem = await receive()
+            mensagens.append(mensagem)
+            if mensagem["type"] != "http.request":
+                break  # http.disconnect: reproduz e deixa o app tratar
+            recebido += len(mensagem.get("body", b"") or b"")
+            if recebido > self._max:
+                await self._responder(scope, send, 413, "corpo da requisição grande demais")
+                return
+            if not mensagem.get("more_body"):
+                break
+
+        fila = iter(mensagens)
+
+        async def receive_replay() -> Message:
             try:
-                if int(cl) > self._max:
-                    return JSONResponse(
-                        {"detail": "corpo da requisição grande demais"}, status_code=413
-                    )
-            except ValueError:
-                return JSONResponse({"detail": "content-length inválido"}, status_code=400)
-        return await call_next(request)
+                return next(fila)
+            except StopIteration:
+                return await receive()
+
+        await self.app(scope, receive_replay, send)
+
+    @staticmethod
+    async def _responder(scope: Scope, send: Send, status: int, detail: str) -> None:
+        resposta = JSONResponse({"detail": detail}, status_code=status, headers=_SECURITY_HEADERS)
+        await resposta(scope, _receive_vazio, send)
+
+
+async def _receive_vazio() -> Message:
+    return {"type": "http.request", "body": b"", "more_body": False}
 
 
 @asynccontextmanager
@@ -71,7 +127,17 @@ async def lifespan(app: FastAPI):
     logger.info("app_shutdown")
 
 
-app = FastAPI(title="Tese AI — Backend", version="0.1.0", lifespan=lifespan)
+# Superfície mínima em produção: /docs, /redoc e /openapi.json ficam desligados
+# (produto ainda sem login; a spec é reconstruível do código quando necessário).
+_em_producao = settings.app_env.strip().lower() == "production"
+app = FastAPI(
+    title="Tese AI — Backend",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None if _em_producao else "/docs",
+    redoc_url=None if _em_producao else "/redoc",
+    openapi_url=None if _em_producao else "/openapi.json",
+)
 
 # Rate limiting (slowapi): registra o limiter e o handler de 429.
 app.state.limiter = limiter
@@ -96,8 +162,14 @@ app.add_middleware(
 
 
 @app.get("/health")
+@limiter.exempt
 def health() -> dict[str, str]:
-    """Liveness check. Não toca no banco — sempre responde se a app está de pé."""
+    """Liveness check. Não toca no banco — sempre responde se a app está de pé.
+
+    Isento do rate-limit global: atrás de um edge-proxy o tráfego pode compartilhar
+    o IP visto pelo processo, e um pico de 429 não pode derrubar o healthcheck da
+    plataforma (que reiniciaria um serviço saudável).
+    """
     return {"status": "ok"}
 
 

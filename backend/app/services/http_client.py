@@ -126,7 +126,8 @@ def get_keyless(
             ultimo_erro = exc
             if tentativa < retries:
                 time.sleep(_BACKOFF_BASE * (2**tentativa))
-    assert ultimo_erro is not None  # só chega aqui após esgotar as tentativas
+    if ultimo_erro is None:  # inalcançável: o range garante ao menos uma tentativa
+        raise RuntimeError("nenhuma tentativa registrou erro ao esgotar as retentativas")
     raise ultimo_erro
 
 
