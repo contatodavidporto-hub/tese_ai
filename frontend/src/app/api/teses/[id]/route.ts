@@ -1,29 +1,43 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { backendUrl } from "@/lib/backend";
+
 // Proxy SERVER-SIDE para GET /teses/{id} do backend FastAPI.
 // No Next 16, `params` do Route Handler é uma Promise — precisa de await.
 // Doc instalada: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/dynamic-routes.md
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.API_URL ??
-  "http://localhost:8000";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const apiUrl = backendUrl();
+  if (!apiUrl) {
+    return NextResponse.json(
+      { detail: "Backend não configurado (defina API_URL no ambiente do servidor)." },
+      { status: 502 },
+    );
+  }
+
   const { id } = await params;
 
   if (!id) {
     return NextResponse.json({ detail: "id ausente." }, { status: 400 });
   }
 
+  // Repassa o IP real do cliente para o rate-limit por usuário no backend.
+  const xff = request.headers.get("x-forwarded-for");
+
   try {
     const upstream = await fetch(
-      `${API_URL}/teses/${encodeURIComponent(id)}`,
-      { cache: "no-store" },
+      `${apiUrl}/teses/${encodeURIComponent(id)}`,
+      {
+        headers: { ...(xff ? { "x-forwarded-for": xff } : {}) },
+        cache: "no-store",
+        // Sem timeout a função serverless ficaria pendurada até o maxDuration.
+        signal: AbortSignal.timeout(10_000),
+      },
     );
 
     const text = await upstream.text();

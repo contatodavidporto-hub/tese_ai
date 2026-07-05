@@ -11,13 +11,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Instala uv e depois as dependências do projeto (sem as de dev) a partir do
-# pyproject. `--system` instala no site-packages da imagem (ambiente isolado).
-COPY pyproject.toml README.md ./
+# Dependências PINADAS pelo uv.lock (build reprodutível: a imagem instala exatamente
+# as versões testadas, não a última que satisfaz os lower-bounds). Camada separada do
+# código: só invalida quando o lock muda. `--system` instala no site-packages da
+# imagem (ambiente isolado); `--no-emit-project` exporta só as deps.
+COPY pyproject.toml uv.lock README.md ./
+RUN pip install --no-cache-dir uv \
+    && uv export --frozen --no-dev --no-emit-project --format requirements-txt \
+        -o /tmp/requirements.lock \
+    && uv pip install --system --no-cache -r /tmp/requirements.lock \
+    && rm /tmp/requirements.lock
+
+# Código do app (mudar código não reinstala dependências). `--no-deps`: as deps já
+# estão pinadas acima; aqui entra só o pacote `app` em si.
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
-RUN pip install --no-cache-dir uv && uv pip install --system --no-cache .
+RUN uv pip install --system --no-cache --no-deps .
 
 # Usuário não-root (hardening).
 RUN useradd --create-home --uid 10001 appuser
@@ -26,6 +36,12 @@ USER appuser
 # Railway/Render/Fly injetam $PORT; default 8000 para rodar local.
 ENV PORT=8000
 EXPOSE 8000
+
+# Atrás do edge-proxy da plataforma, o IP real do cliente chega no X-Forwarded-For;
+# sem confiar nele o rate-limit "por IP" colapsa num bucket único global (DoS trivial
+# e 429 para todo mundo). O uvicorn lê esta env (proxy-headers já é default). Se a
+# imagem rodar exposta SEM proxy na frente, sobreponha com FORWARDED_ALLOW_IPS=127.0.0.1.
+ENV FORWARDED_ALLOW_IPS="*"
 
 # Healthcheck do container (a plataforma também aponta para /health).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

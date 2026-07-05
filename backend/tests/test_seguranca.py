@@ -167,6 +167,33 @@ def test_corpo_grande_demais_rejeitado_413() -> None:
     assert r.status_code == 413
 
 
+def test_corpo_chunked_sem_content_length_rejeitado_413() -> None:
+    """Regressão: corpo `Transfer-Encoding: chunked` (sem Content-Length) não pode
+    contornar o teto — o middleware conta os bytes do stream real."""
+
+    def corpo():
+        for _ in range(65):  # 65 KiB > teto default de 64 KiB, em chunks de 1 KiB
+            yield b"x" * 1024
+
+    r = client.post("/teses", content=corpo(), headers={"content-type": "application/json"})
+    assert r.status_code == 413
+
+
+def test_health_isento_do_rate_limit_global() -> None:
+    """/health não pode tomar 429: atrás de proxy o healthcheck da plataforma pode
+    dividir bucket com tráfego externo, e um 429 reiniciaria um serviço saudável."""
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        app.state.limiter.reset()
+    try:
+        codigos = {client.get("/health").status_code for _ in range(125)}
+    finally:
+        with contextlib.suppress(Exception):
+            app.state.limiter.reset()
+    assert codigos == {200}  # 125 > teto global de 120/min; isento => nunca 429
+
+
 def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
     """Defesa em profundidade: tese com status=error não vaza markdown/citações."""
     import json

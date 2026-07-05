@@ -1,17 +1,24 @@
 import Link from "next/link";
 
+import { backendUrl } from "@/lib/backend";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
 // ser aplicado em cada resposta. O fetch no-store abaixo já tornaria a rota dinâmica;
 // deixamos explícito para garantir o nonce.
 export const dynamic = "force-dynamic";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 type Health = { ok: boolean; detail: string };
 
 async function getHealth(): Promise<Health> {
+  // Server component: usa a mesma resolução server-only dos proxies (API_URL),
+  // sem depender de NEXT_PUBLIC_* nem vazar a URL do backend para o cliente.
+  const apiUrl = backendUrl();
+  if (!apiUrl) return { ok: false, detail: "não configurado" };
   try {
-    const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
+    const res = await fetch(`${apiUrl}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
     if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
     const data = (await res.json()) as { status?: string };
     return { ok: data.status === "ok", detail: data.status ?? "sem status" };
@@ -52,8 +59,6 @@ export default async function Home() {
           backend: {label}
         </span>
       </div>
-
-      <p className="font-mono text-xs text-neutral-400">{API_URL}/health</p>
     </main>
   );
 }

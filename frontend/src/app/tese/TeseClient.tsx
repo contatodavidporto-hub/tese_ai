@@ -247,8 +247,9 @@ function AvisoBanner({ aviso }: { aviso: string }) {
 }
 
 function FonteLink({ fonte }: { fonte: Fonte }) {
-  // Sem URL (ou esquema neutralizado no backend) -> texto, não link quebrado.
-  if (!fonte.url) {
+  // Sem URL, ou com esquema fora de http(s) (javascript:, data:...) -> texto, não
+  // link quebrado. O backend já valida; esta é a segunda linha de defesa no render.
+  if (!fonte.url || !/^https?:\/\//i.test(fonte.url)) {
     return (
       <span className="font-medium text-neutral-700 dark:text-neutral-300">
         {fonte.descricao}

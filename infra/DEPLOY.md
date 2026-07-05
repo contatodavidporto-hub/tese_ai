@@ -21,11 +21,19 @@ Artefatos já prontos neste repo: `backend/Dockerfile`, `backend/.dockerignore`,
    - `ANTHROPIC_API_KEY` = chave da Anthropic (produto).
    - `SUPABASE_URL` = `https://rjpqaaymwhcwxtinppvc.supabase.co`.
    - `SUPABASE_SERVICE_ROLE_KEY` = service_role (**só no backend**, nunca no front).
-   - `CORS_ORIGINS` = domínio(s) de produção do Vercel (ex.: `https://tese-ai.vercel.app`).
+   - `CORS_ORIGINS` = domínio(s) de produção do Vercel, **separados por vírgula, sem espaços**
+     (ex.: `https://tese-ai.vercel.app` ou `https://a.app,https://b.app`).
    - `APP_ENV` = `production` · `APP_BASE_URL` = URL do frontend de produção.
    - Opcionais: `FRED_API_KEY`, `EIA_API_KEY` (sem eles, D3/D4 keyless seguem; premium abstém), `LANGFUSE_*`.
-4. **Migrações:** já aplicadas (Supabase em `0003`). Se um dia precisar: one-off `uv run alembic upgrade head`.
-5. **Verificar:** `GET https://<backend-railway>/health` → `{"status":"ok"}` [200] com headers de segurança (nosniff, HSTS, no-store).
+   - `FORWARDED_ALLOW_IPS` **não precisa ser setada**: a imagem já embute `*` (atrás do
+     edge-proxy da plataforma o IP real vem no `X-Forwarded-For`; sem isso o rate-limit
+     por IP colapsaria num bucket global). Só sobreponha (`127.0.0.1`) se algum dia a
+     imagem rodar exposta sem proxy na frente.
+4. **Migrações:** já aplicadas (Supabase em `0003`). Se um dia precisar: one-off **`alembic upgrade head`**
+   direto (o CLI já está no PATH da imagem; **não** use `uv run` dentro do container — criaria um venv).
+5. **Verificar:** `GET https://<backend-railway>/health` → `{"status":"ok"}` [200] com headers de segurança
+   (nosniff, HSTS, no-store). Em produção `/docs`, `/redoc` e `/openapi.json` ficam **desligados**
+   (`APP_ENV=production`) — 404 neles é o esperado.
 
 > Os guardas de capacidade (rate-limit, cap de concorrência, teto de custo de LLM) e os
 > headers já estão no código e sobem ligados. O Dockerfile usa **1 worker** para os
@@ -34,10 +42,14 @@ Artefatos já prontos neste repo: `backend/Dockerfile`, `backend/.dockerignore`,
 ## Passo 2 — Frontend (Vercel)
 
 1. **Vercel → Add New Project → Import** `tese_ai` · **Root Directory = `frontend`** · framework **Next.js** (autodetect).
-2. **Environment Variables (Production):**
+2. **Environment Variables (escopos Preview E Production, mesmo valor):**
    - `API_URL` = URL pública do backend do Passo 1 (ex.: `https://tese-ai-backend.up.railway.app`).
-     O proxy same-origin (`src/app/api/teses/route.ts`) lê `NEXT_PUBLIC_API_URL ?? API_URL`; use `API_URL`
-     (server-only) para **não** inlinar a URL no bundle do cliente. O navegador só fala same-origin (CSP `connect-src 'self'`).
+     A resolução server-only (`src/lib/backend.ts`, usada pelos proxies e pela home) lê `API_URL ?? NEXT_PUBLIC_API_URL`;
+     use `API_URL` (server-only) para **não** inlinar a URL no bundle do cliente. O navegador só fala same-origin
+     (CSP `connect-src 'self'`).
+   - ⚠️ Marque a env para **Preview e Production**: a fumaça roda num deploy de Preview (sem a env no
+     escopo Preview, o proxy responde 502 "Backend não configurado"). **Promote não rebuilda** nem re-injeta
+     env — o deployment promovido carrega a env capturada quando foi criado; mudou env → faça novo deploy.
 3. **Deploy de Preview primeiro** (não-produção). Fumaça no Preview:
    - abre a página; `GET /health` do backend via app OK;
    - gera **1 tese de ticker já ingerido** (ex.: PETR4 → cache hit, custo US$ 0) → citações clicáveis, fontes, lacunas;
