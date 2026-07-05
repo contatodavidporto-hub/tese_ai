@@ -43,7 +43,8 @@ EXPOSE 8000
 # derivada em app/core/ratelimit.py do valor MAIS À DIREITA do X-Forwarded-For
 # (o único que o cliente não controla), imune a spoof por rotação de header —
 # o uvicorn com "*" usaria o mais à esquerda, forjável em acesso direto ao host.
-# Se a imagem rodar exposta SEM proxy, sobreponha com FORWARDED_ALLOW_IPS=127.0.0.1.
+# NÃO rode esta imagem exposta SEM proxy na frente: nesse cenário o XFF inteiro é
+# do cliente e a chave por IP degrada (esta env não protege a chave — só scheme/logs).
 ENV FORWARDED_ALLOW_IPS="*"
 
 # Healthcheck do container (a plataforma também aponta para /health).

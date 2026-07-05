@@ -29,10 +29,10 @@ jobs:
         run: uv python install 3.12
 
       # Instala EXATAMENTE o conjunto pinado do uv.lock (o mesmo que a imagem de
-      # produção instala via `uv export --frozen`) + extra dev. `--frozen` também
-      # falha se o lock estiver desatualizado em relação ao pyproject.
+      # produção instala via `uv export --frozen`) + extra dev. `--locked` falha
+      # se o lock estiver desatualizado em relação ao pyproject (gate anti-drift).
       - name: Install dependencies (pinned from uv.lock)
-        run: uv sync --frozen --extra dev
+        run: uv sync --locked --extra dev
 
       - name: Ruff (lint)
         run: .venv/bin/ruff check .

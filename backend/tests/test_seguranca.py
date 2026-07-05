@@ -205,6 +205,22 @@ def test_chave_rate_limit_usa_xff_mais_a_direita() -> None:
     assert _chave_por_ip(_req({"x-forwarded-for": "203.0.113.7"})) == "203.0.113.7"
     assert _chave_por_ip(_req({})) == "10.0.0.9"  # sem proxy: IP do socket
 
+    # Header em MÚLTIPLAS LINHAS (edge que não coalesce): a última linha manda.
+    scope_multilinha = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "query_string": b"",
+        "scheme": "http",
+        "server": ("testserver", 80),
+        "client": ("10.0.0.9", 1234),
+        "headers": [
+            (b"x-forwarded-for", b"atacante-linha-1"),
+            (b"x-forwarded-for", b"9.9.9.9"),
+        ],
+    }
+    assert _chave_por_ip(StarletteRequest(scope_multilinha)) == "9.9.9.9"
+
 
 def test_health_isento_do_rate_limit_global() -> None:
     """/health não pode tomar 429: atrás de proxy o healthcheck da plataforma pode
@@ -274,10 +290,10 @@ def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Prova que o decorator de rate-limit está PLUGADO em post_tese (10/h por IP).
+    """Prova que o decorator de rate-limit está PLUGADO em post_tese (30/h por chave).
 
     Sem DB/LLM reais: criar_tese e _run_generation são stubs; get_session é
-    sobreposto. O 202 no 1º request confirma partida limpa; o 429 antes do 12º
+    sobreposto. O 202 no 1º request confirma partida limpa; o 429 antes do 32º
     prova o teto ativo (regressão do achado 'rate-limit definido mas não aplicado').
     """
     import contextlib
@@ -300,10 +316,10 @@ def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> N
     with contextlib.suppress(Exception):
         app.state.limiter.reset()
     try:
-        codigos = [client.post("/teses", json={"ticker": "PETR4"}).status_code for _ in range(12)]
+        codigos = [client.post("/teses", json={"ticker": "PETR4"}).status_code for _ in range(32)]
     finally:
         app.dependency_overrides.pop(get_session, None)
         with contextlib.suppress(Exception):
             app.state.limiter.reset()
     assert codigos[0] == 202  # partida limpa
-    assert 429 in codigos  # o teto de 10/h dispara antes do 12º
+    assert 429 in codigos  # o teto de 30/h dispara antes do 32º

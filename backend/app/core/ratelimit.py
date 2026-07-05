@@ -26,9 +26,15 @@ def _chave_por_ip(request: Request) -> str:
     fala direto com o host forjar a própria chave e evadir o limite rotacionando
     o header. Trocamos granularidade (clientes atrás do mesmo egress dividem
     bucket) por chave à prova de spoof; com login (roadmap), a chave passa a ser
-    o usuário. Sem o header (dev local, testes), cai no IP do socket.
+    o usuário. Sem o header (dev local, testes), cai no IP visto pelo servidor.
+
+    ATENÇÃO: isto pressupõe um edge-proxy na frente (que escreve o último valor).
+    Exposto DIRETO na internet, o XFF é 100% controlado pelo cliente — não rode
+    a imagem sem proxy (o FORWARDED_ALLOW_IPS só cobre scheme/logs, não a chave).
     """
-    xff = request.headers.get("x-forwarded-for", "")
+    # getlist+join: linhas duplicadas do header não escapam da regra do "mais à
+    # direita" (edges normais coalescem, mas não dependemos disso).
+    xff = ", ".join(request.headers.getlist("x-forwarded-for"))
     if xff:
         ultimo = xff.rsplit(",", 1)[-1].strip()
         if ultimo:

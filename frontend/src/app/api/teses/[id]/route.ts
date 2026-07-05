@@ -26,7 +26,8 @@ export async function GET(
     return NextResponse.json({ detail: "id ausente." }, { status: 400 });
   }
 
-  // Repassa o IP real do cliente para o rate-limit por usuário no backend.
+  // Repassa o x-forwarded-for para log/auditoria no backend (a chave do
+  // rate-limit usa o hop confiável — ver app/core/ratelimit.py).
   const xff = request.headers.get("x-forwarded-for");
 
   try {

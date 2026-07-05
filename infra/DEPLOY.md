@@ -29,8 +29,11 @@ Artefatos já prontos neste repo: `backend/Dockerfile`, `backend/.dockerignore`,
      corretos atrás do edge-proxy). A **chave do rate-limit** não confia no que o cliente
      manda: usa o valor **mais à direita** do `X-Forwarded-For` (escrito pelo edge, à prova
      de spoof por rotação de header — ver `app/core/ratelimit.py`). Clientes atrás do mesmo
-     egress (ex.: usuários via proxy do Vercel) dividem bucket até existir login. Só
-     sobreponha (`127.0.0.1`) se algum dia a imagem rodar exposta sem proxy na frente.
+     egress (ex.: usuários via proxy do Vercel) dividem bucket até existir login — por isso
+     o default de criação de tese é `30/hour` por bucket (ajuste via `RATE_LIMIT_CRIAR_TESE`
+     se houver 429 legítimo; o custo já é contido por concorrência 2 + teto US$/dia).
+     ⚠️ **Nunca rode a imagem exposta sem proxy na frente**: sem edge escrevendo o
+     X-Forwarded-For, a chave por IP degrada (a env cobre só scheme/logs).
 4. **Migrações:** já aplicadas (Supabase em `0003`). Se um dia precisar: one-off **`alembic upgrade head`**
    direto (o CLI já está no PATH da imagem; **não** use `uv run` dentro do container — criaria um venv).
 5. **Verificar:** `GET https://<backend-railway>/health` → `{"status":"ok"}` [200] com headers de segurança
@@ -69,8 +72,11 @@ Com o domínio de produção do Vercel definido, garanta `CORS_ORIGINS` no backe
 - [ ] Headers de segurança na resposta de produção do front (HSTS/CSP/nosniff/DENY).
 - [ ] **Rate-limit à prova de spoof:** 2+ requisições diretas ao backend com `X-Forwarded-For`
       forjados DIFERENTES → os headers `X-RateLimit-Remaining` devem **decrescer juntos**
-      (mesmo bucket; a chave vem do valor mais à direita, que o edge escreve). Se cada
-      requisição ganhar bucket próprio, investigar antes de liberar tráfego.
+      (mesmo bucket; a chave vem do valor mais à direita, que o edge escreve). Incluir 1
+      requisição com o XFF em **duas linhas de header separadas** (mesma expectativa). Se
+      cada requisição ganhar bucket próprio, investigar antes de liberar tráfego.
+- [ ] **Monitorar 429 em `POST /teses` nas primeiras horas**: usuários legítimos dividem
+      bucket por egress até existir login — colidiu, suba `RATE_LIMIT_CRIAR_TESE`.
 
 ## Rollback
 - **Vercel:** Deployments → deploy anterior → **Instant Rollback**.

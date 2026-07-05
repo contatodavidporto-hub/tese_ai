@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Repassa o IP real do cliente (a Vercel injeta x-forwarded-for): o backend
-  // aplica o rate-limit POR USUÁRIO em vez de agrupar todos no IP de egress.
+  // Repassa o x-forwarded-for (a Vercel injeta o IP real do cliente) para fins
+  // de log/auditoria no backend. A CHAVE do rate-limit usa o hop confiável (IP
+  // de egress deste proxy) até existir login — ver app/core/ratelimit.py.
   const xff = request.headers.get("x-forwarded-for");
 
   try {

@@ -60,8 +60,11 @@ class Settings(BaseSettings):
 
     # --- Capacidade / anti-abuso (Fase 1 de blindagem) --------------------------
     # Rate limit da criação de tese (endpoint que dispara o LLM caro). Formato
-    # slowapi ("N/period"). Vazio desliga (ex.: testes). Chave por IP.
-    rate_limit_criar_tese: str = "10/hour"
+    # slowapi ("N/period"). Vazio desliga (ex.: testes). Chave por IP confiável
+    # (ver ratelimit._chave_por_ip): atrás do proxy do Vercel, usuários dividem
+    # bucket por egress até existir login — 30/h absorve isso; o custo real é
+    # contido pelo cap de concorrência + teto de custo diário abaixo.
+    rate_limit_criar_tese: str = "30/hour"
     rate_limit_global: str = "120/minute"
     # Cap de gerações de tese concorrentes no processo (protege pool de conexões e
     # custo). BackgroundTask além do teto abstém com "sistema ocupado".
