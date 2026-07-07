@@ -332,6 +332,11 @@ def _synthesize(
                 u = final.usage
                 upd = getattr(lf, "update_current_generation", None)
                 if upd is not None:
+                    # Tokens completos (inclui cache write) + custo estimado em USD:
+                    # o Langfuse mostra custo/tokens POR GERAÇÃO sem depender do
+                    # modelo constar no catálogo de preços deles.
+                    custo = _estimar_custo(model, u)
+                    extras = {"cost_details": {"total": custo}} if custo is not None else {}
                     upd(
                         model=model,
                         usage_details={
@@ -339,7 +344,12 @@ def _synthesize(
                             "output": getattr(u, "output_tokens", 0) or 0,
                             "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0)
                             or 0,
+                            "cache_creation_input_tokens": getattr(
+                                u, "cache_creation_input_tokens", 0
+                            )
+                            or 0,
                         },
+                        **extras,
                     )
             except Exception as exc:  # pragma: no cover - tracing best-effort
                 logger.debug("langfuse_usage_falhou", error_type=type(exc).__name__)
