@@ -45,7 +45,7 @@ from app.models.models import (
     TeseVersao,
 )
 from app.observability.langfuse_client import get_langfuse
-from app.services import correlacao, rotulos
+from app.services import correlacao, rotulos, sec
 from app.services import dados as dados_svc
 from app.services.avaliacao import avaliar_tese
 from app.services.demo_user import get_or_create_demo_user
@@ -172,16 +172,28 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
 
     # D2 — fundamentos de pares globais do setor (SEC EDGAR), com padrão contábil
     # rotulado. É comparação interpretativa (pares = seleção), sempre citada à SEC.
-    pares_fund = session.execute(
+    # Defesa em profundidade: além do corte na ingestão, linhas velhas (ou sem data
+    # verificável) que sobraram no banco não entram na tese; duplicatas colapsam
+    # ficando a mais recente por (par, conceito).
+    stmt_pares = (
         select(ParFundamento, Par)
         .join(Par, Par.id == ParFundamento.par_id)
         .where(Par.empresa_id == empresa.id)
-        .order_by(Par.ticker_ext, ParFundamento.conceito)
-    ).all()
+        .order_by(Par.ticker_ext, ParFundamento.conceito, ParFundamento.dt_refer.desc())
+    )
+    corte_pares = sec.data_corte_pares()
+    if corte_pares is not None:
+        stmt_pares = stmt_pares.where(ParFundamento.dt_refer >= corte_pares)
+    pares_fund = session.execute(stmt_pares).all()
+    pares_vistos: set[tuple[str | None, str]] = set()
     for pf, par in pares_fund:
         fonte = session.get(Fonte, pf.fonte_id) if pf.fonte_id else None
         if fonte is None or pf.valor is None:
             continue
+        chave_par = (par.ticker_ext, pf.conceito)
+        if chave_par in pares_vistos:
+            continue
+        pares_vistos.add(chave_par)
         texto = (
             f"Par global do setor — {par.nome_ext} ({par.ticker_ext}): "
             f"{pf.conceito} = {float(pf.valor):,.0f} {pf.moeda or ''} "

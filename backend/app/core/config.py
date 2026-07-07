@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
     max_request_bytes: int = 64 * 1024
 
+    # Idade máxima (meses) de um fundamento de par global (SEC) para entrar na
+    # tese como dado "atual". Mais velho que isso => abstém (vira lacuna; nunca
+    # exibe período velho como atual — caso TTE/2017). 0 desliga o corte.
+    pares_max_idade_meses: int = 24
+
     # --- Cache de tese pública + reaper (Fase 2) --------------------------------
     # Janela em que uma tese `ready` do mesmo ticker é REAPROVEITADA em vez de
     # regenerada via LLM (custo + latência). 0 desliga o cache (sempre regenera).

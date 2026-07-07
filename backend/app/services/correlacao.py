@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import Elo as EloModel
 from app.models.models import Empresa, Fundamento, MacroSerie, Par, ParFundamento
+from app.services import sec
 
 MIN_N = 24  # mínimo de observações para um co-movimento não ser espúrio
 
@@ -279,15 +280,16 @@ def coletar_contexto(session: Session, empresa: Empresa) -> dict:
         .first()
     )
 
-    par_fund = (
-        session.execute(
-            select(ParFundamento)
-            .join(Par, Par.id == ParFundamento.par_id)
-            .where(Par.empresa_id == empresa.id, ParFundamento.fonte_id.is_not(None))
-        )
-        .scalars()
-        .first()
+    # Mesmo corte de idade da ingestão/tese: par com dado velho não ancora elo D2.
+    stmt_par = (
+        select(ParFundamento)
+        .join(Par, Par.id == ParFundamento.par_id)
+        .where(Par.empresa_id == empresa.id, ParFundamento.fonte_id.is_not(None))
     )
+    corte_pares = sec.data_corte_pares()
+    if corte_pares is not None:
+        stmt_par = stmt_par.where(ParFundamento.dt_refer >= corte_pares)
+    par_fund = session.execute(stmt_par).scalars().first()
 
     return {
         "setor": empresa.setor,
