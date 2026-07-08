@@ -90,7 +90,7 @@ export default function Home() {
                 Gerar tese
               </Link>
               <Link
-                href={`/tese?ticker=${exemplos[0]?.ticker ?? "VALE3"}`}
+                href={`/tese?ticker=${encodeURIComponent(exemplos[0]?.ticker ?? "VALE3")}`}
                 className="rounded-lg border border-borda-campo px-6 py-3 text-sm font-medium text-tinta transition-colors hover:border-selo-texto"
               >
                 Ver exemplo: {exemplos[0]?.ticker ?? "VALE3"}

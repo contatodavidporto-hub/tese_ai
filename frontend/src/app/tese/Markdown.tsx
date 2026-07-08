@@ -184,9 +184,11 @@ export function separarSecoes(markdown: string): DocumentoTese {
       continue;
     }
     if (bloco.kind === "h2") {
-      let id = slugify(bloco.text);
+      // Prefixo "secao-": um h2 do LLM não pode colidir com âncoras fixas da
+      // página (#citacoes, #citacao-N, #registro-de-fontes, #conteudo).
+      let id = `secao-${slugify(bloco.text)}`;
       let n = 2;
-      while (idsUsados.has(id)) id = `${slugify(bloco.text)}-${n++}`;
+      while (idsUsados.has(id)) id = `secao-${slugify(bloco.text)}-${n++}`;
       idsUsados.add(id);
       secoes.push({ id, titulo: bloco.text, blocos: [] });
       continue;
@@ -203,7 +205,14 @@ export function separarSecoes(markdown: string): DocumentoTese {
 
 // Só URLs http(s) viram link (javascript:, data:... -> texto). O backend já
 // valida; esta é a segunda linha de defesa no render.
-const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+// Quantificadores LIMITADOS ({1,400}/{1,2000}): entrada hostil do LLM com
+// milhares de "[" sem fechamento não pode degenerar em varredura quadrática
+// (classe ReDoS — achado M1 do auditor-mor). Flag `i`: HTTPS:// também vale.
+const LINK_RE = /\[([^\]\n]{1,400})\]\((https?:\/\/[^\s)]{1,2000})\)/gi;
+
+// Teto de tamanho por trecho antes de qualquer regex: acima disso, devolve
+// texto puro (um bloco real de tese tem ~2 KB; 20 KB já é entrada hostil).
+const LIMITE_TEXTO_INLINE = 20_000;
 
 // Com `hostsOk` presente (render de tese), um link do markdown só vira <a> se o
 // host está entre as FONTES da tese — um LLM comprometido não consegue apontar
@@ -244,6 +253,7 @@ export function renderInline(
   text: string,
   hostsOk?: ReadonlySet<string>,
 ): ReactNode {
+  if (text.length > LIMITE_TEXTO_INLINE) return text; // hostil: sem regex
   const nodes: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -287,18 +297,23 @@ export function renderInline(
 
 export type CitacaoRef = { indice: number; citacao: Citacao; tokens: string[] };
 
-const RE_MONETARIO = /R\$\s*-?\d{1,3}(?:\.\d{3})*(?:,\d+)?/g;
-const RE_DECIMAL = /-?\d{1,3}(?:\.\d{3})*,\d+/g;
+// Grupos de milhar LIMITADOS ({0,6} cobre até casa de quatrilhão): repetição
+// aberta degenerava em backtracking quadrático sob entrada hostil (M1).
+const RE_MONETARIO = /R\$\s{0,4}-?\d{1,3}(?:\.\d{3}){0,6}(?:,\d{1,10})?/g;
+const RE_DECIMAL = /-?\d{1,3}(?:\.\d{3}){0,6},\d{1,10}/g;
 
 function tokensFortes(texto: string): string[] {
+  // texto_citado real tem ~100-200 chars; o corte é só anti-abuso.
+  const alvo = texto.length > 4_000 ? texto.slice(0, 4_000) : texto;
   const toks = new Set<string>();
-  for (const m of texto.match(RE_MONETARIO) ?? []) {
+  for (const m of alvo.match(RE_MONETARIO) ?? []) {
     toks.add(m.replace(/\s+/g, ""));
   }
-  for (const m of texto.match(RE_DECIMAL) ?? []) {
+  for (const m of alvo.match(RE_DECIMAL) ?? []) {
     const t = m.replace(/\s+/g, "");
-    // >= 3 dígitos evita ancorar em números curtos/genéricos ("1,5")
-    if ((t.match(/\d/g) ?? []).length >= 3) toks.add(t);
+    // >= 4 dígitos: um decimal curto ("3,25") coincide fácil com número de
+    // OUTRO significado no corpo — marcador com fonte errada é pior que nenhum.
+    if ((t.match(/\d/g) ?? []).length >= 4) toks.add(t);
   }
   return [...toks];
 }
