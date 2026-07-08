@@ -247,8 +247,11 @@ def test_scheduler_loop_sobrevive_a_falha_e_timeout_e_cancela(monkeypatch) -> No
 
     async def _cenario() -> bool:
         task = asyncio.create_task(sch.scheduler_loop(_settings()))
+        # Espera REAL limitada (até ~10s): o job roda num thread do pool — yields
+        # cooperativos de 0s não davam tempo de a thread ser agendada pelo SO
+        # (era a causa do flake M1 da auditoria). Tipicamente resolve em <0,5s.
         for _ in range(200):
-            await real_sleep(0)
+            await real_sleep(0.05)
             if len(chamadas) >= 3:
                 break
         task.cancel()

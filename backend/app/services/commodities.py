@@ -16,6 +16,7 @@ import csv
 import datetime as dt
 import io
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -70,7 +71,7 @@ def ingest_brent_historico(session: Session, meses: int = 36) -> int:
     try:
         resp = http_client.get_keyless(url, timeout=30.0)
         resp.raise_for_status()
-    except Exception as exc:
+    except httpx.HTTPError as exc:  # rede/HTTP; bug de código deve estourar (B3)
         logger.warning("brent_historico_falhou", erro=type(exc).__name__)
         return 0
     mensais = mensalizar(parse_fredgraph_csv(resp.content))[-meses:]

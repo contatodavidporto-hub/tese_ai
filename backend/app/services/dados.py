@@ -80,6 +80,44 @@ _ESCALAS = {
     "MILHÃO": 1_000_000,
 }
 
+# Validação SEMÂNTICA pelo DS_CONTA (o comentário acima sempre exigiu; agora é
+# código): bancos/seguradoras reusam os MESMOS códigos com outro significado
+# (ex.: ITUB 3.05 = "Resultado antes dos Tributos" ≠ EBIT; 3.06 = "IR e CS" ≠
+# resultado financeiro; BBDC 2.02.01 = "Depósitos" ≠ empréstimos). Sem esta
+# checagem, derivadas e elos rotulariam número errado COM fonte — o pior
+# resultado possível. Código com descrição divergente => linha descartada
+# (abstenção); padrões comparados sem acento/caixa.
+_DS_ESPERADO: dict[str, tuple[str, ...]] = {
+    "3.01": ("receita",),
+    "3.05": ("antes do resultado financeiro",),
+    "3.06": ("resultado financeiro",),
+    "3.06.01": ("receitas financeiras",),
+    "3.06.02": ("despesas financeiras",),
+    "3.11": ("lucro", "prejuizo"),
+    "2.01.04": ("emprestimo", "financiamento"),
+    "2.02.01": ("emprestimo", "financiamento"),
+    "2.03": ("patrimonio",),
+    "1.01.01": ("caixa",),
+    "1.01.02": ("aplicac",),
+}
+
+
+def _normalizar_ds(texto: str) -> str:
+    """minúsculas sem acento (comparação estável entre planos de contas)."""
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFD", (texto or "").lower())
+    return "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
+
+
+def _ds_conta_valida(cd_conta: str, ds_conta: str) -> bool:
+    padroes = _DS_ESPERADO.get(cd_conta)
+    if not padroes:
+        return True
+    ds = _normalizar_ds(ds_conta)
+    return any(p in ds for p in padroes)
+
+
 CVM_DFP_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_{ano}.zip"
 BCB_SGS_URL = (
     "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
@@ -329,6 +367,17 @@ def _extrair_contas(
                 cd_conta = linha.get("CD_CONTA", "").strip()
                 if cd_conta not in contas:
                     continue
+                ds_conta = linha.get("DS_CONTA", "").strip()
+                if not _ds_conta_valida(cd_conta, ds_conta):
+                    # Mesmo código, OUTRO significado (plano de contas de banco/
+                    # seguradora) -> abstém; nunca rótulo errado com fonte.
+                    logger.info(
+                        "conta_semantica_divergente_abstida",
+                        cd_conta=cd_conta,
+                        ds_conta=ds_conta[:80],
+                        cd_cvm=cd_cvm,
+                    )
+                    continue
                 valor = _aplicar_escala(
                     _parse_valor(linha.get("VL_CONTA", "")),
                     linha.get("ESCALA_MOEDA", ""),
@@ -341,7 +390,7 @@ def _extrair_contas(
                 achados.append(
                     {
                         "cd_conta": cd_conta,
-                        "ds_conta": linha.get("DS_CONTA", "").strip(),
+                        "ds_conta": ds_conta,
                         "valor": valor,
                         "dt_refer": dt_refer,
                         "ano": ano,
@@ -352,15 +401,45 @@ def _extrair_contas(
 
 
 # D&A não tem CD_CONTA padronizado entre empresas (é sub-linha dos ajustes da DFC,
-# ex.: 6.01.01.02 na Petrobras). Localizamos por DESCRIÇÃO dentro de 6.01.01.*;
-# se houver mais de uma linha candidata, ABSTÉM (ambíguo ≠ estimável).
+# ex.: 6.01.01.02 na Petrobras). Localizamos por DESCRIÇÃO dentro de 6.01.01.*.
+# O padrão cobre TODAS as formas do add-back (achado M2 da auditoria da fase 3:
+# só "deprecia" pegaria D&A PARCIAL — número subestimado COM fonte — em empresa
+# que fragmenta depreciação/amortização/exaustão em linhas separadas).
 _DA_PREFIXO = "6.01.01."
-_DA_PADRAO = "deprecia"
+_DA_PADROES = ("deprecia", "amortiz", "exaust", "deple")
+
+
+def _consolidar_da(linhas: list[dict]) -> dict | None:
+    """Consolida as linhas de D&A de UM exercício num único achado.
+
+    - 1 linha -> ela mesma (caso comum: "Depreciação, depleção e amortização").
+    - 2+ linhas IRMÃS (sem relação ancestral e mesma dt_refer) -> SOMA, com
+      rótulo composto — todas são add-backs não-caixa do mesmo bloco.
+    - Linha ancestral de outra (subtotal + componente => dupla contagem) ou
+      datas divergentes -> None (ambíguo: abstém, nunca estima).
+    """
+    if not linhas:
+        return None
+    if len(linhas) == 1:
+        return linhas[0]
+    for a in linhas:
+        for b in linhas:
+            if a is not b and b["cd_conta"].startswith(a["cd_conta"] + "."):
+                return None  # subtotal + componente: somar dobraria a conta
+    if len({linha["dt_refer"] for linha in linhas}) != 1:
+        return None
+    ordenadas = sorted(linhas, key=lambda x: x["cd_conta"])
+    base = dict(ordenadas[0])
+    base["cd_conta"] = "+".join(x["cd_conta"] for x in ordenadas)
+    base["ds_conta"] = " + ".join(x["ds_conta"] for x in ordenadas)
+    base["valor"] = float(sum(x["valor"] for x in ordenadas))
+    return base
 
 
 def _extrair_da_dfc(conteudo_zip: bytes, ano: int, cd_cvm: int, membro: str) -> list[dict]:
-    """Extrai a linha de Depreciação/Amortização dos ajustes da DFC (ÚLTIMO e
-    PENÚLTIMO). Sem match ou com match ambíguo -> [] (abstenção)."""
+    """Extrai a(s) linha(s) de Depreciação/Amortização/Exaustão dos ajustes da
+    DFC (ÚLTIMO e PENÚLTIMO) e consolida por exercício. Sem match ou com match
+    ambíguo (hierarquia/datas) -> abstém."""
     with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
         if membro not in z.namelist():
             return []
@@ -385,7 +464,7 @@ def _extrair_da_dfc(conteudo_zip: bytes, ano: int, cd_cvm: int, membro: str) -> 
                 ds_conta = linha.get("DS_CONTA", "").strip()
                 if not cd_conta.startswith(_DA_PREFIXO):
                     continue
-                if _DA_PADRAO not in ds_conta.lower():
+                if not any(p in ds_conta.lower() for p in _DA_PADROES):
                     continue
                 valor = _aplicar_escala(
                     _parse_valor(linha.get("VL_CONTA", "")),
@@ -409,10 +488,11 @@ def _extrair_da_dfc(conteudo_zip: bytes, ano: int, cd_cvm: int, membro: str) -> 
                 )
     achados: list[dict] = []
     for ordem, linhas in candidatos.items():
-        if len(linhas) != 1:  # 2+ linhas de depreciação: ambíguo -> abstém
+        consolidada = _consolidar_da(linhas)
+        if consolidada is None:
             logger.info("da_dfc_ambigua_abstida", ordem=ordem, n=len(linhas), cd_cvm=cd_cvm)
             continue
-        achados.append(linhas[0])
+        achados.append(consolidada)
     return achados
 
 
