@@ -2,8 +2,10 @@
 
 `main.py` registra este `limiter` no app e adiciona o middleware; os routers usam
 `limiter.limit(...)` como decorator. Chave por IP de origem (ver `_chave_por_ip`).
-Sem estado externo (memória do processo) — suficiente para a defesa de v1; Redis
-é roadmap para rate-limit distribuído multi-worker.
+Storage BEHIND-CONFIG: com `REDIS_URL` o bucket vive no Redis (compartilhado entre
+instâncias/workers — escalar passa a valer); sem, memória do processo (defesa de
+v1). Redis indisponível em runtime => fallback para memória (nunca derruba request
+por causa do limiter).
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 
 _settings = get_settings()
 
@@ -42,8 +44,23 @@ def _chave_por_ip(request: Request) -> str:
     return get_remote_address(request)
 
 
-limiter = Limiter(
-    key_func=_chave_por_ip,
-    default_limits=[_settings.rate_limit_global] if _settings.rate_limit_global else [],
-    headers_enabled=True,
-)
+def criar_limiter(settings: Settings) -> Limiter:
+    """Monta o Limiter conforme a config (testável sem tocar o singleton).
+
+    Com `redis_url`: storage Redis + fallback em memória habilitado (Redis fora
+    do ar degrada gracioso — o limite volta a ser por processo, mas a API segue
+    servindo). Sem: memória do processo, comportamento de sempre.
+    """
+    extras: dict = {}
+    if settings.redis_url:
+        extras["storage_uri"] = settings.redis_url
+        extras["in_memory_fallback_enabled"] = True
+    return Limiter(
+        key_func=_chave_por_ip,
+        default_limits=[settings.rate_limit_global] if settings.rate_limit_global else [],
+        headers_enabled=True,
+        **extras,
+    )
+
+
+limiter = criar_limiter(_settings)

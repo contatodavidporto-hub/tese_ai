@@ -45,7 +45,7 @@ from app.models.models import (
     TeseVersao,
 )
 from app.observability.langfuse_client import get_langfuse
-from app.services import correlacao, rotulos
+from app.services import correlacao, rotulos, sec
 from app.services import dados as dados_svc
 from app.services.avaliacao import avaliar_tese
 from app.services.demo_user import get_or_create_demo_user
@@ -172,16 +172,28 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
 
     # D2 — fundamentos de pares globais do setor (SEC EDGAR), com padrão contábil
     # rotulado. É comparação interpretativa (pares = seleção), sempre citada à SEC.
-    pares_fund = session.execute(
+    # Defesa em profundidade: além do corte na ingestão, linhas velhas (ou sem data
+    # verificável) que sobraram no banco não entram na tese; duplicatas colapsam
+    # ficando a mais recente por (par, conceito).
+    stmt_pares = (
         select(ParFundamento, Par)
         .join(Par, Par.id == ParFundamento.par_id)
         .where(Par.empresa_id == empresa.id)
-        .order_by(Par.ticker_ext, ParFundamento.conceito)
-    ).all()
+        .order_by(Par.ticker_ext, ParFundamento.conceito, ParFundamento.dt_refer.desc())
+    )
+    corte_pares = sec.data_corte_pares()
+    if corte_pares is not None:
+        stmt_pares = stmt_pares.where(ParFundamento.dt_refer >= corte_pares)
+    pares_fund = session.execute(stmt_pares).all()
+    pares_vistos: set[tuple[str | None, str]] = set()
     for pf, par in pares_fund:
         fonte = session.get(Fonte, pf.fonte_id) if pf.fonte_id else None
         if fonte is None or pf.valor is None:
             continue
+        chave_par = (par.ticker_ext, pf.conceito)
+        if chave_par in pares_vistos:
+            continue
+        pares_vistos.add(chave_par)
         texto = (
             f"Par global do setor — {par.nome_ext} ({par.ticker_ext}): "
             f"{pf.conceito} = {float(pf.valor):,.0f} {pf.moeda or ''} "
@@ -320,6 +332,11 @@ def _synthesize(
                 u = final.usage
                 upd = getattr(lf, "update_current_generation", None)
                 if upd is not None:
+                    # Tokens completos (inclui cache write) + custo estimado em USD:
+                    # o Langfuse mostra custo/tokens POR GERAÇÃO sem depender do
+                    # modelo constar no catálogo de preços deles.
+                    custo = _estimar_custo(model, u)
+                    extras = {"cost_details": {"total": custo}} if custo is not None else {}
                     upd(
                         model=model,
                         usage_details={
@@ -327,7 +344,12 @@ def _synthesize(
                             "output": getattr(u, "output_tokens", 0) or 0,
                             "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0)
                             or 0,
+                            "cache_creation_input_tokens": getattr(
+                                u, "cache_creation_input_tokens", 0
+                            )
+                            or 0,
                         },
+                        **extras,
                     )
             except Exception as exc:  # pragma: no cover - tracing best-effort
                 logger.debug("langfuse_usage_falhou", error_type=type(exc).__name__)

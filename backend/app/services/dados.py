@@ -51,6 +51,11 @@ TICKER_CD_CVM: dict[str, tuple[int, str, str]] = {
 _CONTAS_DRE = {
     "3.01": "Receita de Venda de Bens e/ou Serviços",
     "3.05": "Resultado Antes do Resultado Financeiro e dos Tributos (EBIT)",
+    # 3.06.x cobrem a lacuna "custo financeiro / despesa de juros" e ancoram os
+    # elos câmbio→resultado financeiro e Selic→despesas financeiras (fase 3).
+    "3.06": "Resultado Financeiro",
+    "3.06.01": "Receitas Financeiras",
+    "3.06.02": "Despesas Financeiras",
     "3.11": "Lucro/Prejuízo do período",
 }
 _CONTAS_BPP = {
@@ -75,9 +80,51 @@ _ESCALAS = {
     "MILHÃO": 1_000_000,
 }
 
+# Validação SEMÂNTICA pelo DS_CONTA (o comentário acima sempre exigiu; agora é
+# código): bancos/seguradoras reusam os MESMOS códigos com outro significado
+# (ex.: ITUB 3.05 = "Resultado antes dos Tributos" ≠ EBIT; 3.06 = "IR e CS" ≠
+# resultado financeiro; BBDC 2.02.01 = "Depósitos" ≠ empréstimos). Sem esta
+# checagem, derivadas e elos rotulariam número errado COM fonte — o pior
+# resultado possível. Código com descrição divergente => linha descartada
+# (abstenção); padrões comparados sem acento/caixa.
+_DS_ESPERADO: dict[str, tuple[str, ...]] = {
+    "3.01": ("receita",),
+    "3.05": ("antes do resultado financeiro",),
+    "3.06": ("resultado financeiro",),
+    "3.06.01": ("receitas financeiras",),
+    "3.06.02": ("despesas financeiras",),
+    "3.11": ("lucro", "prejuizo"),
+    "2.01.04": ("emprestimo", "financiamento"),
+    "2.02.01": ("emprestimo", "financiamento"),
+    "2.03": ("patrimonio",),
+    "1.01.01": ("caixa",),
+    "1.01.02": ("aplicac",),
+}
+
+
+def _normalizar_ds(texto: str) -> str:
+    """minúsculas sem acento (comparação estável entre planos de contas)."""
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFD", (texto or "").lower())
+    return "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
+
+
+def _ds_conta_valida(cd_conta: str, ds_conta: str) -> bool:
+    padroes = _DS_ESPERADO.get(cd_conta)
+    if not padroes:
+        return True
+    ds = _normalizar_ds(ds_conta)
+    return any(p in ds for p in padroes)
+
+
 CVM_DFP_URL = "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/dfp_cia_aberta_{ano}.zip"
 BCB_SGS_URL = (
     "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
+)
+BCB_SGS_RANGE_URL = (
+    "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados"
+    "?formato=json&dataInicial={ini}&dataFinal={fim}"
 )
 
 # Anos a tentar para a DFP (mais recente primeiro). DFP é anual.
@@ -207,12 +254,80 @@ def ingest_macro(session: Session) -> list[MacroSerie]:
     return gravados
 
 
+def mensalizar(pontos: list[tuple[dt.date, float]]) -> list[tuple[dt.date, float]]:
+    """Última observação de cada mês (dado real, não média inventada)."""
+    por_mes: dict[tuple[int, int], tuple[dt.date, float]] = {}
+    for data, valor in pontos:
+        chave = (data.year, data.month)
+        atual = por_mes.get(chave)
+        if atual is None or data > atual[0]:
+            por_mes[chave] = (data, valor)
+    return [por_mes[k] for k in sorted(por_mes)]
+
+
+def bcb_sgs_intervalo(codigo: int, inicio: dt.date, fim: dt.date) -> list[dict]:
+    """Pontos de uma série SGS num intervalo de datas. A forma `/ultimos/{n}`
+    rejeita N grande (400) — para histórico, o SGS exige dataInicial/dataFinal."""
+    url = BCB_SGS_RANGE_URL.format(
+        codigo=codigo, ini=inicio.strftime("%d/%m/%Y"), fim=fim.strftime("%d/%m/%Y")
+    )
+    resp = http_client.get_keyless(url, timeout=30.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def ingest_usd_historico(session: Session, meses: int = 36) -> int:
+    """Persiste o histórico MENSAL do dólar (SGS 1, última observação de cada mês).
+
+    Alimenta o co-movimento (Pearson) do grafo causal — que exige n>=24 e antes
+    nunca disparava (só havia 1-2 pontos por série). Idempotente por (código, data).
+    """
+    hoje = dt.date.today()
+    try:
+        pontos_raw = bcb_sgs_intervalo(1, hoje - dt.timedelta(days=meses * 32), hoje)
+    except httpx.HTTPError as exc:
+        logger.warning("usd_historico_falhou", erro=type(exc).__name__)
+        return 0
+    pontos = [
+        (d, v)
+        for p in pontos_raw
+        if (d := _parse_data(str(p.get("data", "")))) is not None
+        and (v := _parse_valor(str(p.get("valor", "")))) is not None
+    ]
+    mensais = mensalizar(pontos)[-meses:]
+    # Fonte com a URL ESTÁVEL da série (o intervalo consultado muda a cada rodada).
+    url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{1}/dados"
+    n_gravados = 0
+    for data, valor in mensais:
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao="Banco Central — API SGS série 1: Dólar venda (R$/US$), última obs. do mês",
+            dt_referencia=data,
+        )
+        existente = session.execute(
+            select(MacroSerie).where(MacroSerie.codigo == "USD_VENDA", MacroSerie.data == data)
+        ).scalar_one_or_none()
+        if existente is None:
+            session.add(MacroSerie(codigo="USD_VENDA", data=data, valor=valor, fonte_id=fonte_id))
+        else:
+            existente.valor = valor
+            existente.fonte_id = fonte_id
+        n_gravados += 1
+    logger.info("usd_historico_persistido", meses=len(mensais))
+    return n_gravados
+
+
 # ---------------------------------------------------------------------------
 # FUNDAMENTOS — CVM DFP
 # ---------------------------------------------------------------------------
 def _baixar_dfp_zip(ano: int) -> bytes:
     url = CVM_DFP_URL.format(ano=ano)
     return http_client.download_zip(url, timeout=180.0)
+
+
+_ORDENS_ULTIMO = ("ÚLTIMO", "ULTIMO")
+_ORDENS_PENULTIMO = ("PENÚLTIMO", "PENULTIMO")
 
 
 def _extrair_contas(
@@ -222,10 +337,12 @@ def _extrair_contas(
     membro: str,
     contas: dict[str, str],
 ) -> list[dict]:
-    """Lê um CSV (latin-1, ';') do ZIP e extrai as contas-alvo do exercício ÚLTIMO.
+    """Lê um CSV (latin-1, ';') do ZIP e extrai as contas-alvo dos exercícios
+    ÚLTIMO **e** PENÚLTIMO (a DFP publica os dois — o penúltimo dá a tendência
+    ano-contra-ano com fonte, cobrindo a lacuna "dados históricos").
 
-    Devolve [{cd_conta, ds_conta, valor, dt_refer}]. Nunca inventa: só retorna o
-    que existe na fonte.
+    Devolve [{cd_conta, ds_conta, valor, dt_refer, ordem}]. Nunca inventa: só
+    retorna o que existe na fonte.
     """
     with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
         if membro not in z.namelist():
@@ -235,7 +352,12 @@ def _extrair_contas(
             texto = io.TextIOWrapper(raw, encoding="latin-1", newline="")
             leitor = csv.DictReader(texto, delimiter=";")
             for linha in leitor:
-                if linha.get("ORDEM_EXERC", "").strip().upper() not in ("ÚLTIMO", "ULTIMO"):
+                ordem = linha.get("ORDEM_EXERC", "").strip().upper()
+                if ordem in _ORDENS_ULTIMO:
+                    ordem = "ULTIMO"
+                elif ordem in _ORDENS_PENULTIMO:
+                    ordem = "PENULTIMO"
+                else:
                     continue
                 try:
                     if int(linha.get("CD_CVM", "0")) != cd_cvm:
@@ -244,6 +366,17 @@ def _extrair_contas(
                     continue
                 cd_conta = linha.get("CD_CONTA", "").strip()
                 if cd_conta not in contas:
+                    continue
+                ds_conta = linha.get("DS_CONTA", "").strip()
+                if not _ds_conta_valida(cd_conta, ds_conta):
+                    # Mesmo código, OUTRO significado (plano de contas de banco/
+                    # seguradora) -> abstém; nunca rótulo errado com fonte.
+                    logger.info(
+                        "conta_semantica_divergente_abstida",
+                        cd_conta=cd_conta,
+                        ds_conta=ds_conta[:80],
+                        cd_cvm=cd_cvm,
+                    )
                     continue
                 valor = _aplicar_escala(
                     _parse_valor(linha.get("VL_CONTA", "")),
@@ -257,12 +390,109 @@ def _extrair_contas(
                 achados.append(
                     {
                         "cd_conta": cd_conta,
-                        "ds_conta": linha.get("DS_CONTA", "").strip(),
+                        "ds_conta": ds_conta,
                         "valor": valor,
                         "dt_refer": dt_refer,
                         "ano": ano,
+                        "ordem": ordem,
                     }
                 )
+    return achados
+
+
+# D&A não tem CD_CONTA padronizado entre empresas (é sub-linha dos ajustes da DFC,
+# ex.: 6.01.01.02 na Petrobras). Localizamos por DESCRIÇÃO dentro de 6.01.01.*.
+# O padrão cobre TODAS as formas do add-back (achado M2 da auditoria da fase 3:
+# só "deprecia" pegaria D&A PARCIAL — número subestimado COM fonte — em empresa
+# que fragmenta depreciação/amortização/exaustão em linhas separadas).
+_DA_PREFIXO = "6.01.01."
+_DA_PADROES = ("deprecia", "amortiz", "exaust", "deple")
+
+
+def _consolidar_da(linhas: list[dict]) -> dict | None:
+    """Consolida as linhas de D&A de UM exercício num único achado.
+
+    - 1 linha -> ela mesma (caso comum: "Depreciação, depleção e amortização").
+    - 2+ linhas IRMÃS (sem relação ancestral e mesma dt_refer) -> SOMA, com
+      rótulo composto — todas são add-backs não-caixa do mesmo bloco.
+    - Linha ancestral de outra (subtotal + componente => dupla contagem) ou
+      datas divergentes -> None (ambíguo: abstém, nunca estima).
+    """
+    if not linhas:
+        return None
+    if len(linhas) == 1:
+        return linhas[0]
+    for a in linhas:
+        for b in linhas:
+            if a is not b and b["cd_conta"].startswith(a["cd_conta"] + "."):
+                return None  # subtotal + componente: somar dobraria a conta
+    if len({linha["dt_refer"] for linha in linhas}) != 1:
+        return None
+    ordenadas = sorted(linhas, key=lambda x: x["cd_conta"])
+    base = dict(ordenadas[0])
+    base["cd_conta"] = "+".join(x["cd_conta"] for x in ordenadas)
+    base["ds_conta"] = " + ".join(x["ds_conta"] for x in ordenadas)
+    base["valor"] = float(sum(x["valor"] for x in ordenadas))
+    return base
+
+
+def _extrair_da_dfc(conteudo_zip: bytes, ano: int, cd_cvm: int, membro: str) -> list[dict]:
+    """Extrai a(s) linha(s) de Depreciação/Amortização/Exaustão dos ajustes da
+    DFC (ÚLTIMO e PENÚLTIMO) e consolida por exercício. Sem match ou com match
+    ambíguo (hierarquia/datas) -> abstém."""
+    with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
+        if membro not in z.namelist():
+            return []
+        candidatos: dict[str, list[dict]] = {}
+        with z.open(membro) as raw:
+            texto = io.TextIOWrapper(raw, encoding="latin-1", newline="")
+            leitor = csv.DictReader(texto, delimiter=";")
+            for linha in leitor:
+                ordem = linha.get("ORDEM_EXERC", "").strip().upper()
+                if ordem in _ORDENS_ULTIMO:
+                    ordem = "ULTIMO"
+                elif ordem in _ORDENS_PENULTIMO:
+                    ordem = "PENULTIMO"
+                else:
+                    continue
+                try:
+                    if int(linha.get("CD_CVM", "0")) != cd_cvm:
+                        continue
+                except ValueError:
+                    continue
+                cd_conta = linha.get("CD_CONTA", "").strip()
+                ds_conta = linha.get("DS_CONTA", "").strip()
+                if not cd_conta.startswith(_DA_PREFIXO):
+                    continue
+                if not any(p in ds_conta.lower() for p in _DA_PADROES):
+                    continue
+                valor = _aplicar_escala(
+                    _parse_valor(linha.get("VL_CONTA", "")),
+                    linha.get("ESCALA_MOEDA", ""),
+                )
+                if valor is None:
+                    continue
+                dt_refer = _parse_data(linha.get("DT_FIM_EXERC", "")) or _parse_data(
+                    linha.get("DT_REFER", "")
+                )
+                candidatos.setdefault(ordem, []).append(
+                    {
+                        "cd_conta": cd_conta,
+                        "ds_conta": ds_conta,
+                        "valor": valor,
+                        "dt_refer": dt_refer,
+                        "ano": ano,
+                        "ordem": ordem,
+                        "papel": "DA",
+                    }
+                )
+    achados: list[dict] = []
+    for ordem, linhas in candidatos.items():
+        consolidada = _consolidar_da(linhas)
+        if consolidada is None:
+            logger.info("da_dfc_ambigua_abstida", ordem=ordem, n=len(linhas), cd_cvm=cd_cvm)
+            continue
+        achados.append(consolidada)
     return achados
 
 
@@ -294,6 +524,12 @@ def ingest_fundamentos(session: Session, empresa: Empresa) -> list[Fundamento]:
         achados: list[dict] = []
         for membro, contas in membros.items():
             achados.extend(_extrair_contas(conteudo, ano, cd_cvm, membro, contas))
+        # D&A (por descrição, nos ajustes da DFC) — habilita o EBITDA derivado.
+        for membro in (
+            f"dfp_cia_aberta_DFC_MI_con_{ano}.csv",
+            f"dfp_cia_aberta_DFC_MD_con_{ano}.csv",
+        ):
+            achados.extend(_extrair_da_dfc(conteudo, ano, cd_cvm, membro))
         if not achados:
             logger.info("dfp_sem_dados_empresa", ano=ano, cd_cvm=cd_cvm)
             continue
@@ -317,9 +553,11 @@ def ingest_fundamentos(session: Session, empresa: Empresa) -> list[Fundamento]:
                 )
             )
 
-        # Métricas derivadas (dívida bruta/líquida). Abstêm se faltar componente
-        # (ex.: bancos/seguradoras) — nunca gravam número estimado.
-        gravados.extend(_persistir_derivadas(session, empresa, achados, ano, url))
+        # Métricas derivadas (dívida bruta/líquida, EBITDA). SÓ do exercício
+        # ÚLTIMO — misturar exercícios geraria um número quimera. Abstêm se
+        # faltar componente (ex.: bancos/seguradoras) — nunca gravam estimativa.
+        achados_ultimo = [a for a in achados if a.get("ordem", "ULTIMO") == "ULTIMO"]
+        gravados.extend(_persistir_derivadas(session, empresa, achados_ultimo, ano, url))
 
         logger.info("fundamentos_persistidos", ano=ano, cd_cvm=cd_cvm, n=len(gravados))
         return gravados
@@ -369,6 +607,10 @@ def _persistir_derivadas(
     na tese como "dado não encontrado". Nunca usa 0 implícito (achado A1).
     """
     contas = {a["cd_conta"]: a["valor"] for a in achados if a["valor"] is not None}
+    # D&A entra sob chave própria (o CD_CONTA dela varia entre empresas).
+    da = next((a for a in achados if a.get("papel") == "DA" and a["valor"] is not None), None)
+    if da is not None:
+        contas[derivadas.CHAVE_DA] = da["valor"]
     dt_refer = next((a["dt_refer"] for a in achados if a["dt_refer"] is not None), None)
     if dt_refer is None:
         return []

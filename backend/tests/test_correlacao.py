@@ -158,12 +158,21 @@ def test_montar_grafo_descarta_elo_sem_fonte_de_empresa() -> None:
     assert "commodity→setor" not in dims
 
 
-def test_montar_grafo_co_movimento_com_historico_suficiente() -> None:
+def _meses(n: int) -> list[dt.date]:
+    """n observações mensais (dia 28), a partir de 2024-01."""
+    datas = []
+    for i in range(n):
+        m = i  # meses desde 2024-01
+        datas.append(dt.date(2024 + m // 12, m % 12 + 1, 28))
+    return datas
+
+
+def test_montar_grafo_co_movimento_com_historico_mensal_suficiente() -> None:
     ctx = _contexto_petroleo()
-    dias = [dt.date(2026, 1, 1) + dt.timedelta(days=i) for i in range(MIN_N + 5)]
+    meses = _meses(MIN_N + 5)
     ctx["series_historicas"] = {
-        "USD_VENDA": [(d, 5.0 + i * 0.01) for i, d in enumerate(dias)],
-        "COMMODITY_BRENT": [(d, 80.0 + i * 0.5) for i, d in enumerate(dias)],
+        "USD_VENDA": [(d, 5.0 + i * 0.01) for i, d in enumerate(meses)],
+        "COMMODITY_BRENT": [(d, 80.0 + i * 0.5) for i, d in enumerate(meses)],
     }
     elos = montar_grafo(ctx)
     co = [e for e in elos if e.metodo == METODO_CO_MOVIMENTO]
@@ -171,6 +180,49 @@ def test_montar_grafo_co_movimento_com_historico_suficiente() -> None:
     assert co[0].ligacao_causal is None  # Pearson não afirma causa
     assert co[0].n_amostras >= MIN_N
     assert co[0].hedge
+    assert "mensal" in (co[0].periodo or "")
+
+
+def test_co_movimento_alinha_por_mes_mesmo_com_frequencias_diferentes() -> None:
+    # Dólar diário × Brent mensal: as DATAS exatas quase nunca coincidem, mas o
+    # alinhamento casa (ano, mês) — o cenário real que antes dava n≈0 e nunca
+    # disparava o co-movimento.
+    ctx = _contexto_petroleo()
+    meses = _meses(MIN_N + 2)
+    usd_diario = []
+    for i, d in enumerate(meses):
+        usd_diario.append((d.replace(day=10), 5.0 + i * 0.01))
+        usd_diario.append((d.replace(day=25), 5.1 + i * 0.01))  # última do mês vence
+    brent_mensal = [(d.replace(day=1), 80.0 + i * 0.5) for i, d in enumerate(meses)]
+    ctx["series_historicas"] = {"USD_VENDA": usd_diario, "COMMODITY_BRENT": brent_mensal}
+    elos = montar_grafo(ctx)
+    co = [e for e in elos if e.metodo == METODO_CO_MOVIMENTO]
+    assert len(co) == 1
+    assert co[0].n_amostras == MIN_N + 2
+
+
+def test_montar_grafo_novos_elos_d1_com_fonte_nas_duas_pontas() -> None:
+    ctx = _contexto_petroleo()
+    ctx["fundamento_fontes"] = {
+        "Dívida bruta (derivado)": "f-divida",
+        "3.06": "f-resfin",
+        "3.06.02": "f-despfin",
+    }
+    dims = {e.dimensao for e in montar_grafo(ctx)}
+    assert "juros_global→divida_empresa" in dims
+    assert "câmbio→resultado_financeiro" in dims
+    assert "selic→despesas_financeiras" in dims
+
+
+def test_montar_grafo_novos_elos_abstem_sem_a_conta() -> None:
+    # Sem as contas específicas (ex.: banco, plano de contas próprio), os elos
+    # D1 novos NÃO entram — fonte nas duas pontas é inegociável.
+    ctx = _contexto_petroleo()
+    ctx["fundamento_fontes"] = {}
+    dims = {e.dimensao for e in montar_grafo(ctx)}
+    assert "juros_global→divida_empresa" not in dims
+    assert "câmbio→resultado_financeiro" not in dims
+    assert "selic→despesas_financeiras" not in dims
 
 
 def test_elos_para_llm_inclui_ambas_as_fontes() -> None:

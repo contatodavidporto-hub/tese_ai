@@ -310,3 +310,23 @@ class Chunk(Base):
     )
 
     documento: Mapped[Documento] = relationship(back_populates="chunks")
+
+
+class JobRun(Base):
+    """Ledger de jobs agendados (scheduler in-app) — decisão do conselho.
+
+    A cadência é decidida por "está vencido?" contra `last_run_at` (relógio de
+    parede no banco), NUNCA por timer em memória — deploy/restart não zera a
+    cadência e job semanal dispara mesmo com deploys frequentes (catch-up).
+    Tabela exclusiva do backend: RLS ON sem policy (deny-all), como alembic_version.
+    """
+
+    __tablename__ = "job_runs"
+
+    job_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    last_run_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_status: Mapped[str | None] = mapped_column(Text)
+    detalhe: Mapped[str | None] = mapped_column(Text)
+    atualizado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

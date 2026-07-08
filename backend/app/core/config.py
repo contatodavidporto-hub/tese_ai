@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     fred_api_key: str | None = None
     eia_api_key: str | None = None
 
+    # Redis para rate-limit DISTRIBUÍDO (bucket compartilhado entre instâncias/
+    # workers). Behind-config: com REDIS_URL o slowapi usa Redis como storage;
+    # sem, mantém o storage em memória do processo (comportamento atual). Se o
+    # Redis cair em runtime, o limiter degrada para memória (fallback) em vez de
+    # derrubar requests. Ex.: redis://default:senha@host:6379/0
+    redis_url: str | None = None
+
     # --- Capacidade / anti-abuso (Fase 1 de blindagem) --------------------------
     # Rate limit da criação de tese (endpoint que dispara o LLM caro). Formato
     # slowapi ("N/period"). Vazio desliga (ex.: testes). Chave por IP confiável
@@ -75,6 +82,11 @@ class Settings(BaseSettings):
     # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
     max_request_bytes: int = 64 * 1024
 
+    # Idade máxima (meses) de um fundamento de par global (SEC) para entrar na
+    # tese como dado "atual". Mais velho que isso => abstém (vira lacuna; nunca
+    # exibe período velho como atual — caso TTE/2017). 0 desliga o corte.
+    pares_max_idade_meses: int = 24
+
     # --- Cache de tese pública + reaper (Fase 2) --------------------------------
     # Janela em que uma tese `ready` do mesmo ticker é REAPROVEITADA em vez de
     # regenerada via LLM (custo + latência). 0 desliga o cache (sempre regenera).
@@ -82,6 +94,21 @@ class Settings(BaseSettings):
     # Uma tese presa em `processing` além deste tempo (crash no meio da geração) é
     # marcada `error` pelo reaper (integridade — sem órfãs eternas). 0 desliga.
     tese_processing_timeout_min: int = 15
+
+    # --- Scheduler in-app (decisão do conselho: cadência por ledger no banco) ---
+    # Kill-switch geral. Os jobs rodam no processo da API (1 worker), sempre via
+    # to_thread + advisory lock; cadência decidida contra job_runs.last_run_at
+    # (restart não zera o relógio). Intervalo 0 desliga o job individual.
+    scheduler_enabled: bool = True
+    # Granularidade do loop (segundos): de quanto em quanto tempo os jobs são
+    # checados contra o ledger (não é o intervalo dos jobs).
+    scheduler_tick_seconds: int = 60
+    # Reaper de teses órfãs (min) — barato; também roda oportunista no POST.
+    scheduler_reaper_min: int = 15
+    # Refresh das séries macro globais (horas) — BCB/Brent/World Bank/Treasury.
+    scheduler_macro_horas: int = 24
+    # Bootstrap do cadastro CVM (horas) — semanal; job mais pesado (ZIPs da CVM).
+    scheduler_cadastro_horas: int = 168
 
     @field_validator("database_url")
     @classmethod

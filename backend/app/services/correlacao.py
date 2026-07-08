@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import Elo as EloModel
 from app.models.models import Empresa, Fundamento, MacroSerie, Par, ParFundamento
+from app.services import sec
 
 MIN_N = 24  # mínimo de observações para um co-movimento não ser espúrio
 
@@ -79,6 +80,30 @@ def alinhar_series(
     return [(va, mapa_b[da]) for da, va in serie_a if da in mapa_b]
 
 
+def alinhar_series_mensal(
+    serie_a: list[tuple[dt.date, float]], serie_b: list[tuple[dt.date, float]]
+) -> list[tuple[float, float]]:
+    """Pares (a, b) por (ano, mês) — última observação de cada mês em cada série.
+
+    Séries de frequências diferentes (dólar diário × Brent mensal) quase nunca
+    compartilham a MESMA data — o alinhamento exato dava n≈0 e o co-movimento
+    nunca disparava. Mês é a granularidade honesta comum às duas.
+    """
+
+    def _por_mes(
+        serie: list[tuple[dt.date, float]],
+    ) -> dict[tuple[int, int], tuple[dt.date, float]]:
+        m: dict[tuple[int, int], tuple[dt.date, float]] = {}
+        for d, v in serie:
+            chave = (d.year, d.month)
+            if chave not in m or d > m[chave][0]:
+                m[chave] = (d, v)
+        return m
+
+    ma, mb = _por_mes(serie_a), _por_mes(serie_b)
+    return [(ma[k][1], mb[k][1]) for k in sorted(ma.keys() & mb.keys())]
+
+
 # ---------------------------------------------------------------------------
 # Validação (trava A4)
 # ---------------------------------------------------------------------------
@@ -115,13 +140,20 @@ def elo_co_movimento(
     serie_a: list[tuple[dt.date, float]],
     serie_b: list[tuple[dt.date, float]],
 ) -> Elo | None:
-    """Elo de co-movimento (Pearson). Abstém se n<MIN_N ou variância nula."""
-    res = correlacao_pearson(alinhar_series(serie_a, serie_b))
+    """Elo de co-movimento (Pearson, granularidade MENSAL). Abstém se n<MIN_N
+    meses em comum ou variância nula."""
+    res = correlacao_pearson(alinhar_series_mensal(serie_a, serie_b))
     if res is None or res[1] < MIN_N:
         return None
     r, n = res
-    datas = sorted(d for d, _ in serie_a if d in {db for db, _ in serie_b})
-    periodo = f"{datas[0]}..{datas[-1]}" if datas else None
+    meses_a = {(d.year, d.month) for d, _ in serie_a}
+    meses_comuns = sorted(meses_a & {(d.year, d.month) for d, _ in serie_b})
+    periodo = (
+        f"{meses_comuns[0][0]}-{meses_comuns[0][1]:02d}.."
+        f"{meses_comuns[-1][0]}-{meses_comuns[-1][1]:02d} (mensal)"
+        if meses_comuns
+        else None
+    )
     elo = Elo(
         dimensao=dimensao,
         origem_label=origem[0],
@@ -170,14 +202,16 @@ def montar_grafo(contexto: dict) -> list[Elo]:
         "setor": str|None,
         "macro": {codigo: {"valor","data","fonte_id"}},   # último ponto por série
         "empresa_fonte_id": id|None,                        # fonte de um fundamento âncora
+        "fundamento_fontes": {conta_chave: fonte_id},       # fontes POR CONTA (elos D1)
         "tem_pares": bool, "pares_fonte_id": id|None,
-        "series_historicas": {codigo: [(date,val)...]},     # opcional (co-movimento)
+        "series_historicas": {codigo: [(date,val)...]},     # co-movimento (mensal)
     }
     Só retorna elos VALIDADOS (fonte nas duas pontas + travas A4).
     """
     macro = contexto.get("macro") or {}
     setor = (contexto.get("setor") or "").lower()
     emp_fonte = contexto.get("empresa_fonte_id")
+    fund_fontes: dict[str, object] = contexto.get("fundamento_fontes") or {}
     elos: list[Elo] = []
 
     def fonte(codigo: str):
@@ -243,7 +277,63 @@ def montar_grafo(contexto: dict) -> list[Elo]:
             )
         )
 
-    # 5) Co-movimento (Pearson) onde há histórico suficiente — abstém se n<MIN_N.
+    # 5) Juro global (Treasury 10a) -> custo de capital/refinanciamento da DÍVIDA
+    #    da empresa. Fonte nas duas pontas: FRED/Treasury + conta CVM da dívida.
+    fonte_divida = fund_fontes.get("Dívida bruta (derivado)") or fund_fontes.get("2.02.01")
+    if "GLOBAL_TREASURY_10Y" in macro and fonte_divida is not None:
+        elos.append(
+            elo_interpretativo(
+                "juros_global→divida_empresa",
+                ("Juro do Tesouro EUA 10a (% a.a.)", fonte("GLOBAL_TREASURY_10Y")),
+                ("Dívida bruta da empresa (CVM)", fonte_divida),
+                ligacao_causal=(
+                    "cenário: juro global mais alto tende a encarecer refinanciamento "
+                    "e custo de capital de dívida corporativa emergente"
+                ),
+                hedge=(
+                    "condicional; sem a estrutura de vencimentos/moeda da dívida, a "
+                    "sensibilidade efetiva não é quantificável"
+                ),
+            )
+        )
+
+    # 6) Câmbio -> resultado financeiro (conta 3.06 da DRE, quando ingerida).
+    if "USD_VENDA" in macro and fund_fontes.get("3.06") is not None:
+        elos.append(
+            elo_interpretativo(
+                "câmbio→resultado_financeiro",
+                ("Dólar (R$/US$)", fonte("USD_VENDA")),
+                ("Resultado financeiro da empresa (DRE 3.06)", fund_fontes["3.06"]),
+                ligacao_causal=(
+                    "cenário: variação cambial afeta o resultado financeiro via dívida "
+                    "e ativos dolarizados"
+                ),
+                hedge=(
+                    "condicional; sem a parcela dolarizada de dívida/ativos, o sentido "
+                    "e a magnitude do efeito são incertos"
+                ),
+            )
+        )
+
+    # 7) Selic -> despesas financeiras (dívida local pós-fixada, quando 3.06.02 existe).
+    if "SELIC_META_ANUAL" in macro and fund_fontes.get("3.06.02") is not None:
+        elos.append(
+            elo_interpretativo(
+                "selic→despesas_financeiras",
+                ("Meta Selic (% a.a.)", fonte("SELIC_META_ANUAL")),
+                ("Despesas financeiras da empresa (DRE 3.06.02)", fund_fontes["3.06.02"]),
+                ligacao_causal=(
+                    "cenário: Selic mais alta tende a elevar a despesa de juros da "
+                    "parcela de dívida local pós-fixada"
+                ),
+                hedge=(
+                    "condicional; a fração pós-fixada em CDI/Selic não está disponível "
+                    "nas demonstrações padronizadas"
+                ),
+            )
+        )
+
+    # 8) Co-movimento (Pearson MENSAL) onde há histórico suficiente — abstém se n<MIN_N.
     hist = contexto.get("series_historicas") or {}
     if "USD_VENDA" in hist and "COMMODITY_BRENT" in hist:
         elo = elo_co_movimento(
@@ -279,20 +369,54 @@ def coletar_contexto(session: Session, empresa: Empresa) -> dict:
         .first()
     )
 
-    par_fund = (
-        session.execute(
-            select(ParFundamento)
-            .join(Par, Par.id == ParFundamento.par_id)
-            .where(Par.empresa_id == empresa.id, ParFundamento.fonte_id.is_not(None))
-        )
-        .scalars()
-        .first()
+    # Fontes POR CONTA (mais recente por conta): ancoram os elos D1 específicos
+    # (dívida, resultado financeiro, despesas financeiras). Chave = CD_CONTA quando
+    # o rótulo termina em "(x.y.z)"; senão o rótulo inteiro (derivadas).
+    fundamento_fontes: dict[str, object] = {}
+    for f in session.execute(
+        select(Fundamento)
+        .where(Fundamento.empresa_id == empresa.id, Fundamento.fonte_id.is_not(None))
+        .order_by(Fundamento.dt_refer.desc())
+    ).scalars():
+        chave = f.conta
+        if chave.endswith(")") and "(" in chave:
+            sufixo = chave.rsplit("(", 1)[1].rstrip(")")
+            if sufixo and all(parte.isdigit() for parte in sufixo.split(".")):
+                chave = sufixo
+        if chave not in fundamento_fontes:  # dt_refer desc => fica a mais recente
+            fundamento_fontes[chave] = f.fonte_id
+
+    # Histórico das séries do co-movimento (mensalizado no alinhamento).
+    series_historicas: dict[str, list[tuple[dt.date, float]]] = {}
+    for codigo in ("USD_VENDA", "COMMODITY_BRENT"):
+        pontos = [
+            (m.data, float(m.valor))
+            for m in session.execute(
+                select(MacroSerie)
+                .where(MacroSerie.codigo == codigo, MacroSerie.valor.is_not(None))
+                .order_by(MacroSerie.data)
+            ).scalars()
+        ]
+        if pontos:
+            series_historicas[codigo] = pontos
+
+    # Mesmo corte de idade da ingestão/tese: par com dado velho não ancora elo D2.
+    stmt_par = (
+        select(ParFundamento)
+        .join(Par, Par.id == ParFundamento.par_id)
+        .where(Par.empresa_id == empresa.id, ParFundamento.fonte_id.is_not(None))
     )
+    corte_pares = sec.data_corte_pares()
+    if corte_pares is not None:
+        stmt_par = stmt_par.where(ParFundamento.dt_refer >= corte_pares)
+    par_fund = session.execute(stmt_par).scalars().first()
 
     return {
         "setor": empresa.setor,
         "macro": macro,
         "empresa_fonte_id": fund.fonte_id if fund else None,
+        "fundamento_fontes": fundamento_fontes,
+        "series_historicas": series_historicas,
         "tem_pares": par_fund is not None,
         "pares_fonte_id": par_fund.fonte_id if par_fund else None,
     }
