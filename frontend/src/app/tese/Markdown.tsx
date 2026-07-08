@@ -88,7 +88,8 @@ export function parseBlocos(markdown: string): Bloco[] {
     }
     flushTable();
 
-    const heading = /^(#{1,3})\s+(.*)$/.exec(trimmed);
+    // Níveis 4-6 são rebaixados para h3 (nunca viram "####" literal na tela).
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
     if (heading) {
       flushAll();
       const level = heading[1].length;
@@ -204,6 +205,18 @@ export function separarSecoes(markdown: string): DocumentoTese {
 // valida; esta é a segunda linha de defesa no render.
 const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
+// Com `hostsOk` presente (render de tese), um link do markdown só vira <a> se o
+// host está entre as FONTES da tese — um LLM comprometido não consegue apontar
+// o leitor para domínio estranho com rótulo que mascara o destino (phishing).
+function linkPermitido(url: string, hostsOk?: ReadonlySet<string>): boolean {
+  if (!hostsOk) return true;
+  try {
+    return hostsOk.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function renderEnfase(text: string, keyBase: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
   return parts.map((part, i) => {
@@ -227,7 +240,10 @@ function renderEnfase(text: string, keyBase: string): ReactNode[] {
   });
 }
 
-export function renderInline(text: string): ReactNode {
+export function renderInline(
+  text: string,
+  hostsOk?: ReadonlySet<string>,
+): ReactNode {
   const nodes: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -235,17 +251,22 @@ export function renderInline(text: string): ReactNode {
   let i = 0;
   while ((m = LINK_RE.exec(text)) !== null) {
     if (m.index > last) nodes.push(...renderEnfase(text.slice(last, m.index), `t${i}`));
-    nodes.push(
-      <a
-        key={`l${i}`}
-        href={m[2]}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-selo-texto underline decoration-linha-forte underline-offset-2 hover:decoration-selo-texto"
-      >
-        {m[1]}
-      </a>,
-    );
+    if (linkPermitido(m[2], hostsOk)) {
+      nodes.push(
+        <a
+          key={`l${i}`}
+          href={m[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-selo-texto underline decoration-linha-forte underline-offset-2 hover:decoration-selo-texto"
+        >
+          {renderEnfase(m[1], `lr${i}`)}
+        </a>,
+      );
+    } else {
+      // host fora do registro de fontes: mostra rótulo e destino como TEXTO
+      nodes.push(<Fragment key={`l${i}`}>{`${m[1]} (${m[2]})`}</Fragment>);
+    }
     last = m.index + m[0].length;
     i++;
   }
@@ -290,12 +311,33 @@ export function construirRefs(citacoes: Citacao[]): CitacaoRef[] {
   }));
 }
 
+// Ocorrência com FRONTEIRA numérica: "14,25" não pode casar dentro de
+// "3.114,25" nem de "14,255" (marcador com fonte errada seria pior que nenhum).
+function contemTokenComFronteira(alvo: string, token: string): boolean {
+  const digito = (c: string | undefined) => !!c && c >= "0" && c <= "9";
+  let idx = alvo.indexOf(token);
+  while (idx !== -1) {
+    const antes = alvo[idx - 1];
+    const depois = alvo[idx + token.length];
+    const okAntes =
+      !digito(antes) && !((antes === "." || antes === ",") && digito(alvo[idx - 2]));
+    const okDepois =
+      !digito(depois) &&
+      !((depois === "." || depois === ",") && digito(alvo[idx + token.length + 1]));
+    if (okAntes && okDepois) return true;
+    idx = alvo.indexOf(token, idx + 1);
+  }
+  return false;
+}
+
 export function citacoesDoTexto(texto: string, refs: CitacaoRef[]): CitacaoRef[] {
   if (refs.length === 0) return [];
   const alvo = texto.replace(/\s+/g, "");
   if (!alvo) return [];
   return refs.filter(
-    (r) => r.tokens.length > 0 && r.tokens.some((t) => alvo.includes(t)),
+    (r) =>
+      r.tokens.length > 0 &&
+      r.tokens.some((t) => contemTokenComFronteira(alvo, t)),
   );
 }
 
@@ -324,13 +366,16 @@ export function MarcadorCitacao({ refCitacao }: { refCitacao: CitacaoRef }) {
       <a
         href={`#citacao-${indice}`}
         aria-label={`Citação ${indice}${fonte ? ` — fonte: ${fonte.descricao}` : ""}`}
-        className="rounded px-0.5 font-mono text-[0.7rem] font-semibold text-selo-texto no-underline hover:bg-realce"
+        className="rounded px-1 py-0.5 font-mono text-[0.7rem] font-semibold text-selo-texto no-underline hover:bg-realce"
       >
         [{indice}]
       </a>
+      {/* Sem margem entre âncora e balão e sem pointer-events-none: o ponteiro
+          pode ENTRAR no balão sem que ele feche (WCAG 1.4.13 — hoverable). O
+          clique na âncora leva à citação completa (alternativa sempre acessível). */}
       <span
         role="tooltip"
-        className="pointer-events-none invisible absolute bottom-full left-1/2 z-40 mb-1.5 w-64 -translate-x-1/2 rounded-lg border border-linha bg-cartao p-3 text-left text-xs leading-snug text-tinta opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+        className="invisible absolute bottom-full left-1/2 z-40 w-64 -translate-x-1/2 rounded-lg border border-linha bg-cartao p-3 text-left text-xs leading-snug text-tinta opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
       >
         <span className="mb-1 block font-mono text-[0.65rem] uppercase tracking-wide text-tinta-3">
           Fonte da citação {indice}
@@ -370,9 +415,12 @@ function Marcadores({ refs }: { refs: CitacaoRef[] }) {
 export function Blocos({
   blocos,
   refs = [],
+  hostsOk,
 }: {
   blocos: Bloco[];
   refs?: CitacaoRef[];
+  // hosts permitidos para links do markdown (derivados das fontes da tese)
+  hostsOk?: ReadonlySet<string>;
 }) {
   return (
     <div className="flex flex-col gap-4 text-tinta">
@@ -384,7 +432,7 @@ export function Blocos({
                 key={i}
                 className="font-display text-xl font-semibold tracking-tight"
               >
-                {renderInline(bloco.text)}
+                {renderInline(bloco.text, hostsOk)}
               </h2>
             );
           case "h2":
@@ -393,13 +441,13 @@ export function Blocos({
                 key={i}
                 className="mt-2 font-display text-lg font-semibold tracking-tight"
               >
-                {renderInline(bloco.text)}
+                {renderInline(bloco.text, hostsOk)}
               </h3>
             );
           case "h3":
             return (
               <h4 key={i} className="mt-1 text-base font-semibold">
-                {renderInline(bloco.text)}
+                {renderInline(bloco.text, hostsOk)}
               </h4>
             );
           case "quote":
@@ -408,7 +456,7 @@ export function Blocos({
                 key={i}
                 className="border-l-2 border-aviso-borda pl-3 text-sm italic leading-relaxed text-tinta-2"
               >
-                {renderInline(bloco.text)}
+                {renderInline(bloco.text, hostsOk)}
               </blockquote>
             );
           case "table":
@@ -423,7 +471,7 @@ export function Blocos({
                           scope="col"
                           className="px-3 py-2 font-semibold"
                         >
-                          {renderInline(c)}
+                          {renderInline(c, hostsOk)}
                         </th>
                       ))}
                     </tr>
@@ -433,7 +481,7 @@ export function Blocos({
                       <tr key={j} className="border-b border-linha">
                         {row.map((c, k) => (
                           <td key={k} className="px-3 py-2 align-top">
-                            {renderInline(c)}
+                            {renderInline(c, hostsOk)}
                             <Marcadores refs={citacoesDoTexto(c, refs)} />
                           </td>
                         ))}
@@ -448,7 +496,7 @@ export function Blocos({
               <ul key={i} className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed">
                 {bloco.items.map((item, j) => (
                   <li key={j}>
-                    {renderInline(item)}
+                    {renderInline(item, hostsOk)}
                     <Marcadores refs={citacoesDoTexto(item, refs)} />
                   </li>
                 ))}
@@ -459,7 +507,7 @@ export function Blocos({
               <ol key={i} className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed">
                 {bloco.items.map((item, j) => (
                   <li key={j}>
-                    {renderInline(item)}
+                    {renderInline(item, hostsOk)}
                     <Marcadores refs={citacoesDoTexto(item, refs)} />
                   </li>
                 ))}
@@ -469,7 +517,7 @@ export function Blocos({
           default:
             return (
               <p key={i} className="text-sm leading-relaxed">
-                {renderInline(bloco.text)}
+                {renderInline(bloco.text, hostsOk)}
                 <Marcadores refs={citacoesDoTexto(bloco.text, refs)} />
               </p>
             );

@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Espelho da validação do backend (app/schemas/tese.py): corta lixo aqui e
+  // não amplifica abuso até o FastAPI (defesa em profundidade, mesma regex).
+  const normalizado = ticker.trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{3}[0-9]{1,2}B?$/.test(normalizado)) {
+    return NextResponse.json(
+      { detail: "Ticker fora do formato da B3 (ex.: PETR4, VALE3, TAEE11)." },
+      { status: 400 },
+    );
+  }
+
   // Repassa o x-forwarded-for (a Vercel injeta o IP real do cliente) para fins
   // de log/auditoria no backend. A CHAVE do rate-limit usa o hop confiável (IP
   // de egress deste proxy) até existir login — ver app/core/ratelimit.py.
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
         ...(xff ? { "x-forwarded-for": xff } : {}),
       },
-      body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
+      body: JSON.stringify({ ticker: normalizado }),
       cache: "no-store",
       // Sem timeout a função serverless ficaria pendurada até o maxDuration.
       signal: AbortSignal.timeout(10_000),

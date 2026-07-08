@@ -108,11 +108,11 @@ export function registrarNoHistorico(item: ItemHistorico): void {
 }
 
 export function atualizarStatusHistorico(id: string, status: TeseStatus): void {
-  const itens = listarHistorico();
-  const alvo = itens.find((i) => i.id === id);
-  if (!alvo) return;
-  alvo.status = status;
-  salvar(itens);
+  // Nunca mutar os objetos do snapshot cacheado (useSyncExternalStore compara
+  // por referência): produz itens novos.
+  const itens = lerHistoricoSnapshot();
+  if (!itens.some((i) => i.id === id && i.status !== status)) return;
+  salvar(itens.map((i) => (i.id === id ? { ...i, status } : i)));
 }
 
 export function limparHistorico(): void {

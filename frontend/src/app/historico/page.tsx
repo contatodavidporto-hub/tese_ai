@@ -18,7 +18,10 @@ export default function HistoricoPage() {
   return (
     <>
       <Header />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 sm:px-6">
+      <main
+        id="conteudo"
+        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 sm:px-6"
+      >
         <div className="flex max-w-2xl flex-col gap-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
             Histórico
@@ -39,8 +42,7 @@ export default function HistoricoPage() {
             Teses de exemplo
           </h2>
           <p className="max-w-2xl text-sm text-tinta-2">
-            Pré-geradas para os maiores pesos do Ibovespa — abrem na hora, sem
-            custo de geração.
+            Pré-geradas para os maiores pesos do Ibovespa — abrem na hora.
           </p>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {exemplos.map((papel) => (

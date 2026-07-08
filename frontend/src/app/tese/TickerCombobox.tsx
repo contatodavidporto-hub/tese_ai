@@ -51,6 +51,16 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
     setAtivo(-1);
   };
 
+  // Mantém a opção ativa visível quando a lista rola (teclado).
+  const idAtivo =
+    aberto && ativo >= 0 && sugestoes[ativo]
+      ? `${listboxId}-${sugestoes[ativo].ticker}`
+      : undefined;
+  useEffect(() => {
+    if (!idAtivo) return;
+    document.getElementById(idAtivo)?.scrollIntoView({ block: "nearest" });
+  }, [idAtivo]);
+
   const aoTeclar = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -60,6 +70,10 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
+      if (!aberto) {
+        setAberto(true); // ArrowUp também abre (padrão ARIA combobox)
+        return;
+      }
       setAtivo((a) => Math.max(a - 1, 0));
       return;
     }
@@ -83,11 +97,7 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
         aria-expanded={aberto && sugestoes.length > 0}
         aria-controls={listboxId}
         aria-autocomplete="list"
-        aria-activedescendant={
-          aberto && ativo >= 0 && sugestoes[ativo]
-            ? `${listboxId}-${sugestoes[ativo].ticker}`
-            : undefined
-        }
+        aria-activedescendant={idAtivo}
         value={value}
         onChange={(e) => {
           onChange(e.target.value.toUpperCase());
@@ -101,7 +111,7 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
         spellCheck={false}
         disabled={disabled}
         aria-describedby={`${inputId}-hint`}
-        className="w-full rounded-lg border border-linha-forte bg-cartao px-3 py-2 font-mono text-sm text-tinta outline-none placeholder:text-tinta-3 focus:border-selo-texto disabled:opacity-60"
+        className="w-full rounded-lg border border-borda-campo bg-cartao px-3 py-2 font-mono text-sm text-tinta outline-none placeholder:text-tinta-3 focus:border-selo-texto disabled:opacity-60"
       />
       <span id={`${inputId}-hint`} className="mt-1.5 block text-xs text-tinta-3">
         {exato

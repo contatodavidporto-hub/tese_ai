@@ -41,8 +41,8 @@ export function HistoricoClient() {
     return (
       <div className="flex flex-col items-start gap-3 rounded-xl border border-linha bg-cartao p-6 text-sm text-tinta-2">
         <p>
-          Nenhuma tese gerada neste navegador ainda. O histórico fica só neste
-          dispositivo — nada é enviado a servidores.
+          Nenhuma tese gerada neste navegador ainda. O histórico fica salvo só
+          neste navegador.
         </p>
         <Link
           href="/tese"

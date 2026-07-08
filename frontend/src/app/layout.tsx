@@ -52,6 +52,13 @@ export default function RootLayout({
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-papel text-tinta">
+        {/* Skip link (WCAG 2.4.1): primeiro item focável, visível só com foco. */}
+        <a
+          href="#conteudo"
+          className="sr-only z-[60] rounded-lg bg-selo px-4 py-2 text-sm font-semibold text-sobre-selo focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        >
+          Pular para o conteúdo
+        </a>
         {/* Tarja regulatória SEMPRE visível (postura CVM) — fixa em toda página. */}
         <Tarja />
         {children}

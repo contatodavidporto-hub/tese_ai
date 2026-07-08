@@ -115,9 +115,27 @@ function Sumario({ secoes }: { secoes: Secao[] }) {
   );
 }
 
+// Hosts das fontes registradas: só eles podem virar link clicável no markdown
+// (um link do LLM para host fora do registro degrada para texto — anti-phishing).
+function hostsDasFontes(tese: TeseOut): ReadonlySet<string> {
+  const hosts = new Set<string>();
+  const coletar = (url: string | null | undefined) => {
+    if (!urlHttp(url)) return;
+    try {
+      hosts.add(new URL(url).hostname);
+    } catch {
+      // URL malformada não entra na allowlist
+    }
+  };
+  for (const f of tese.fontes) coletar(f.url);
+  for (const c of tese.citacoes) coletar(c.fonte?.url);
+  return hosts;
+}
+
 export function TeseView({ tese }: { tese: TeseOut }) {
   const documento = tese.markdown ? separarSecoes(tese.markdown) : null;
   const refs: CitacaoRef[] = construirRefs(tese.citacoes);
+  const hostsOk = hostsDasFontes(tese);
   const papel = papelPorTicker(tese.ticker);
   const secaoLacunas = documento?.secoes.find(ehSecaoLacunas);
   const temEstrutura = (documento?.secoes.length ?? 0) > 0;
@@ -199,7 +217,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
 
       {documento && !temEstrutura && (
         <div className="rounded-xl border border-linha bg-cartao p-6">
-          <Blocos blocos={[...documento.intro]} refs={refs} />
+          <Blocos blocos={[...documento.intro]} refs={refs} hostsOk={hostsOk} />
         </div>
       )}
 
@@ -223,7 +241,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
           <div className="flex min-w-0 flex-col gap-5">
             {documento.intro.length > 0 && (
               <div className="rounded-xl border border-linha bg-cartao p-6">
-                <Blocos blocos={documento.intro} refs={refs} />
+                <Blocos blocos={documento.intro} refs={refs} hostsOk={hostsOk} />
               </div>
             )}
             {documento.secoes.map((secao) => {
@@ -249,7 +267,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
                   >
                     {secao.titulo}
                   </h3>
-                  <Blocos blocos={secao.blocos} refs={refs} />
+                  <Blocos blocos={secao.blocos} refs={refs} hostsOk={hostsOk} />
                 </section>
               );
             })}

@@ -134,16 +134,25 @@ export function exemplosProntos(): PapelB3[] {
   );
 }
 
+// Normaliza para busca: caixa alta e sem diacríticos (digitar "ITAÚ" ou "SÃO"
+// precisa achar os nomes de pregão da B3, que vêm sem acento).
+function chaveBusca(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase();
+}
+
 // Busca para o autocomplete: prefixo de ticker primeiro, depois nome de pregão;
-// dentro de cada grupo, maior participação primeiro.
+// dentro de cada grupo, maior participação primeiro (ordem da carteira).
 export function buscarPapeis(consulta: string, limite = 8): PapelB3[] {
-  const q = consulta.trim().toUpperCase();
+  const q = chaveBusca(consulta.trim());
   if (!q) return [];
   const porPrefixo: PapelB3[] = [];
   const porNome: PapelB3[] = [];
   for (const papel of CARTEIRA_IBOV) {
     if (papel.ticker.startsWith(q)) porPrefixo.push(papel);
-    else if (papel.nome.toUpperCase().includes(q)) porNome.push(papel);
+    else if (chaveBusca(papel.nome).includes(q)) porNome.push(papel);
   }
   return [...porPrefixo, ...porNome].slice(0, limite);
 }

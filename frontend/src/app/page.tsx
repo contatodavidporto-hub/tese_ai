@@ -1,31 +1,13 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
-import { Footer } from "@/components/site/Footer";
+import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
-import { backendUrl } from "@/lib/backend";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
 // ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
-
-async function backendSaudavel(): Promise<boolean> {
-  // Server component: mesma resolução server-only dos proxies (API_URL), sem
-  // vazar a URL do backend para o cliente.
-  const apiUrl = backendUrl();
-  if (!apiUrl) return false;
-  try {
-    const res = await fetch(`${apiUrl}/health`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { status?: string };
-    return data.status === "ok";
-  } catch {
-    return false;
-  }
-}
 
 function formatDataIso(iso: string): string {
   const [ano, mes, dia] = iso.split("-");
@@ -77,14 +59,13 @@ const PRINCIPIOS = [
   },
 ] as const;
 
-export default async function Home() {
-  const saudavel = await backendSaudavel();
+export default function Home() {
   const exemplos = exemplosProntos();
 
   return (
     <>
       <Header />
-      <main className="flex-1">
+      <main id="conteudo" className="flex-1">
         {/* Herói */}
         <section className="border-b border-linha">
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
@@ -96,9 +77,10 @@ export default async function Home() {
             </h1>
             <p className="max-w-2xl animate-entrada text-base leading-relaxed text-tinta-2 [animation-delay:160ms] sm:text-lg">
               O Tese AI estrutura teses de investimento cruzando fundamentos,
-              contexto macro, pares globais e geopolítica. Cada afirmação é
-              rastreável até o dado público de origem — e cada lacuna é
-              declarada, nunca preenchida com chute.
+              contexto macro, pares globais e geopolítica. Cada afirmação
+              factual é rastreável até o dado público de origem, interpretação
+              vem rotulada como tal — e cada lacuna é declarada, nunca
+              preenchida com chute.
             </p>
             <div className="flex animate-entrada flex-wrap items-center gap-3 [animation-delay:240ms]">
               <Link
@@ -109,7 +91,7 @@ export default async function Home() {
               </Link>
               <Link
                 href={`/tese?ticker=${exemplos[0]?.ticker ?? "VALE3"}`}
-                className="rounded-lg border border-linha-forte px-6 py-3 text-sm font-medium text-tinta transition-colors hover:border-selo-texto"
+                className="rounded-lg border border-borda-campo px-6 py-3 text-sm font-medium text-tinta transition-colors hover:border-selo-texto"
               >
                 Ver exemplo: {exemplos[0]?.ticker ?? "VALE3"}
               </Link>
@@ -132,8 +114,9 @@ export default async function Home() {
               </h2>
               <p className="max-w-2xl text-sm leading-relaxed text-tinta-2">
                 Pré-geradas pelo motor para os 10 maiores pesos da carteira
-                teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}).
-                Clique e leia a tese completa, com citações e fontes.
+                teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}) e
+                mantidas em cache. Clique e leia a tese completa, com citações e
+                fontes — se o cache tiver expirado, ela é regenerada na hora.
               </p>
             </div>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -241,7 +224,13 @@ export default async function Home() {
           </div>
         </section>
       </main>
-      <Footer saudeBackend={saudavel} />
+      <Footer
+        saudeSlot={
+          <Suspense fallback={<ChipSaude />}>
+            <ChipSaudeAoVivo />
+          </Suspense>
+        }
+      />
     </>
   );
 }

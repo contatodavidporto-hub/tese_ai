@@ -35,7 +35,10 @@ export default async function TesePage({
   return (
     <>
       <Header />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6">
+      <main
+        id="conteudo"
+        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6"
+      >
         <div className="flex max-w-2xl flex-col gap-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
             Gerar tese
@@ -43,8 +46,8 @@ export default async function TesePage({
           <p className="text-sm leading-relaxed text-tinta-2">
             Informe o ticker de uma companhia aberta da B3. A tese sai estruturada
             em dimensões — fundamentos, macro, pares globais e geopolítica — com
-            cada afirmação ligada à sua fonte, e sem recomendação de compra ou
-            venda.
+            cada afirmação factual ligada à sua fonte, e sem recomendação de
+            compra ou venda.
           </p>
         </div>
 

@@ -19,6 +19,8 @@
   /* traços */
   --linha: #ddd8c9;
   --linha-forte: #b9b39f;
+  /* borda de componente interativo (campo/controle): >= 3:1 vs cartão (WCAG 1.4.11) */
+  --borda-campo: #8f8a76;
   /* acento (verde-cédula): fundo de ação × texto/acento */
   --selo: #0d5c44;
   --selo-forte: #094634;
@@ -46,8 +48,10 @@
     --tinta-3: #94a099;
     --linha: #2a322d;
     --linha-forte: #45504a;
+    --borda-campo: #69766e;
     --selo: #156a50;
-    --selo-forte: #1d8263;
+    /* hover do botão primário: 5,2:1 com --sobre-selo (AA; #1d8263 dava 4,16) */
+    --selo-forte: #17715a;
     --sobre-selo: #f2f0e8;
     --selo-texto: #5fc9a2;
     --aviso-fundo: #241d0e;
@@ -69,6 +73,7 @@
   --color-tinta-3: var(--tinta-3);
   --color-linha: var(--linha);
   --color-linha-forte: var(--linha-forte);
+  --color-borda-campo: var(--borda-campo);
   --color-selo: var(--selo);
   --color-selo-forte: var(--selo-forte);
   --color-sobre-selo: var(--sobre-selo);

@@ -71,7 +71,19 @@ type Props = {
 export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   const [ticker, setTicker] = useState(tickerInicial ?? "");
   const [erroLocal, setErroLocal] = useState<string | null>(null);
-  const [state, setState] = useState<UiState>({ phase: "idle" });
+  // Fluxos automáticos (galeria/histórico) já NASCEM em "submitting": o primeiro
+  // paint mostra cartão + skeleton, evitando layout shift quando o efeito dispara
+  // (CLS medido caiu de 0,17 para perto de zero com isso).
+  const comecaOcupado =
+    Boolean(idInicial) ||
+    Boolean(
+      autoIniciar &&
+        tickerInicial &&
+        (EXEMPLOS_PRONTOS as readonly string[]).includes(tickerInicial),
+    );
+  const [state, setState] = useState<UiState>(
+    comecaOcupado ? { phase: "submitting" } : { phase: "idle" },
+  );
   // Relógio para exibir o tempo decorrido durante o polling.
   const [agora, setAgora] = useState(0);
   // Invalida execuções antigas quando o usuário inicia outra (ou cancela).
@@ -180,9 +192,15 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
 
         if (!res.ok || !data || !("id" in data) || !data.id) {
           if (runIdRef.current !== runId) return;
+          // 429 (rate-limit do backend) devolve {"error": ...}, não {"detail"}:
+          // traduzimos para uma mensagem acionável em vez de "HTTP 429".
+          const fallback =
+            res.status === 429
+              ? "Muitas gerações em sequência. Aguarde alguns minutos e tente novamente."
+              : `Falha ao criar a tese (HTTP ${res.status}).`;
           setState({
             phase: "error",
-            message: messageFrom(data, `Falha ao criar a tese (HTTP ${res.status}).`),
+            message: messageFrom(data, fallback),
             ticker: normalizado,
           });
           return;
@@ -269,7 +287,12 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
         void iniciarPorTicker(tickerInicial);
       }
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      // StrictMode (dev) monta-desmonta-remonta: sem resetar o guard aqui, o
+      // clearTimeout cancelaria o disparo e a remontagem nunca re-agendaria.
+      autoDisparadoRef.current = false;
+      window.clearTimeout(timer);
+    };
   }, [autoIniciar, tickerInicial, idInicial, carregarPorId, iniciarPorTicker]);
 
   const handleSubmit = useCallback(
@@ -284,6 +307,8 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   const cancelar = useCallback(() => {
     runIdRef.current++;
     setState({ phase: "idle" });
+    // devolve o foco ao campo (senão cai no <body> quando o botão some)
+    document.getElementById("ticker")?.focus();
   }, []);
 
   const segundosDecorridos =
@@ -332,18 +357,23 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
         </button>
       </form>
 
-      <div aria-live="polite" className="flex flex-col gap-6">
-        {state.phase === "submitting" && (
-          <CartaoCarregando rotulo="Enviando solicitação…" />
-        )}
-        {state.phase === "polling" && (
+      {/* aria-live SÓ no rótulo curto (dentro do CartaoCarregando/CartaoErro):
+          um live region no documento inteiro faria o leitor de tela anunciar o
+          contador a cada segundo e reler a tese toda ao ficar pronta. */}
+      <div className="flex flex-col gap-6">
+        {(state.phase === "submitting" || state.phase === "polling") && (
           <div className="flex flex-col gap-4">
             <CartaoCarregando
-              rotulo={`Estruturando a tese de ${state.ticker}${
-                segundosDecorridos > 0 ? ` — ${segundosDecorridos}s` : ""
-              }`}
-              detalhe="O motor reúne dados públicos (CVM, Banco Central, FRED, SEC), monta as dimensões e sintetiza com citações. Cache abre na hora; tese nova pode levar até ~2 minutos."
-              onCancelar={cancelar}
+              rotulo={
+                state.phase === "submitting"
+                  ? "Enviando solicitação…"
+                  : `Estruturando a tese de ${state.ticker}`
+              }
+              contadorSegundos={
+                state.phase === "polling" ? segundosDecorridos : undefined
+              }
+              detalhe="O motor reúne dados públicos (CVM, Banco Central, FRED, SEC), monta as dimensões e sintetiza com citações. Cache abre na hora; tese nova pode levar alguns minutos."
+              onCancelar={state.phase === "polling" ? cancelar : undefined}
             />
             <EsqueletoTese />
           </div>
@@ -358,6 +388,9 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
         )}
         {state.phase === "ready" && (
           <div className="flex flex-col gap-4">
+            <p role="status" className="sr-only">
+              Tese de {state.tese.ticker} pronta.
+            </p>
             <TeseView tese={state.tese} />
             <div className="flex flex-wrap gap-3">
               <button
@@ -366,8 +399,9 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
                   runIdRef.current++;
                   setState({ phase: "idle" });
                   setTicker("");
+                  document.getElementById("ticker")?.focus();
                 }}
-                className="rounded-lg border border-linha-forte bg-cartao px-4 py-2 text-sm font-medium text-tinta hover:border-selo-texto"
+                className="rounded-lg border border-borda-campo bg-cartao px-4 py-2 text-sm font-medium text-tinta hover:border-selo-texto"
               >
                 Gerar outra tese
               </button>
@@ -390,21 +424,29 @@ function Spinner() {
 
 function CartaoCarregando({
   rotulo,
+  contadorSegundos,
   detalhe,
   onCancelar,
 }: {
   rotulo: string;
+  contadorSegundos?: number;
   detalhe?: string;
   onCancelar?: () => void;
 }) {
   return (
-    <div
-      role="status"
-      className="flex flex-col gap-2 rounded-xl border border-linha bg-cartao px-5 py-4"
-    >
+    <div className="flex flex-col gap-2 rounded-xl border border-linha bg-cartao px-5 py-4">
       <div className="flex items-center gap-3 text-sm text-tinta">
         <Spinner />
-        <span className="font-medium">{rotulo}</span>
+        {/* live region = só o rótulo estável; o contador fica fora da árvore
+            de acessibilidade para não ser anunciado a cada segundo */}
+        <span role="status" className="font-medium">
+          {rotulo}
+        </span>
+        {typeof contadorSegundos === "number" && contadorSegundos > 0 && (
+          <span aria-hidden className="font-mono text-xs text-tinta-3">
+            {contadorSegundos}s
+          </span>
+        )}
         {onCancelar && (
           <button
             type="button"
@@ -447,11 +489,13 @@ function CartaoErro({
   );
 }
 
-// Skeleton com o formato do documento final (evita layout shift na chegada).
+// Skeleton com o formato do documento final (evita layout shift na chegada):
+// bloco do aviso + cabeçalho + sumário + seções, nas alturas aproximadas.
 function EsqueletoTese() {
   return (
     <div aria-hidden className="flex animate-pulse flex-col gap-5">
-      <div className="h-24 rounded-xl border border-linha bg-cartao" />
+      <div className="h-13 rounded-xl border border-aviso-borda bg-aviso-fundo" />
+      <div className="h-36 rounded-xl border border-linha bg-cartao" />
       <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <div className="hidden flex-col gap-2 lg:flex">
           {[...Array(6)].map((_, i) => (
