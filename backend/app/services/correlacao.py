@@ -12,6 +12,13 @@ rígidas (achado A4 do red-team):
 
 `montar_grafo` é puro (recebe um contexto já coletado do banco) e testável offline.
 `elos_para_llm` serializa cada elo com as duas fontes/datas para o motor de tese.
+
+Fase 2 multiativo (D8): as REGRAS POR CLASSE vivem nos perfis de
+``app/services/ativos`` (``perfil.montar_elos``) — aqui ficam só os PRIMITIVOS
+(``validar_elo``, Pearson não-causal com ``MIN_N``, hedge, ``persistir_elos``) e
+o grafo legado da AÇÃO (``montar_grafo``, byte-idêntico: 8 elos). FII/renda fixa
+NUNCA passam por ``montar_grafo`` — é isso que corrige o vazamento do elo
+câmbio→receita (que disparava por ``empresa_fonte_id``, não por classe).
 """
 
 from __future__ import annotations
@@ -413,6 +420,10 @@ def coletar_contexto(session: Session, empresa: Empresa) -> dict:
 
     return {
         "setor": empresa.setor,
+        # Plano de contas detectado por filing (D2): o perfil da AÇÃO usa esta
+        # chave para os elos de banco; `montar_grafo` a ignora (o grafo legado
+        # da ação segue byte-idêntico).
+        "plano_contas": getattr(empresa, "plano_contas", None),
         "macro": macro,
         "empresa_fonte_id": fund.fonte_id if fund else None,
         "fundamento_fontes": fundamento_fontes,
@@ -429,15 +440,26 @@ def construir_grafo(session: Session, empresa: Empresa) -> list[Elo]:
 
 def persistir_elos(
     session: Session,
-    empresa_id: uuid.UUID,
+    empresa_id: uuid.UUID | None,
     elos: list[Elo],
     tese_versao_id: uuid.UUID | None = None,
+    *,
+    ativo_codigo: str | None = None,
 ) -> None:
-    """Grava os elos validados (trilha de auditoria do raciocínio)."""
+    """Grava os elos validados (trilha de auditoria do raciocínio).
+
+    Âncora do elo (CHECK ``ck_elos_ancora`` da migração 0005): ``empresa_id``
+    para ação; ``ativo_codigo`` (ticker de FII / código TD) quando não há
+    empresa. Um dos dois é OBRIGATÓRIO — falha rápido aqui em vez de deixar o
+    banco rejeitar no commit (elo órfão nunca é gravado).
+    """
+    if elos and empresa_id is None and ativo_codigo is None:
+        raise ValueError("elo sem âncora: informe empresa_id OU ativo_codigo (ck_elos_ancora)")
     for e in elos:
         session.add(
             EloModel(
                 empresa_id=empresa_id,
+                ativo_codigo=ativo_codigo,
                 dimensao=e.dimensao,
                 origem_label=e.origem_label,
                 origem_fonte_id=e.origem_fonte_id,

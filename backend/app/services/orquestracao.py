@@ -12,8 +12,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.core.logging import get_logger
-from app.models.models import Empresa
-from app.services import commodities, macro_global, sec
+from app.models.models import Empresa, FiiCadastro
+from app.services import commodities, fii_dados, focus, macro_global, sec, tesouro
 from app.services import dados as dados_svc
 
 if TYPE_CHECKING:
@@ -77,4 +77,45 @@ def ingest_completo(session: Session, empresa: Empresa) -> dict[str, str]:
 
     session.commit()
     logger.info("ingest_completo", ticker=empresa.ticker, resultados=resultados)
+    return resultados
+
+
+def ingest_fii_completo(session: Session, fii: FiiCadastro) -> dict[str, str]:
+    """Ingestão da classe FII (etapa 11/D): informes mensais (indicadores) +
+    vacância trimestral + macro BR (Selic/IPCA) + CDI + Focus. Cada passo é
+    isolado (SAVEPOINT): Olinda fora do ar degrada para as séries factuais do
+    SGS sem derrubar a tese. Commit único ao final."""
+    resultados: dict[str, str] = {}
+    passo = _passos_isolados(session, resultados)
+
+    passo("fii_indicadores", lambda: fii_dados.ingest_indicadores(session, fii))
+    passo("fii_vacancia", lambda: fii_dados.ingest_vacancia(session, fii))
+    passo("macro_br", lambda: dados_svc.ingest_macro(session))
+    passo("cdi", lambda: focus.ingest_cdi(session))
+    passo("focus", lambda: focus.ingest_focus(session))
+
+    session.commit()
+    logger.info("ingest_fii_completo", cnpj=fii.cnpj, ticker=fii.ticker, resultados=resultados)
+    return resultados
+
+
+def ingest_renda_fixa_completo(session: Session, familia: str, ano: int) -> dict[str, str]:
+    """Ingestão da classe RENDA_FIXA (etapa 11/D): SÓ o título pedido (janela
+    limitada — o CSV completo da STN nunca entra cru) + CDI (fato, SGS) +
+    Focus (expectativa, Olinda; falha degrada para o SGS). Passos isolados,
+    commit único ao final."""
+    resultados: dict[str, str] = {}
+    passo = _passos_isolados(session, resultados)
+
+    passo("titulo_tesouro", lambda: tesouro.ingest_titulo(session, familia, ano))
+    passo("cdi", lambda: focus.ingest_cdi(session))
+    passo("focus", lambda: focus.ingest_focus(session))
+
+    session.commit()
+    logger.info(
+        "ingest_renda_fixa_completo",
+        familia=familia.upper(),
+        ano=ano,
+        resultados=resultados,
+    )
     return resultados

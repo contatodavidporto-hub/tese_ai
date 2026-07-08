@@ -1,8 +1,15 @@
-"""Testes offline do gate de avaliação (anti-recomendação / citação / abstenção)."""
+"""Testes offline do gate de avaliação (anti-recomendação / citação / abstenção).
+
+Fase 2 multiativo: o gate passou a BLOQUEAR markdown sem H2 'geopol' (o buraco
+da guarda muda) e sem seção de Lacunas — universal, toda classe. Os fixtures
+antigos são FRAGMENTOS de tese; `_completar_secoes` anexa as seções universais
+quando ausentes para preservar o alvo original de cada teste antigo. Os testes
+de regressão do buraco usam `completo=False` para exercitar a ausência.
+"""
 
 import pytest
 
-from app.services.avaliacao import avaliar_tese
+from app.services.avaliacao import avaliar_tese, termos_vetados_com_numero
 
 _FONTE = {
     "id": "11111111-1111-1111-1111-111111111111",
@@ -12,14 +19,28 @@ _FONTE = {
 }
 
 
-def _envelope(markdown: str, *, com_citacao: bool = True, fontes=None) -> dict:
+def _completar_secoes(markdown: str) -> str:
+    """Anexa as seções universais BLOQUEANTES (geopol/Lacunas) quando ausentes."""
+    h2s = " | ".join(ln.lower() for ln in markdown.splitlines() if ln.startswith("## "))
+    if "geopol" not in h2s:
+        markdown += (
+            "\n\n## Camada geopolítica (interpretação)\n"
+            "Sem eventos afirmados; qualquer leitura é hipótese condicional."
+        )
+    if "lacun" not in h2s:
+        markdown += "\n\n## Lacunas\n- dado não encontrado: exemplo de abstenção."
+    return markdown
+
+
+def _envelope(markdown: str, *, com_citacao: bool = True, fontes=None, completo: bool = True):
     fontes = fontes if fontes is not None else [_FONTE]
     citacoes = (
         [{"texto_citado": "Lucro R$ 110.605.000.000,00", "document_index": 0, "fonte": _FONTE}]
         if com_citacao
         else []
     )
-    return {"markdown": markdown, "citacoes": citacoes, "fontes": fontes, "lacunas": []}
+    md = _completar_secoes(markdown) if completo else markdown
+    return {"markdown": md, "citacoes": citacoes, "fontes": fontes, "lacunas": []}
 
 
 def test_tese_limpa_aprova():
@@ -213,3 +234,196 @@ def test_negacao_de_um_evento_nao_exime_afirmacao_de_outro():
     laudo = avaliar_tese(_envelope(md))
     assert laudo["alertas_geopolitica"]
     assert laudo["bloqueante"] is True
+
+
+# =============================================================================
+# Fase 2 multiativo (etapa 13) — gate por classe: seções universais, imperativos
+# por diretiva-ao-leitor, termos vetados-com-número e piso de fidelidade.
+# =============================================================================
+
+
+# --- Seções universais BLOQUEANTES (regressão do buraco: guarda geopol muda) --
+
+
+def test_markdown_sem_h2_geopolitica_bloqueia():
+    # Sem H2 'geopol', `_alertas_geopolitica` silenciosamente não roda (fase 1).
+    md = "# Tese\n## 1. Fundamentos\nReceita: R$ 497,5 bi.\n## Lacunas\n- dado não encontrado."
+    laudo = avaliar_tese(_envelope(md, completo=False))
+    assert laudo["bloqueante"] is True
+    assert any("geopol" in s for s in laudo["secoes_ausentes"])
+
+
+def test_markdown_sem_secao_lacunas_bloqueia():
+    md = "# Tese\n## 4. Camada geopolítica (interpretação)\nSem eventos afirmados."
+    laudo = avaliar_tese(_envelope(md, completo=False))
+    assert laudo["bloqueante"] is True
+    assert any("lacun" in s for s in laudo["secoes_ausentes"])
+
+
+def test_secoes_universais_presentes_nao_bloqueiam():
+    md = (
+        "# Tese\n## 1. Fundamentos\nReceita citada.\n"
+        "## 4. Camada geopolítica (interpretação)\nSem eventos afirmados.\n"
+        "## 8. Lacunas\n- dado não encontrado: exemplo."
+    )
+    laudo = avaliar_tese(_envelope(md, completo=False))
+    assert laudo["secoes_ausentes"] == []
+    assert laudo["bloqueante"] is False
+
+
+# --- Imperativos ancorados em diretiva-ao-leitor (bloqueiam, toda classe) -----
+
+
+@pytest.mark.parametrize(
+    ("frase", "classe"),
+    [
+        ("## Síntese\nTrave a taxa antes da próxima reunião do Copom.", "renda_fixa"),
+        ("## Síntese\nAdquira cotas do fundo neste patamar.", "fii"),
+        ("## Síntese\nVocê deve alocar em prefixados agora.", "renda_fixa"),
+        ("## Síntese\nSugiro carregar o título até o vencimento.", "renda_fixa"),
+        ("## Síntese\nSubscreva cotas na próxima emissão.", "fii"),
+        ("## Síntese\nRecomendo resgatar o título hoje.", "renda_fixa"),
+        ("## Síntese\nAconselho travar a taxa nominal.", "renda_fixa"),
+    ],
+)
+def test_imperativos_por_classe_bloqueiam(frase: str, classe: str):
+    laudo = avaliar_tese(_envelope(frase), classe=classe)
+    assert laudo["violacoes_recomendacao"], frase
+    assert laudo["bloqueante"] is True, frase
+
+
+# --- Linguagem factual multiativo NÃO bloqueia (aceite da etapa 13) -----------
+
+
+@pytest.mark.parametrize(
+    ("frase", "classe"),
+    [
+        (
+            "## Renda fixa\nTaxa Venda Manhã: 13,25% (Tesouro Transparente, Data Base 07/07/2026).",
+            "renda_fixa",
+        ),
+        (
+            "## Renda fixa\nCaso o investidor resgate o título antes do vencimento, "
+            "há marcação a mercado.",
+            "renda_fixa",
+        ),
+        ("## Mandato\nO mandato permite que o fundo invista em CRI.", "fii"),
+        ("## Renda fixa\nO resgate antecipado implica marcação a mercado.", "renda_fixa"),
+        ("## Imóveis\nVacância ponderada por área: 3,2% (informe trimestral CVM).", "fii"),
+        ("## Indicadores\nDY mensal do informe (auto-declarado): 0,66%.", "fii"),
+        ("## Juros\nProxy da curva soberana via Tesouro prefixado: 13,1% (2029).", "renda_fixa"),
+        ("## Regras\nPor regra CVM, o fundo deve investir ao menos 67% em imóveis.", "fii"),
+    ],
+)
+def test_linguagem_factual_multiativo_nao_bloqueia(frase: str, classe: str):
+    laudo = avaliar_tese(_envelope(frase), classe=classe)
+    assert laudo["violacoes_recomendacao"] == [], frase
+    assert laudo["termos_vetados"] == [], frase
+    assert laudo["bloqueante"] is False, frase
+
+
+# --- Termos vetados-com-número (bloqueante determinístico, D6c) ---------------
+
+
+@pytest.mark.parametrize(
+    ("frase", "classe"),
+    [
+        ("## Juros\nCurva DI: 12,5% para 2027.", "renda_fixa"),
+        ("## Juros\nA curva DI precifica 12,5% no vencimento 2027.", "acao"),  # universal
+        ("## Inflação\nInflação implícita: 6,2% ao ano.", "renda_fixa"),
+        ("## Solidez\nÍndice de Basileia: 14,8%.", "acao"),
+        ("## Solidez\nO índice de Basileia do banco é 14,8%.", "banco"),
+        ("## Valuation\nP/VP: 0,92 — desconto sobre o valor patrimonial.", "fii"),
+        ("## Indicadores\nDividend yield anualizado: 8,1%.", "fii"),
+        ("## Indicadores\nDY a mercado: 9,0%.", "fii"),
+        # anualizar o DY do informe é vetado MESMO rotulado ("NUNCA anualizar").
+        ("## Indicadores\nDY do informe anualizado: 8,0%.", "fii"),
+    ],
+)
+def test_termos_vetados_com_numero_bloqueiam(frase: str, classe: str):
+    laudo = avaliar_tese(_envelope(frase), classe=classe)
+    assert laudo["termos_vetados"], frase
+    assert laudo["bloqueante"] is True, frase
+
+
+def test_pvp_com_numero_fora_de_fii_nao_bloqueia():
+    # Escopo por classe: o veto de P/VP vale para FII (lacuna de preço B3).
+    md = "## Valuation\nP/VP: 0,92 segundo o relatório da administradora."
+    laudo = avaliar_tese(_envelope(md))  # classe default 'acao'
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+
+
+def test_curva_di_sem_numero_como_lacuna_nao_bloqueia():
+    md = "## Juros\nCurva DI completa: dado não encontrado (fonte licenciada)."
+    laudo = avaliar_tese(_envelope(md), classe="renda_fixa")
+    assert laudo["termos_vetados"] == []
+
+
+def test_curva_di_com_proxy_no_mesmo_periodo_nao_bloqueia():
+    md = "## Juros\nProxy da curva DI via Tesouro prefixado: 13,1% (2029)."
+    laudo = avaliar_tese(_envelope(md), classe="renda_fixa")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+
+
+def test_termos_vetados_funcao_pura_positivos_e_negativos():
+    # POSITIVOS — termo + número no mesmo período => achado.
+    assert termos_vetados_com_numero("A curva DI precifica 12,5% em 2027.", "acao")
+    assert termos_vetados_com_numero("Inflação implícita: 6,2%.", "renda_fixa")
+    assert termos_vetados_com_numero("O índice de Basileia é de 14,8%.", "banco")
+    assert termos_vetados_com_numero("P/VP: 0,92.", "fii")
+    assert termos_vetados_com_numero("Dividend yield a mercado: 9,0%.", "fii")
+    # NEGATIVOS — proxy nomeado, escopo de classe, rótulo do informe, sem número.
+    assert termos_vetados_com_numero("Proxy da curva DI: prefixado a 13,1%.", "renda_fixa") == []
+    assert termos_vetados_com_numero("P/VP: 0,92.", "acao") == []
+    assert termos_vetados_com_numero("DY mensal do informe (auto-declarado): 0,66%.", "fii") == []
+    assert termos_vetados_com_numero("A inflação implícita não é observável aqui.", "rf") == []
+    assert termos_vetados_com_numero("Curva DI: dado não encontrado.", "renda_fixa") == []
+
+
+# --- Tokens temáticos por classe: NÃO-bloqueantes (derrubam só `aprovado`) ----
+
+
+def test_tokens_de_classe_ausentes_derrubam_aprovado_sem_bloquear():
+    md = "## 1. Visão\nFundo de galpões com contratos longos."  # sem 'vac'/'patrim'
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["tokens_classe_ausentes"] == ["vac", "patrim"]
+    assert laudo["bloqueante"] is False
+    assert laudo["aprovado"] is False
+
+
+def test_tokens_de_classe_presentes_nao_derrubam():
+    md = "## Imóveis\nVacância física: 3,2%; patrimônio líquido de R$ 7,06 bi."
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["tokens_classe_ausentes"] == []
+
+
+def test_tokens_de_classe_nao_afetam_acao():
+    md = "## Fundamentos\nReceita de Venda de Bens e/ou Serviços: R$ 497,5 bi."
+    laudo = avaliar_tese(_envelope(md))  # default 'acao': sem tokens de classe
+    assert laudo["tokens_classe_ausentes"] == []
+
+
+# --- Piso de fidelidade numérica: nota p/ classes novas, 'acao' inalterada ----
+
+
+def test_faithfulness_piso_derruba_aprovado_de_classe_nova_sem_bloquear():
+    # Números do corpo NÃO citados => fidelidade 0 < piso; deve derrubar
+    # `aprovado` (nota) sem bloquear (proxy fuzzy não veta sozinho).
+    md = "## Imóveis\nVacância: 3,2%; patrimônio: R$ 7,06 bi."
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["faithfulness_numerica"] is not None
+    assert laudo["faithfulness_numerica"] < laudo["faithfulness_piso"]
+    assert laudo["aprovado"] is False
+    assert laudo["bloqueante"] is False
+
+
+def test_faithfulness_piso_nao_muda_comportamento_de_acao():
+    # Mesmo cenário (número não citado) em 'acao': métrica só reportada (fase 1).
+    md = "## Fundamentos\nReceita: R$ 497,5 bi (CVM)."
+    laudo = avaliar_tese(_envelope(md))
+    assert laudo["faithfulness_numerica"] is not None
+    assert laudo["faithfulness_numerica"] < laudo["faithfulness_piso"]
+    assert laudo["aprovado"] is True
+    assert laudo["bloqueante"] is False

@@ -36,30 +36,45 @@ class ClasseAtivo:
 
 
 class PerfilClasse(Protocol):
-    """Contrato do motor por classe — implementado na etapa 11, NÃO aqui.
-
-    Cada módulo de classe (acao/fii/renda_fixa) cumprirá esta interface:
+    """Contrato do motor por classe — implementado pelos MÓDULOS de perfil
+    (``acao``/``fii``/``renda_fixa``; despacho em ``registro.perfil_da_classe``):
 
     - ``ensure_ativo(session, codigo)``: resolve e persiste a âncora da classe
       (Empresa para 'acao' via ``cvm_cadastro.resolve_ticker``; FiiCadastro para
-      'fii'; família+vencimento em ``titulos_publicos`` para 'renda_fixa', por
-      SELECT DISTINCT de ``data_vencimento`` — nunca contar linhas). Abstém com
-      ``DadoNaoEncontrado`` quando o ativo não existe nas fontes públicas.
+      'fii'; código TD validado para 'renda_fixa' — o vencimento concreto vem de
+      ``tesouro``, por SELECT DISTINCT de ``data_vencimento``, nunca contando
+      linhas). Abstém com ``DadoNaoEncontrado`` quando o ativo não existe.
+    - ``precisa_ingest(session, ativo)``: True quando faltam dados frescos —
+      espelha o gatilho legado da ação (só ingere sem fundamento).
     - ``ingest(session, ativo)``: ingestão keyless da classe (DFP/informes CVM,
-      CSV da STN); cada fato persistido com fonte+data; sem dado -> lacuna.
-    - ``coletar(session, ativo)``: documentos rotulados (valor + fonte + data +
-      unidade) para o LLM com citações — nunca texto sem fonte.
-    - ``montar_elos(session, contexto)``: elos D5 do perfil da classe (fonte
+      CSV da STN) com falha ISOLADA por passo (padrão ``orquestracao``); cada
+      fato persistido com fonte+data; sem dado -> lacuna.
+    - ``coletar(session, ativo)``: [(Fonte, texto)] rotulados (valor formatado
+      pela UNIDADE + fonte + data) para o LLM com citações — nunca sem fonte.
+    - ``system_prompt(ativo)``: template markdown da classe (ação legado é
+      byte-idêntica; banco/seguradora = variante; FII/RF têm template próprio,
+      SEM seção de pares globais e com lacunas fixas da classe).
+    - ``montar_elos(session, ativo)``: elos D5 do perfil da classe (fonte
       validada nas DUAS pontas; Pearson rotulado não-causal; n>=24 ou abstém).
+    - ``nome_ativo(ativo)`` / ``ancora_elos(ativo)``: nome humano p/ a instrução
+      e âncora (empresa_id | ativo_codigo) p/ ``persistir_elos``.
     """
 
     def ensure_ativo(self, session: Any, codigo: str) -> Any: ...
+
+    def precisa_ingest(self, session: Any, ativo: Any) -> bool: ...
 
     def ingest(self, session: Any, ativo: Any) -> None: ...
 
     def coletar(self, session: Any, ativo: Any) -> list[Any]: ...
 
-    def montar_elos(self, session: Any, contexto: Any) -> list[Any]: ...
+    def system_prompt(self, ativo: Any) -> str: ...
+
+    def montar_elos(self, session: Any, ativo: Any) -> list[Any]: ...
+
+    def nome_ativo(self, ativo: Any) -> str: ...
+
+    def ancora_elos(self, ativo: Any) -> tuple[Any, str | None]: ...
 
 
 ACAO = ClasseAtivo(
