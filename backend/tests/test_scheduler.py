@@ -21,6 +21,7 @@ def _settings(**overrides) -> SimpleNamespace:
         scheduler_reaper_min=15,
         scheduler_macro_horas=24,
         scheduler_cadastro_horas=168,
+        scheduler_warm_cache_horas=24,
     )
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -29,17 +30,43 @@ def _settings(**overrides) -> SimpleNamespace:
 # ---------------------------------------------------------------------------
 # jobs_configurados — flags por job
 # ---------------------------------------------------------------------------
-def test_jobs_configurados_padrao_tem_os_tres() -> None:
+def test_jobs_configurados_padrao_tem_os_quatro() -> None:
     jobs = sch.jobs_configurados(_settings())
-    assert [j.nome for j in jobs] == ["reaper", "refresh_macro", "bootstrap_cadastro"]
+    assert [j.nome for j in jobs] == [
+        "reaper",
+        "refresh_macro",
+        "bootstrap_cadastro",
+        "warm_cache",
+    ]
     assert jobs[0].intervalo == dt.timedelta(minutes=15)
     assert jobs[1].intervalo == dt.timedelta(hours=24)
     assert jobs[2].intervalo == dt.timedelta(hours=168)
+    assert jobs[3].intervalo == dt.timedelta(hours=24)
+
+
+def test_warm_cache_roda_por_ultimo_no_tick() -> None:
+    # Ordem é contrato: no mesmo tick o refresh_macro roda ANTES do warm_cache,
+    # então as teses re-geradas já saem com as séries macro atualizadas.
+    jobs = sch.jobs_configurados(_settings())
+    nomes = [j.nome for j in jobs]
+    assert nomes.index("refresh_macro") < nomes.index("warm_cache")
+    assert nomes[-1] == "warm_cache"
 
 
 def test_intervalo_zero_desliga_o_job() -> None:
-    jobs = sch.jobs_configurados(_settings(scheduler_macro_horas=0, scheduler_cadastro_horas=0))
+    jobs = sch.jobs_configurados(
+        _settings(
+            scheduler_macro_horas=0,
+            scheduler_cadastro_horas=0,
+            scheduler_warm_cache_horas=0,
+        )
+    )
     assert [j.nome for j in jobs] == ["reaper"]
+
+
+def test_warm_cache_zero_desliga_so_ele() -> None:
+    jobs = sch.jobs_configurados(_settings(scheduler_warm_cache_horas=0))
+    assert [j.nome for j in jobs] == ["reaper", "refresh_macro", "bootstrap_cadastro"]
 
 
 # ---------------------------------------------------------------------------
