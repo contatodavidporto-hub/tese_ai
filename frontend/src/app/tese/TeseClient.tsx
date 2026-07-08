@@ -1,20 +1,35 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Markdown } from "./Markdown";
-import type { CriarTeseResposta, Fonte, TeseOut } from "./types";
+// Fluxo de geração da tese. O cliente fala SÓ com a mesma origem (/api/...) por
+// causa do CSP `connect-src 'self'`; os Route Handlers em src/app/api/teses
+// repassam ao backend FastAPI no servidor.
+//
+// Caminhos:
+//  - ticker novo: POST /api/teses -> polling do GET até ready/error;
+//  - cache hit:   POST devolve `ready` -> GET imediato (abre na hora, custo 0);
+//  - histórico:   GET /api/teses/{id} direto, sem POST (não regenera nada).
 
-// O cliente fala SÓ com a mesma origem (/api/...) por causa do CSP `connect-src 'self'`.
-// Os Route Handlers em src/app/api/teses repassam ao backend FastAPI no servidor.
-const POLL_INTERVAL_MS = 2000;
-const MAX_TRIES = 30;
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import {
+  atualizarStatusHistorico,
+  registrarNoHistorico,
+} from "@/lib/historico";
+import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
+import { TeseView } from "./TeseView";
+import { TickerCombobox } from "./TickerCombobox";
+import type { CriarTeseResposta, TeseOut } from "./types";
+
+const PRIMEIRA_ESPERA_MS = 1200;
+const INTERVALO_MS = 2500;
+const TEMPO_MAXIMO_MS = 240_000; // tese nova (5 dimensões + síntese) leva minutos
 
 type UiState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; id: string; ticker: string }
+  | { phase: "polling"; id: string; ticker: string; inicioEm: number }
   | { phase: "ready"; tese: TeseOut }
-  | { phase: "error"; message: string };
+  | { phase: "error"; message: string; ticker?: string };
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,29 +47,131 @@ function messageFrom(data: unknown, fallback: string): string {
   return fallback;
 }
 
-export function TeseClient() {
-  const [ticker, setTicker] = useState("PETR4");
+async function obterTese(id: string): Promise<TeseOut | { detail?: string } | null> {
+  try {
+    const res = await fetch(`/api/teses/${encodeURIComponent(id)}`);
+    const data = (await res.json().catch(() => null)) as
+      | TeseOut
+      | { detail?: string }
+      | null;
+    if (res.ok && data && "status" in data) return data as TeseOut;
+    if (res.status === 404) return { detail: "Tese não encontrada." };
+    return null; // erro transitório: quem chama decide tentar de novo
+  } catch {
+    return null;
+  }
+}
+
+type Props = {
+  tickerInicial?: string;
+  autoIniciar?: boolean;
+  idInicial?: string;
+};
+
+export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
+  const [ticker, setTicker] = useState(tickerInicial ?? "");
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
   const [state, setState] = useState<UiState>({ phase: "idle" });
-  // Guarda o ticker da execução em curso para ignorar respostas obsoletas.
+  // Relógio para exibir o tempo decorrido durante o polling.
+  const [agora, setAgora] = useState(0);
+  // Invalida execuções antigas quando o usuário inicia outra (ou cancela).
   const runIdRef = useRef(0);
+  const autoDisparadoRef = useRef(false);
 
   const isBusy = state.phase === "submitting" || state.phase === "polling";
 
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const normalized = ticker.trim().toUpperCase();
-      if (!normalized || isBusy) return;
+  useEffect(() => {
+    if (state.phase !== "polling") return;
+    const timer = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [state.phase]);
+
+  const finalizar = useCallback((runId: number, tese: TeseOut) => {
+    if (runIdRef.current !== runId) return;
+    atualizarStatusHistorico(tese.id, tese.status);
+    if (tese.status === "error") {
+      setState({
+        phase: "error",
+        message:
+          tese.erro?.trim() ||
+          "A geração da tese falhou. Tente novamente em instantes.",
+        ticker: tese.ticker,
+      });
+      return;
+    }
+    setState({ phase: "ready", tese });
+    // URL recarregável/compartilhável dentro da sessão (sem navegação).
+    try {
+      window.history.replaceState(
+        null,
+        "",
+        `/tese?id=${encodeURIComponent(tese.id)}&ticker=${encodeURIComponent(tese.ticker)}`,
+      );
+    } catch {
+      // cosmético: se falhar, o fluxo segue
+    }
+  }, []);
+
+  const acompanhar = useCallback(
+    async (runId: number, id: string, tickerAlvo: string, primeiraEsperaMs: number) => {
+      if (runIdRef.current !== runId) return;
+      setState({ phase: "polling", id, ticker: tickerAlvo, inicioEm: Date.now() });
+
+      const limite = Date.now() + TEMPO_MAXIMO_MS;
+      let espera = primeiraEsperaMs;
+      while (Date.now() < limite) {
+        await sleep(espera);
+        espera = INTERVALO_MS;
+        if (runIdRef.current !== runId) return;
+
+        const resultado = await obterTese(id);
+        if (runIdRef.current !== runId) return;
+        if (resultado && "status" in resultado) {
+          if (resultado.status === "ready" || resultado.status === "error") {
+            finalizar(runId, resultado);
+            return;
+          }
+          continue; // processing: segue acompanhando
+        }
+        if (resultado && "detail" in resultado && resultado.detail) {
+          setState({ phase: "error", message: resultado.detail, ticker: tickerAlvo });
+          return;
+        }
+        // null = erro transitório de rede/proxy: tenta de novo até o limite
+      }
+
+      if (runIdRef.current === runId) {
+        setState({
+          phase: "error",
+          message:
+            "Tempo esgotado aguardando a tese. O processamento pode continuar no servidor — confira o Histórico em instantes.",
+          ticker: tickerAlvo,
+        });
+      }
+    },
+    [finalizar],
+  );
+
+  const iniciarPorTicker = useCallback(
+    async (tickerBruto: string) => {
+      const normalizado = tickerBruto.trim().toUpperCase();
+      if (!TICKER_B3_RE.test(normalizado)) {
+        setErroLocal(
+          "Ticker fora do formato da B3 (ex.: PETR4, VALE3, TAEE11). Confira o código e tente de novo — nenhuma chamada foi feita.",
+        );
+        return;
+      }
+      setErroLocal(null);
 
       const runId = ++runIdRef.current;
       setState({ phase: "submitting" });
 
-      let id: string;
+      let criada: CriarTeseResposta;
       try {
         const res = await fetch("/api/teses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticker: normalized }),
+          body: JSON.stringify({ ticker: normalizado }),
         });
         const data = (await res.json().catch(() => null)) as
           | CriarTeseResposta
@@ -62,116 +179,152 @@ export function TeseClient() {
           | null;
 
         if (!res.ok || !data || !("id" in data) || !data.id) {
+          if (runIdRef.current !== runId) return;
           setState({
             phase: "error",
             message: messageFrom(data, `Falha ao criar a tese (HTTP ${res.status}).`),
+            ticker: normalizado,
           });
           return;
         }
-        id = data.id;
+        criada = data;
       } catch {
+        if (runIdRef.current !== runId) return;
         setState({
           phase: "error",
-          message: "Não foi possível enviar a solicitação. Tente novamente.",
+          message: "Não foi possível enviar a solicitação. Verifique a conexão e tente novamente.",
+          ticker: normalizado,
         });
         return;
       }
 
       if (runIdRef.current !== runId) return;
-      setState({ phase: "polling", id, ticker: normalized });
+      registrarNoHistorico({
+        id: criada.id,
+        ticker: criada.ticker || normalizado,
+        status: criada.status,
+        criadoEm: new Date().toISOString(),
+      });
 
-      for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
-        await sleep(POLL_INTERVAL_MS);
-        if (runIdRef.current !== runId) return; // execução substituída
-
-        let tese: TeseOut | null = null;
-        try {
-          const res = await fetch(`/api/teses/${encodeURIComponent(id)}`);
-          const data = (await res.json().catch(() => null)) as
-            | TeseOut
-            | { detail?: string }
-            | null;
-          if (res.ok && data && "status" in data) {
-            tese = data as TeseOut;
-          } else if (!res.ok) {
-            // erro transitório do proxy/backend: tenta de novo até esgotar
-            continue;
-          }
-        } catch {
-          continue; // rede instável: nova tentativa
-        }
-
-        if (!tese) continue;
+      if (criada.status === "ready") {
+        // Cache hit: sem espera — GET imediato abre a tese na hora.
+        const pronta = await obterTese(criada.id);
         if (runIdRef.current !== runId) return;
-
-        if (tese.status === "ready") {
-          setState({ phase: "ready", tese });
+        if (pronta && "status" in pronta && pronta.status === "ready") {
+          finalizar(runId, pronta);
           return;
         }
-        if (tese.status === "error") {
-          setState({
-            phase: "error",
-            message:
-              tese.erro?.trim() ||
-              "A geração da tese falhou. Verifique a configuração do backend e tente novamente.",
-          });
-          return;
-        }
-        // status === "processing": continua o polling
+        // Corrida rara (cache expirou entre POST e GET): cai no acompanhamento.
+        await acompanhar(runId, criada.id, normalizado, PRIMEIRA_ESPERA_MS);
+        return;
       }
 
-      if (runIdRef.current === runId) {
-        setState({
-          phase: "error",
-          message:
-            "Tempo esgotado aguardando a tese. O processamento pode estar demorando — tente novamente em instantes.",
-        });
-      }
+      await acompanhar(runId, criada.id, normalizado, PRIMEIRA_ESPERA_MS);
     },
-    [ticker, isBusy],
+    [acompanhar, finalizar],
   );
 
+  const carregarPorId = useCallback(
+    async (id: string) => {
+      const runId = ++runIdRef.current;
+      setState({ phase: "submitting" });
+      const resultado = await obterTese(id);
+      if (runIdRef.current !== runId) return;
+      if (resultado && "status" in resultado) {
+        if (resultado.status === "processing") {
+          setTicker(resultado.ticker);
+          await acompanhar(runId, id, resultado.ticker, PRIMEIRA_ESPERA_MS);
+          return;
+        }
+        setTicker(resultado.ticker);
+        finalizar(runId, resultado);
+        return;
+      }
+      setState({
+        phase: "error",
+        message: messageFrom(resultado, "Não foi possível carregar esta tese."),
+      });
+    },
+    [acompanhar, finalizar],
+  );
+
+  // Auto-início: só para a galeria de exemplos (teses pré-geradas em cache) ou
+  // para reabrir por id (histórico). O guard do ref evita o duplo disparo do
+  // StrictMode em dev.
+  useEffect(() => {
+    if (autoDisparadoRef.current) return;
+    autoDisparadoRef.current = true;
+    // Dispara fora do corpo do effect (macrotask): o kick-off chama setState e
+    // rodá-lo dentro do flush causaria render em cascata (react-hooks lint).
+    const timer = window.setTimeout(() => {
+      if (idInicial) {
+        void carregarPorId(idInicial);
+        return;
+      }
+      if (
+        autoIniciar &&
+        tickerInicial &&
+        (EXEMPLOS_PRONTOS as readonly string[]).includes(tickerInicial)
+      ) {
+        void iniciarPorTicker(tickerInicial);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoIniciar, tickerInicial, idInicial, carregarPorId, iniciarPorTicker]);
+
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (isBusy) return;
+      void iniciarPorTicker(ticker);
+    },
+    [ticker, isBusy, iniciarPorTicker],
+  );
+
+  const cancelar = useCallback(() => {
+    runIdRef.current++;
+    setState({ phase: "idle" });
+  }, []);
+
+  const segundosDecorridos =
+    state.phase === "polling" && agora > state.inicioEm
+      ? Math.floor((agora - state.inicioEm) / 1000)
+      : 0;
+
   return (
-    <div className="flex w-full max-w-2xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end dark:border-neutral-800 dark:bg-neutral-900"
+        className="flex flex-col gap-3 rounded-xl border border-linha bg-cartao p-5 sm:flex-row sm:items-start"
       >
         <div className="flex flex-1 flex-col gap-1.5">
-          <label
-            htmlFor="ticker"
-            className="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-          >
+          <label htmlFor="ticker" className="text-sm font-medium text-tinta">
             Ticker
           </label>
-          <input
-            id="ticker"
-            name="ticker"
+          <TickerCombobox
+            inputId="ticker"
             value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            placeholder="PETR4"
-            autoComplete="off"
-            spellCheck={false}
+            onChange={(v) => {
+              setTicker(v);
+              if (erroLocal) setErroLocal(null);
+            }}
             disabled={isBusy}
-            aria-describedby="ticker-hint"
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-900 outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-400/40 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
           />
-          <span
-            id="ticker-hint"
-            className="text-xs text-neutral-400 dark:text-neutral-500"
-          >
-            Ex.: PETR4, VALE3, ITUB4.
-          </span>
+          <div aria-live="polite">
+            {erroLocal && (
+              <p className="mt-1 text-xs font-medium text-erro-texto">{erroLocal}</p>
+            )}
+          </div>
         </div>
         <button
           type="submit"
           disabled={isBusy || ticker.trim() === ""}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-400/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-selo px-5 py-2.5 text-sm font-semibold text-sobre-selo transition-colors hover:bg-selo-forte disabled:cursor-not-allowed disabled:opacity-60 sm:mt-7"
         >
           {isBusy ? (
             <>
               <Spinner />
-              Gerando...
+              Gerando…
             </>
           ) : (
             "Gerar tese"
@@ -181,15 +334,46 @@ export function TeseClient() {
 
       <div aria-live="polite" className="flex flex-col gap-6">
         {state.phase === "submitting" && (
-          <LoadingCard label="Enviando solicitação..." />
+          <CartaoCarregando rotulo="Enviando solicitação…" />
         )}
         {state.phase === "polling" && (
-          <LoadingCard
-            label={`Processando a tese de ${state.ticker}... isso pode levar alguns segundos.`}
+          <div className="flex flex-col gap-4">
+            <CartaoCarregando
+              rotulo={`Estruturando a tese de ${state.ticker}${
+                segundosDecorridos > 0 ? ` — ${segundosDecorridos}s` : ""
+              }`}
+              detalhe="O motor reúne dados públicos (CVM, Banco Central, FRED, SEC), monta as dimensões e sintetiza com citações. Cache abre na hora; tese nova pode levar até ~2 minutos."
+              onCancelar={cancelar}
+            />
+            <EsqueletoTese />
+          </div>
+        )}
+        {state.phase === "error" && (
+          <CartaoErro
+            mensagem={state.message}
+            onTentarDeNovo={
+              state.ticker ? () => void iniciarPorTicker(state.ticker!) : undefined
+            }
           />
         )}
-        {state.phase === "error" && <ErrorCard message={state.message} />}
-        {state.phase === "ready" && <Resultado tese={state.tese} />}
+        {state.phase === "ready" && (
+          <div className="flex flex-col gap-4">
+            <TeseView tese={state.tese} />
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  runIdRef.current++;
+                  setState({ phase: "idle" });
+                  setTicker("");
+                }}
+                className="rounded-lg border border-linha-forte bg-cartao px-4 py-2 text-sm font-medium text-tinta hover:border-selo-texto"
+              >
+                Gerar outra tese
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -204,192 +388,90 @@ function Spinner() {
   );
 }
 
-function LoadingCard({ label }: { label: string }) {
+function CartaoCarregando({
+  rotulo,
+  detalhe,
+  onCancelar,
+}: {
+  rotulo: string;
+  detalhe?: string;
+  onCancelar?: () => void;
+}) {
   return (
     <div
       role="status"
-      className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-4 text-sm text-neutral-600 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+      className="flex flex-col gap-2 rounded-xl border border-linha bg-cartao px-5 py-4"
     >
-      <Spinner />
-      <span>{label}</span>
+      <div className="flex items-center gap-3 text-sm text-tinta">
+        <Spinner />
+        <span className="font-medium">{rotulo}</span>
+        {onCancelar && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="ml-auto text-xs text-tinta-3 underline underline-offset-2 hover:text-tinta"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+      {detalhe && <p className="text-xs leading-relaxed text-tinta-3">{detalhe}</p>}
     </div>
   );
 }
 
-function ErrorCard({ message }: { message: string }) {
+function CartaoErro({
+  mensagem,
+  onTentarDeNovo,
+}: {
+  mensagem: string;
+  onTentarDeNovo?: () => void;
+}) {
   return (
     <div
       role="alert"
-      className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+      className="rounded-xl border border-erro-borda bg-erro-fundo px-5 py-4 text-sm text-erro-texto"
     >
-      <p className="font-medium">Não foi possível gerar a tese</p>
-      <p className="mt-1 text-red-700 dark:text-red-300">{message}</p>
+      <p className="font-semibold">Não foi possível gerar a tese</p>
+      <p className="mt-1">{mensagem}</p>
+      {onTentarDeNovo && (
+        <button
+          type="button"
+          onClick={onTentarDeNovo}
+          className="mt-3 rounded-lg border border-erro-borda px-3 py-1.5 text-xs font-semibold hover:bg-erro-borda/30"
+        >
+          Tentar novamente
+        </button>
+      )}
     </div>
   );
 }
 
-// Disclaimer regulatório de NÃO-recomendação. NUNCA pode sumir: se o backend
-// não enviar o aviso, caímos numa constante fixa no front (controle de conformidade).
-const AVISO_PADRAO =
-  "Não é recomendação de investimento. Tese estruturada a partir de dados públicos; a decisão é do leitor.";
-
-function AvisoBanner({ aviso }: { aviso: string }) {
-  const texto = aviso?.trim() || AVISO_PADRAO;
+// Skeleton com o formato do documento final (evita layout shift na chegada).
+function EsqueletoTese() {
   return (
-    <div
-      role="note"
-      className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200"
-    >
-      <span className="font-semibold">Aviso: </span>
-      {texto}
+    <div aria-hidden className="flex animate-pulse flex-col gap-5">
+      <div className="h-24 rounded-xl border border-linha bg-cartao" />
+      <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
+        <div className="hidden flex-col gap-2 lg:flex">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-3.5 w-11/12 rounded bg-cartao-2" />
+          ))}
+        </div>
+        <div className="flex flex-col gap-5">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="flex flex-col gap-3 rounded-xl border border-linha bg-cartao p-6"
+            >
+              <div className="h-5 w-1/3 rounded bg-cartao-2" />
+              <div className="h-3.5 w-full rounded bg-cartao-2" />
+              <div className="h-3.5 w-11/12 rounded bg-cartao-2" />
+              <div className="h-3.5 w-4/5 rounded bg-cartao-2" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
-}
-
-// Só URLs http(s) viram link (javascript:, data:... -> texto). O backend já
-// valida; esta é a segunda linha de defesa no render.
-function urlHttp(url: string | null | undefined): url is string {
-  return !!url && /^https?:\/\//i.test(url);
-}
-
-function FonteLink({ fonte }: { fonte: Fonte }) {
-  // Sem URL http(s) -> texto, não link quebrado.
-  if (!urlHttp(fonte.url)) {
-    return (
-      <span className="font-medium text-neutral-700 dark:text-neutral-300">
-        {fonte.descricao}
-      </span>
-    );
-  }
-  return (
-    <a
-      href={fonte.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-medium text-neutral-900 underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-700 dark:text-neutral-100 dark:decoration-neutral-600 dark:hover:decoration-neutral-300"
-    >
-      {fonte.descricao || fonte.url}
-    </a>
-  );
-}
-
-function Resultado({ tese }: { tese: TeseOut }) {
-  return (
-    <article className="flex flex-col gap-6">
-      <AvisoBanner aviso={tese.aviso} />
-
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-mono text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-          {tese.ticker}
-        </h2>
-        {tese.criado_em && (
-          <time
-            dateTime={tese.criado_em}
-            className="text-xs text-neutral-400 dark:text-neutral-500"
-          >
-            {formatData(tese.criado_em)}
-          </time>
-        )}
-      </header>
-
-      <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        {tese.markdown?.trim() ? (
-          <Markdown source={tese.markdown} />
-        ) : (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            A tese não retornou conteúdo.
-          </p>
-        )}
-      </section>
-
-      {tese.citacoes.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Citações
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {tese.citacoes.map((c, i) => (
-              <li
-                key={i}
-                className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                {urlHttp(c.fonte?.url) ? (
-                  <a
-                    href={c.fonte!.url!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neutral-800 underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-700 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-300"
-                  >
-                    “{c.texto_citado}”
-                  </a>
-                ) : (
-                  <span className="text-neutral-800 dark:text-neutral-200">
-                    “{c.texto_citado}”
-                  </span>
-                )}
-                {(c.titulo_documento || c.fonte) && (
-                  <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-                    {c.titulo_documento || c.fonte?.descricao}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {tese.fontes.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Fontes
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {tese.fontes.map((f) => (
-              <li
-                key={f.id}
-                className="flex flex-col gap-0.5 rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                <FonteLink fonte={f} />
-                {f.dt_referencia && (
-                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                    Referência: {formatData(f.dt_referencia)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {tese.lacunas.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Lacunas (dados não encontrados)
-          </h3>
-          <ul className="list-disc space-y-1 rounded-lg border border-neutral-200 bg-white px-5 py-4 pl-8 text-sm text-neutral-700 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-            {tese.lacunas.map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {tese.uso?.modelo && (
-        <p className="font-mono text-xs text-neutral-400 dark:text-neutral-500">
-          modelo: {tese.uso.modelo}
-          {typeof tese.uso.custo_estimado_usd === "number" &&
-            ` · custo estimado: US$ ${tese.uso.custo_estimado_usd.toFixed(4)}`}
-        </p>
-      )}
-    </article>
-  );
-}
-
-function formatData(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
 }
