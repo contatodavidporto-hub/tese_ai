@@ -1,4 +1,6 @@
-import Link from "next/link";
+import { Footer } from "@/components/site/Footer";
+import { Header } from "@/components/site/Header";
+import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
 // Renderização dinâmica: o CSP com nonce por requisição (src/proxy.ts) precisa que
@@ -6,29 +8,52 @@ import { TeseClient } from "./TeseClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Gerar tese — Tese AI",
+  title: "Gerar tese",
 };
 
-export default function TesePage() {
-  return (
-    <main className="flex min-h-screen flex-col items-center gap-8 bg-neutral-50 px-4 py-12 dark:bg-neutral-950">
-      <div className="flex w-full max-w-2xl flex-col gap-2">
-        <Link
-          href="/"
-          className="text-sm text-neutral-500 underline-offset-2 hover:underline dark:text-neutral-400"
-        >
-          ← Início
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
-          Gerar tese
-        </h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Informe o ticker de uma empresa da B3. A tese é estruturada com cada
-          afirmação ligada à sua fonte — sem recomendação de compra ou venda.
-        </p>
-      </div>
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-      <TeseClient />
-    </main>
+// No Next 16, `searchParams` de páginas é uma Promise — precisa de await.
+// Doc instalada: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md
+export default async function TesePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+
+  const brutoTicker = typeof sp.ticker === "string" ? sp.ticker.trim().toUpperCase() : "";
+  const ticker = TICKER_B3_RE.test(brutoTicker) ? brutoTicker : undefined;
+  const brutoId = typeof sp.id === "string" ? sp.id.trim() : "";
+  const id = UUID_RE.test(brutoId) ? brutoId : undefined;
+
+  // Auto-início SÓ para a galeria de exemplos (cache aquecido, custo US$ 0):
+  // um link externo com ?ticker=XXXX qualquer apenas pré-preenche o campo —
+  // gerar tese nova exige um clique explícito (não viramos vetor de custo).
+  const autoIniciar = !!ticker && (EXEMPLOS_PRONTOS as readonly string[]).includes(ticker);
+
+  return (
+    <>
+      <Header />
+      <main
+        id="conteudo"
+        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6"
+      >
+        <div className="flex max-w-2xl flex-col gap-2">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
+            Gerar tese
+          </h1>
+          <p className="text-sm leading-relaxed text-tinta-2">
+            Informe o ticker de uma companhia aberta da B3. A tese sai estruturada
+            em dimensões — fundamentos, macro, pares globais e geopolítica — com
+            cada afirmação factual ligada à sua fonte, e sem recomendação de
+            compra ou venda.
+          </p>
+        </div>
+
+        <TeseClient tickerInicial={ticker} autoIniciar={autoIniciar} idInicial={id} />
+      </main>
+      <Footer />
+    </>
   );
 }
