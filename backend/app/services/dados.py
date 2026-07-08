@@ -26,8 +26,9 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.models.models import Empresa, Fundamento, MacroSerie
-from app.services import derivadas, http_client
+from app.services import derivadas, http_client, planos_contas
 from app.services.fontes import get_or_create_fonte
+from app.services.planos_contas import _normalizar_ds  # canônico lá; reexport p/ compat
 
 logger = get_logger(__name__)
 
@@ -102,16 +103,17 @@ _DS_ESPERADO: dict[str, tuple[str, ...]] = {
 }
 
 
-def _normalizar_ds(texto: str) -> str:
-    """minúsculas sem acento (comparação estável entre planos de contas)."""
-    import unicodedata
+def _ds_conta_valida(
+    cd_conta: str,
+    ds_conta: str,
+    ds_esperado: dict[str, tuple[str, ...]] = _DS_ESPERADO,
+) -> bool:
+    """Valida o DS_CONTA contra os padrões esperados de `ds_esperado`.
 
-    decomposto = unicodedata.normalize("NFD", (texto or "").lower())
-    return "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
-
-
-def _ds_conta_valida(cd_conta: str, ds_conta: str) -> bool:
-    padroes = _DS_ESPERADO.get(cd_conta)
+    Parametrizada (Fase 2 multiativo) para reuso com outros planos de contas;
+    o DEFAULT é o dict global do plano padrão — comportamento legado intocado.
+    """
+    padroes = ds_esperado.get(cd_conta)
     if not padroes:
         return True
     ds = _normalizar_ds(ds_conta)
@@ -400,6 +402,54 @@ def _extrair_contas(
     return achados
 
 
+def _ler_linhas_membro(conteudo_zip: bytes, cd_cvm: int, membro: str) -> list[dict]:
+    """Lê TODAS as linhas da empresa num membro do ZIP (latin-1, ';'), com a
+    escala aplicada (regra A1) e SEM filtro de conta — a extração por plano de
+    contas (`planos_contas`) decide o que usar. Inclui ST_CONTA_FIXA porque a
+    localização por DS prefere contas fixas ('S'). Membro ausente -> [].
+    """
+    with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
+        if membro not in z.namelist():
+            return []
+        linhas: list[dict] = []
+        with z.open(membro) as raw:
+            texto = io.TextIOWrapper(raw, encoding="latin-1", newline="")
+            leitor = csv.DictReader(texto, delimiter=";")
+            for linha in leitor:
+                ordem = linha.get("ORDEM_EXERC", "").strip().upper()
+                if ordem in _ORDENS_ULTIMO:
+                    ordem = "ULTIMO"
+                elif ordem in _ORDENS_PENULTIMO:
+                    ordem = "PENULTIMO"
+                else:
+                    continue
+                try:
+                    if int(linha.get("CD_CVM", "0")) != cd_cvm:
+                        continue
+                except ValueError:
+                    continue
+                valor = _aplicar_escala(
+                    _parse_valor(linha.get("VL_CONTA", "")),
+                    linha.get("ESCALA_MOEDA", ""),
+                )
+                if valor is None:
+                    continue
+                dt_refer = _parse_data(linha.get("DT_FIM_EXERC", "")) or _parse_data(
+                    linha.get("DT_REFER", "")
+                )
+                linhas.append(
+                    {
+                        "cd_conta": linha.get("CD_CONTA", "").strip(),
+                        "ds_conta": linha.get("DS_CONTA", "").strip(),
+                        "st_conta_fixa": (linha.get("ST_CONTA_FIXA") or "").strip().upper(),
+                        "valor": valor,
+                        "dt_refer": dt_refer,
+                        "ordem": ordem,
+                    }
+                )
+    return linhas
+
+
 # D&A não tem CD_CONTA padronizado entre empresas (é sub-linha dos ajustes da DFC,
 # ex.: 6.01.01.02 na Petrobras). Localizamos por DESCRIÇÃO dentro de 6.01.01.*.
 # O padrão cobre TODAS as formas do add-back (achado M2 da auditoria da fase 3:
@@ -497,9 +547,14 @@ def _extrair_da_dfc(conteudo_zip: bytes, ano: int, cd_cvm: int, membro: str) -> 
 
 
 def ingest_fundamentos(session: Session, empresa: Empresa) -> list[Fundamento]:
-    """Baixa a DFP mais recente disponível e persiste contas-chave com fonte.
+    """Baixa a DFP mais recente e persiste contas-chave com fonte, MULTI-PLANO.
 
-    Abstém (DadoNaoEncontrado) se nenhum exercício recente tem dados da empresa.
+    O plano de contas é detectado pelo PRÓPRIO filing (DS da conta fixa 3.01 do
+    DRE — decisão D2; SETOR_ATIV é telemetria no log, nunca decide) e despacha:
+    banco/seguradora → extração por DS (`planos_contas`); senão → plano padrão
+    (comportamento legado intocado). O plano detectado é persistido em
+    `empresas.plano_contas`. Abstém (DadoNaoEncontrado) se nenhum exercício
+    recente tem dados da empresa.
     """
     cd_cvm = empresa.cd_cvm
     if cd_cvm is None:
@@ -512,59 +567,166 @@ def ingest_fundamentos(session: Session, empresa: Empresa) -> list[Fundamento]:
             logger.warning("dfp_falhou", ano=ano, erro=type(exc).__name__)
             continue
 
-        # DRE + BPP + BPA + DFC (método indireto ou direto). Cada empresa filia
-        # só um método de DFC; o membro ausente devolve [] (não quebra).
-        membros = {
-            f"dfp_cia_aberta_DRE_con_{ano}.csv": _CONTAS_DRE,
-            f"dfp_cia_aberta_BPP_con_{ano}.csv": _CONTAS_BPP,
-            f"dfp_cia_aberta_BPA_con_{ano}.csv": _CONTAS_BPA,
-            f"dfp_cia_aberta_DFC_MI_con_{ano}.csv": _CONTAS_DFC,
-            f"dfp_cia_aberta_DFC_MD_con_{ano}.csv": _CONTAS_DFC,
-        }
-        achados: list[dict] = []
-        for membro, contas in membros.items():
-            achados.extend(_extrair_contas(conteudo, ano, cd_cvm, membro, contas))
-        # D&A (por descrição, nos ajustes da DFC) — habilita o EBITDA derivado.
-        for membro in (
-            f"dfp_cia_aberta_DFC_MI_con_{ano}.csv",
-            f"dfp_cia_aberta_DFC_MD_con_{ano}.csv",
-        ):
-            achados.extend(_extrair_da_dfc(conteudo, ano, cd_cvm, membro))
-        if not achados:
-            logger.info("dfp_sem_dados_empresa", ano=ano, cd_cvm=cd_cvm)
+        linhas_dre = _ler_linhas_membro(conteudo, cd_cvm, f"dfp_cia_aberta_DRE_con_{ano}.csv")
+        plano = planos_contas.detectar_plano(linhas_dre)
+        logger.info(
+            "plano_contas_detectado",
+            cd_cvm=cd_cvm,
+            plano=plano,
+            setor_telemetria=empresa.setor,  # nunca decide (D2)
+        )
+
+        if plano in planos_contas.PLANOS_FINANCEIROS:
+            gravados = _ingest_financeira(session, empresa, conteudo, ano, plano, linhas_dre)
+        else:
+            gravados = _ingest_padrao(session, empresa, conteudo, ano)
+        if not gravados:
+            logger.info("dfp_sem_dados_empresa", ano=ano, cd_cvm=cd_cvm, plano=plano)
             continue
 
-        url = CVM_DFP_URL.format(ano=ano)
-        gravados: list[Fundamento] = []
-        for a in achados:
-            fonte_id = get_or_create_fonte(
-                session,
-                url=url,
-                descricao=(
-                    f"CVM DFP {ano} (consolidado) — {empresa.nome} "
-                    f"[{a['cd_conta']} {a['ds_conta']}], valores em reais"
-                ),
-                dt_referencia=a["dt_refer"],
-            )
-            conta_label = f"{a['ds_conta']} ({a['cd_conta']})"
-            gravados.append(
-                _upsert_fundamento(
-                    session, empresa, conta_label, a["valor"], a["dt_refer"], fonte_id
-                )
-            )
-
-        # Métricas derivadas (dívida bruta/líquida, EBITDA). SÓ do exercício
-        # ÚLTIMO — misturar exercícios geraria um número quimera. Abstêm se
-        # faltar componente (ex.: bancos/seguradoras) — nunca gravam estimativa.
-        achados_ultimo = [a for a in achados if a.get("ordem", "ULTIMO") == "ULTIMO"]
-        gravados.extend(_persistir_derivadas(session, empresa, achados_ultimo, ano, url))
-
-        logger.info("fundamentos_persistidos", ano=ano, cd_cvm=cd_cvm, n=len(gravados))
+        empresa.plano_contas = plano
+        logger.info("fundamentos_persistidos", ano=ano, cd_cvm=cd_cvm, n=len(gravados), plano=plano)
         return gravados
 
     raise DadoNaoEncontrado(
         f"sem DFP recente para {empresa.ticker} (CD_CVM {cd_cvm}) — dado não encontrado"
     )
+
+
+def _ingest_padrao(
+    session: Session, empresa: Empresa, conteudo: bytes, ano: int
+) -> list[Fundamento]:
+    """Extração do plano PADRÃO (legado, byte-idêntico): contas fixas validadas
+    por DS + D&A da DFC + derivadas (dívida/EBITDA). Sem achados -> []."""
+    cd_cvm = empresa.cd_cvm
+    # DRE + BPP + BPA + DFC (método indireto ou direto). Cada empresa filia
+    # só um método de DFC; o membro ausente devolve [] (não quebra).
+    membros = {
+        f"dfp_cia_aberta_DRE_con_{ano}.csv": _CONTAS_DRE,
+        f"dfp_cia_aberta_BPP_con_{ano}.csv": _CONTAS_BPP,
+        f"dfp_cia_aberta_BPA_con_{ano}.csv": _CONTAS_BPA,
+        f"dfp_cia_aberta_DFC_MI_con_{ano}.csv": _CONTAS_DFC,
+        f"dfp_cia_aberta_DFC_MD_con_{ano}.csv": _CONTAS_DFC,
+    }
+    achados: list[dict] = []
+    for membro, contas in membros.items():
+        achados.extend(_extrair_contas(conteudo, ano, cd_cvm, membro, contas))
+    # D&A (por descrição, nos ajustes da DFC) — habilita o EBITDA derivado.
+    for membro in (
+        f"dfp_cia_aberta_DFC_MI_con_{ano}.csv",
+        f"dfp_cia_aberta_DFC_MD_con_{ano}.csv",
+    ):
+        achados.extend(_extrair_da_dfc(conteudo, ano, cd_cvm, membro))
+    if not achados:
+        return []
+
+    url = CVM_DFP_URL.format(ano=ano)
+    gravados: list[Fundamento] = []
+    for a in achados:
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=(
+                f"CVM DFP {ano} (consolidado) — {empresa.nome} "
+                f"[{a['cd_conta']} {a['ds_conta']}], valores em reais"
+            ),
+            dt_referencia=a["dt_refer"],
+        )
+        conta_label = f"{a['ds_conta']} ({a['cd_conta']})"
+        gravados.append(
+            _upsert_fundamento(session, empresa, conta_label, a["valor"], a["dt_refer"], fonte_id)
+        )
+
+    # Métricas derivadas (dívida bruta/líquida, EBITDA). SÓ do exercício
+    # ÚLTIMO — misturar exercícios geraria um número quimera. Abstêm se
+    # faltar componente — nunca gravam estimativa.
+    achados_ultimo = [a for a in achados if a.get("ordem", "ULTIMO") == "ULTIMO"]
+    gravados.extend(_persistir_derivadas(session, empresa, achados_ultimo, ano, url))
+    return gravados
+
+
+def _ingest_financeira(
+    session: Session,
+    empresa: Empresa,
+    conteudo: bytes,
+    ano: int,
+    plano: str,
+    linhas_dre: list[dict],
+) -> list[Fundamento]:
+    """Extração de BANCO/SEGURADORA: métricas localizadas por DS (posição varia
+    por emissor) + ROE derivado (unidade='RAZAO', fonte composta). As derivadas
+    do plano padrão (dívida/EBITDA/D&A) NÃO se aplicam a estes planos —
+    abstenção ESTRUTURAL logada, nunca silenciosa. Sem achados -> []."""
+    cd_cvm = empresa.cd_cvm
+    linhas = {
+        "DRE": linhas_dre,
+        "BPP": _ler_linhas_membro(conteudo, cd_cvm, f"dfp_cia_aberta_BPP_con_{ano}.csv"),
+        "BPA": _ler_linhas_membro(conteudo, cd_cvm, f"dfp_cia_aberta_BPA_con_{ano}.csv"),
+    }
+    achados = planos_contas.extrair_financeira(plano, linhas)
+    if not achados:
+        return []
+
+    url = CVM_DFP_URL.format(ano=ano)
+    gravados: list[Fundamento] = []
+    for a in achados:
+        if a["dt_refer"] is None:
+            logger.info("fato_sem_dt_refer_abstido", cd_conta=a["cd_conta"], cd_cvm=cd_cvm)
+            continue
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=(
+                f"CVM DFP {ano} (consolidado) — {empresa.nome} "
+                f"[{a['cd_conta']} {a['ds_conta']}], valores em reais"
+            ),
+            dt_referencia=a["dt_refer"],
+        )
+        # Rótulo = DS REAL do filing (nunca 'EBIT' em banco/seguradora).
+        conta_label = f"{a['ds_conta']} ({a['cd_conta']})"
+        gravados.append(
+            _upsert_fundamento(session, empresa, conta_label, a["valor"], a["dt_refer"], fonte_id)
+        )
+
+    # Derivadas do plano PADRÃO não rodam aqui (plano de contas incompatível):
+    # abstenção estrutural LOGADA — a lacuna aparece na tese, nunca um número.
+    logger.info(
+        "derivadas_padrao_abstidas_estruturalmente",
+        plano=plano,
+        cd_cvm=cd_cvm,
+        derivadas=list(derivadas.DERIVADAS),
+    )
+
+    # ROE derivado do plano financeiro: lucro/PL consolidados do MESMO exercício
+    # ÚLTIMO; guarda PL>0 e datas iguais dentro de roe_derivado.
+    achados_ultimo = [a for a in achados if a["ordem"] == "ULTIMO"]
+    roe, componentes = planos_contas.roe_derivado(achados_ultimo)
+    if roe is None:
+        logger.info("roe_derivado_abstido", cd_cvm=cd_cvm, plano=plano)
+    else:
+        dt_refer = next(a["dt_refer"] for a in achados_ultimo if a["papel"] == "LUCRO_CONSOLIDADO")
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=(
+                f"CVM DFP {ano} (consolidado) — {empresa.nome} "
+                f"[ROE = função das contas {'+'.join(componentes)}], derivado; "
+                f"metodologia: {planos_contas.ROE_METODOLOGIA}"
+            ),
+            dt_referencia=dt_refer,
+        )
+        gravados.append(
+            _upsert_fundamento(
+                session,
+                empresa,
+                planos_contas.ROE_CONTA,
+                roe,
+                dt_refer,
+                fonte_id,
+                unidade="RAZAO",
+            )
+        )
+    return gravados
 
 
 def _upsert_fundamento(
@@ -574,8 +736,13 @@ def _upsert_fundamento(
     valor: float | None,
     dt_refer: dt.date,
     fonte_id: uuid.UUID,
+    unidade: str | None = None,
 ) -> Fundamento:
-    """Idempotente por (empresa, conta, dt_refer)."""
+    """Idempotente por (empresa, conta, dt_refer).
+
+    `unidade` NULL = BRL (legado byte-idêntico — achado B2); 'RAZAO' para o ROE
+    derivado (fração decimal), formatada pelo coletor da tese por unidade.
+    """
     existente = session.execute(
         select(Fundamento).where(
             Fundamento.empresa_id == empresa.id,
@@ -590,11 +757,13 @@ def _upsert_fundamento(
             valor=valor,
             dt_refer=dt_refer,
             fonte_id=fonte_id,
+            unidade=unidade,
         )
         session.add(f)
         return f
     existente.valor = valor
     existente.fonte_id = fonte_id
+    existente.unidade = unidade
     return existente
 
 

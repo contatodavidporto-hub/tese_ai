@@ -110,6 +110,35 @@ def _fmt_reais(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _fmt_percentual(fracao: float) -> str:
+    """Fração decimal -> percentual pt-BR (0.2132 -> '21,32%'). Nunca 'R$'."""
+    return f"{fracao * 100:.2f}".replace(".", ",") + "%"
+
+
+def _fmt_inteiro(valor: float) -> str:
+    """Inteiro pt-BR com separador de milhar (525069 -> '525.069'). Sem 'R$'."""
+    return f"{valor:,.0f}".replace(",", ".")
+
+
+def _fmt_fundamento(valor: float, unidade: str | None) -> str:
+    """Formata um Fundamento pela sua UNIDADE (achado B2 do conselho).
+
+    NULL/'BRL' -> reais (legado byte-idêntico); 'RAZAO' e 'PCT' -> percentual a
+    partir da fração decimal (ROE 0.2132 -> '21,32%' — nunca 'R$ 0,21'); 'UN' ->
+    inteiro pt-BR; 'BRL_POR_COTA' -> reais por cota. Unidade desconhecida ->
+    valor cru rotulado com a unidade (jamais 'R$' por engano).
+    """
+    if unidade is None or unidade == "BRL":
+        return _fmt_reais(valor)
+    if unidade in ("RAZAO", "PCT"):
+        return _fmt_percentual(valor)
+    if unidade == "UN":
+        return _fmt_inteiro(valor)
+    if unidade == "BRL_POR_COTA":
+        return f"{_fmt_reais(valor)} por cota"
+    return f"{valor} ({unidade})"
+
+
 def _sanitizar_instrucao(texto: str, *, limite: int = 120) -> str:
     """Neutraliza o canal de instrução: colapsa quebras/controle e trunca.
 
@@ -142,7 +171,7 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
             continue
         texto = (
             f"Fundamento de {empresa.nome} ({empresa.ticker}): "
-            f"{f.conta} = {_fmt_reais(float(f.valor))} "
+            f"{f.conta} = {_fmt_fundamento(float(f.valor), f.unidade)} "
             f"(exercício/ref. {f.dt_refer})."
         )
         itens.append((fonte, texto))
