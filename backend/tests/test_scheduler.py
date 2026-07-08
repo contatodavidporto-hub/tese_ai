@@ -148,3 +148,115 @@ def test_executar_com_lock_ocupado_pula(monkeypatch) -> None:
 def test_lock_key_estavel_e_distinta() -> None:
     assert sch._lock_key("reaper") == sch._lock_key("reaper")
     assert sch._lock_key("reaper") != sch._lock_key("refresh_macro")
+
+
+# ---------------------------------------------------------------------------
+# Happy-path do executar_job_sincrono (achado M2 da auditoria): lock -> devido
+# -> roda -> registra ledger -> unlock no finally, exatamente uma vez.
+# ---------------------------------------------------------------------------
+class _RegistroSession:
+    """Sessão fake que responde lock/unlock (text) e select de JobRun."""
+
+    def __init__(self, log: list) -> None:
+        self._log = log
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, stmt, params=None):
+        s = str(stmt)
+        if "pg_try_advisory_lock" in s:
+            self._log.append("lock")
+            return SimpleNamespace(scalar=lambda: True)
+        if "pg_advisory_unlock" in s:
+            self._log.append("unlock")
+            return SimpleNamespace(scalar=lambda: True)
+        return _FakeResult(None)  # job_devido: sem registro -> devido (catch-up)
+
+    def add(self, obj) -> None:
+        self._log.append(("ledger", obj.job_name, obj.last_status))
+
+    def commit(self) -> None:
+        self._log.append("commit")
+
+
+def _monta_sessao(monkeypatch, log: list) -> None:
+    import app.db.session as db_session
+
+    monkeypatch.setattr(db_session, "SessionLocal", lambda: _RegistroSession(log))
+
+
+def test_executar_happy_path_roda_registra_e_solta_o_lock(monkeypatch) -> None:
+    log: list = []
+    _monta_sessao(monkeypatch, log)
+    job = sch.Job(nome="reaper", intervalo=dt.timedelta(minutes=15), timeout_s=60, func=lambda: 3)
+
+    assert sch.executar_job_sincrono(job) == "ok"
+    assert log.count("lock") == 1
+    assert log.count("unlock") == 1  # exatamente uma vez, e depois do trabalho
+    assert log.index("unlock") > log.index("lock")
+    ledgers = [e for e in log if isinstance(e, tuple) and e[0] == "ledger"]
+    assert ledgers == [("ledger", "reaper", "ok")]
+
+
+def test_executar_job_que_falha_registra_erro_e_solta_o_lock(monkeypatch) -> None:
+    log: list = []
+    _monta_sessao(monkeypatch, log)
+
+    def _quebra() -> None:
+        raise RuntimeError("rede caiu")
+
+    job = sch.Job(nome="reaper", intervalo=dt.timedelta(minutes=15), timeout_s=60, func=_quebra)
+    assert sch.executar_job_sincrono(job) == "erro"
+    assert log.count("unlock") == 1  # finally solta o lock mesmo em falha
+    ledgers = [e for e in log if isinstance(e, tuple) and e[0] == "ledger"]
+    assert ledgers == [("ledger", "reaper", "erro")]  # falha TAMBÉM avança o relógio
+
+
+# ---------------------------------------------------------------------------
+# Ciclo de vida do scheduler_loop (achado M1): falha/timeout não derrubam o
+# loop; cancel encerra de verdade.
+# ---------------------------------------------------------------------------
+def test_scheduler_loop_sobrevive_a_falha_e_timeout_e_cancela(monkeypatch) -> None:
+    import asyncio
+
+    import app.db.session as db_session
+
+    monkeypatch.setattr(db_session, "SessionLocal", object())  # não-None basta p/ o gate
+    chamadas: list[str] = []
+
+    def _executa(job: sch.Job) -> str:
+        chamadas.append(job.nome)
+        if len(chamadas) == 1:
+            raise RuntimeError("falha de rede")  # 1º tick: exceção não derruba o loop
+        return "ok"
+
+    monkeypatch.setattr(sch, "executar_job_sincrono", _executa)
+    job = sch.Job(nome="reaper", intervalo=dt.timedelta(minutes=15), timeout_s=60, func=lambda: 0)
+    monkeypatch.setattr(sch, "jobs_configurados", lambda s: [job])
+
+    real_sleep = asyncio.sleep
+
+    async def _sleep_rapido(_s: float) -> None:
+        await real_sleep(0)  # tick sem espera real
+
+    monkeypatch.setattr(sch.asyncio, "sleep", _sleep_rapido)
+
+    async def _cenario() -> bool:
+        task = asyncio.create_task(sch.scheduler_loop(_settings()))
+        for _ in range(200):
+            await real_sleep(0)
+            if len(chamadas) >= 3:
+                break
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        return task.done()
+
+    assert asyncio.run(_cenario()) is True
+    assert len(chamadas) >= 3  # continuou tickando após a falha do 1º tick

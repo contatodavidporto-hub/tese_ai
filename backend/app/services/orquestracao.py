@@ -49,7 +49,9 @@ def ingest_macro_refresh(session: Session) -> dict[str, str]:
     passo = _passos_isolados(session, resultados)
 
     passo("macro_br", lambda: dados_svc.ingest_macro(session))
+    passo("usd_historico", lambda: dados_svc.ingest_usd_historico(session))
     passo("commodities_brent", lambda: commodities.ingest_brent(session))
+    passo("brent_historico", lambda: commodities.ingest_brent_historico(session))
     passo("macro_global_wb", lambda: macro_global.ingest_world_bank(session))
     passo("macro_global_treasury", lambda: macro_global.ingest_treasury_10y(session))
 
@@ -66,7 +68,9 @@ def ingest_completo(session: Session, empresa: Empresa) -> dict[str, str]:
 
     passo("fundamentos", lambda: dados_svc.ingest_fundamentos(session, empresa))
     passo("macro_br", lambda: dados_svc.ingest_macro(session))
+    passo("usd_historico", lambda: dados_svc.ingest_usd_historico(session))
     passo("commodities_brent", lambda: commodities.ingest_brent(session))
+    passo("brent_historico", lambda: commodities.ingest_brent_historico(session))
     passo("macro_global_wb", lambda: macro_global.ingest_world_bank(session))
     passo("macro_global_treasury", lambda: macro_global.ingest_treasury_10y(session))
     passo("pares_globais", lambda: sec.ingest_pares(session, empresa))

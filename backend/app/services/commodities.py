@@ -60,6 +60,44 @@ def parse_fredgraph_csv(csv_bytes: bytes) -> list[tuple[dt.date, float]]:
     return pontos
 
 
+def ingest_brent_historico(session: Session, meses: int = 36) -> int:
+    """Persiste o histórico MENSAL do Brent (última observação de cada mês do
+    mesmo CSV keyless do fredgraph). Alimenta o co-movimento (n>=24) do grafo.
+    Idempotente por (código, data)."""
+    from app.services.dados import mensalizar
+
+    url = FREDGRAPH_CSV_URL.format(serie=BRENT_FRED_ID)
+    try:
+        resp = http_client.get_keyless(url, timeout=30.0)
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.warning("brent_historico_falhou", erro=type(exc).__name__)
+        return 0
+    mensais = mensalizar(parse_fredgraph_csv(resp.content))[-meses:]
+    n_gravados = 0
+    for data, valor in mensais:
+        fonte_id = get_or_create_fonte(
+            session,
+            url=url,
+            descricao=(
+                f"FRED (fonte primária EIA), série {BRENT_FRED_ID}: {ROTULO_BRENT}, "
+                "última obs. do mês"
+            ),
+            dt_referencia=data,
+        )
+        existente = session.execute(
+            select(MacroSerie).where(MacroSerie.codigo == CODIGO_BRENT, MacroSerie.data == data)
+        ).scalar_one_or_none()
+        if existente is None:
+            session.add(MacroSerie(codigo=CODIGO_BRENT, data=data, valor=valor, fonte_id=fonte_id))
+        else:
+            existente.valor = valor
+            existente.fonte_id = fonte_id
+        n_gravados += 1
+    logger.info("brent_historico_persistido", meses=len(mensais))
+    return n_gravados
+
+
 def ingest_brent(session: Session) -> MacroSerie | None:
     """Persiste o último ponto do Brent (keyless) em `macro_series`. Abstém em falha."""
     url = FREDGRAPH_CSV_URL.format(serie=BRENT_FRED_ID)

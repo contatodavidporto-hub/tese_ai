@@ -36,13 +36,19 @@ def test_extrair_contas_bpp_novas_contas_de_divida_com_escala_milhar() -> None:
         "4170;2.01.04;Outra empresa (ignorar);1;MILHAR;ÚLTIMO;2025-12-31\n"
     )
     achados = _extrair_contas(_zip_com(membro, csv_texto), 2025, 9512, membro, _CONTAS_BPP)
-    por_conta = {a["cd_conta"]: a["valor"] for a in achados}
+    ultimo = {a["cd_conta"]: a["valor"] for a in achados if a["ordem"] == "ULTIMO"}
 
-    assert set(por_conta) == {"2.01.04", "2.02.01", "2.03"}
-    assert por_conta["2.01.04"] == 100_000.0  # 100 * MILHAR (A1)
-    assert por_conta["2.02.01"] == 400_000.0
-    assert por_conta["2.03"] == 5_000_000.0
-    # PENÚLTIMO (exercício anterior) e outra empresa (4170) foram descartados.
+    assert set(ultimo) == {"2.01.04", "2.02.01", "2.03"}
+    assert ultimo["2.01.04"] == 100_000.0  # 100 * MILHAR (A1)
+    assert ultimo["2.02.01"] == 400_000.0
+    assert ultimo["2.03"] == 5_000_000.0
+    # PENÚLTIMO agora ENTRA (tendência ano-contra-ano com fonte), rotulado com a
+    # data do exercício anterior; outra empresa (4170) segue descartada.
+    penultimo = [a for a in achados if a["ordem"] == "PENULTIMO"]
+    assert len(penultimo) == 1
+    assert penultimo[0]["cd_conta"] == "2.01.04"
+    assert penultimo[0]["valor"] == 999_000.0
+    assert str(penultimo[0]["dt_refer"]) == "2024-12-31"
     assert all(a["dt_refer"] is not None for a in achados)
 
 
