@@ -95,9 +95,13 @@ def test_coletar_usa_rotulo_canonico_e_inclui_pares() -> None:
 # Gate estendido — elo sem fonte numa ponta bloqueia (A4)
 # ---------------------------------------------------------------------------
 def _envelope_base(elos: list[dict]) -> dict:
+    # O markdown inclui as seções universais BLOQUEANTES (geopol/Lacunas) da
+    # fase 2 — o alvo destes testes é o gate de ELOS, não o de seções.
     return {
         "markdown": (
-            "# Tese\n> Não é recomendação de investimento.\n## 1. Fundamentos\nReceita citada."
+            "# Tese\n> Não é recomendação de investimento.\n## 1. Fundamentos\nReceita citada.\n"
+            "## 4. Camada geopolítica (interpretação)\nSem eventos afirmados.\n"
+            "## 8. Lacunas\n- dado não encontrado: exemplo."
         ),
         "citacoes": [{"fonte": {"id": "f1", "url": "https://cvm"}}],
         "fontes": [{"id": "f1", "url": "https://cvm", "descricao": "CVM"}],

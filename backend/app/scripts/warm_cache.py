@@ -15,16 +15,28 @@ A lista é um RETRATO datado (a carteira muda a cada quadrimestre) — atualizar
 junto com a rebalanceamento da B3.
 
 Empresas financeiras (ITUB4/BBDC4/ITSA4/B3SA3) têm plano de contas próprio: as
-derivadas e os pares SEC abstêm — a tese sai com as dimensões que têm fonte
-(abstenção honesta, nunca inventa).
+derivadas abstêm; pares SEC saem para BANCOS (setores.py v2: SIC 6021 —
+JPM/BAC/C/WFC, com ressalva US-GAAP × IFRS) e abstêm nos demais setores
+financeiros (holding/seguradora/serviços) — a tese sai com as dimensões que
+têm fonte (abstenção honesta, nunca inventa).
+
+Fase 2 multiativo (D7/etapa 14): o argv aceita códigos de QUALQUER classe —
+tickers B3, FIIs (HGLG11) e Tesouro Direto (TD-IPCA-2035) — sem validar contra
+a lista IBOV (a identidade é resolvida pelo motor). `--force` pula o cache
+(`buscar_tese_cache`) e regenera mesmo com HIT: a nova `ready` passa a ser
+servida (GET /teses ordena por criado_em desc) e a antiga vira trilha de
+auditoria. Sem `--force` o comportamento é idêntico ao da fase 1.
 
 Uso:
     python -m app.scripts.warm_cache            # todos os 10
     python -m app.scripts.warm_cache VALE3 WEGE3  # subconjunto
+    python -m app.scripts.warm_cache --force ITUB4 BBDC4 ITSA4 B3SA3
+    python -m app.scripts.warm_cache --force HGLG11 TD-IPCA-2035
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections.abc import Callable, Sequence
@@ -51,6 +63,27 @@ TICKERS_IBOV_TOP: list[tuple[str, float]] = [
 ]
 
 
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Argumentos do CLI. Códigos multiclasse, SEM validação contra a lista IBOV."""
+    parser = argparse.ArgumentParser(
+        prog="warm_cache",
+        description="Pré-gera teses (warm cache). Sem códigos: top 10 do IBOV.",
+    )
+    parser.add_argument(
+        "codigos",
+        nargs="*",
+        metavar="CODIGO",
+        help="Tickers B3, FIIs (HGLG11) ou Tesouro Direto (TD-IPCA-2035); "
+        "sem validação contra a lista IBOV — a identidade é resolvida pelo motor.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenera mesmo com cache HIT (pula buscar_tese_cache).",
+    )
+    return parser.parse_args(argv)
+
+
 def _custo_da_tese(session, tese_id) -> float | None:
     versao = (
         session.query(TeseVersao)
@@ -67,6 +100,7 @@ def _custo_da_tese(session, tese_id) -> float | None:
 def aquecer(
     tickers: Sequence[str],
     *,
+    force: bool = False,
     log_fn: Callable[[str], None] | None = None,
 ) -> dict[str, object]:
     """Aquece o cache do lote: gera só as teses sem `ready` vigente (hit = pulado).
@@ -75,6 +109,9 @@ def aquecer(
     Cada geração passa pelo caminho normal (`gerar_tese`): respeita o teto
     diário de custo (`tese_teto_custo_usd_dia`, abstém ao estourar) e o gate
     anti-recomendação. Um ticker com problema não derruba o lote.
+
+    `force=True` (etapa 14) pula `buscar_tese_cache` e regenera mesmo com HIT;
+    com o default (False) o comportamento é idêntico ao da fase 1.
 
     Devolve o resumo {"prontas", "total", "custo_usd", "falhas"}.
     """
@@ -91,11 +128,17 @@ def aquecer(
     for ticker in tickers:
         session = SessionLocal()
         try:
-            em_cache = buscar_tese_cache(session, ticker, settings.tese_cache_horas)
-            if em_cache is not None:
-                log(f"{ticker}: cache HIT (tese {em_cache.id} de {em_cache.criado_em}) — pulado")
-                prontas += 1
-                continue
+            # --force: pula o cache e regenera mesmo com HIT (a nova `ready`
+            # supera a antiga no GET /teses, que ordena por criado_em desc).
+            if not force:
+                em_cache = buscar_tese_cache(session, ticker, settings.tese_cache_horas)
+                if em_cache is not None:
+                    log(
+                        f"{ticker}: cache HIT (tese {em_cache.id} de {em_cache.criado_em})"
+                        " — pulado"
+                    )
+                    prontas += 1
+                    continue
             tese = criar_tese(session, ticker)
             log(f"{ticker}: gerando (tese {tese.id})...")
             gerar_tese(session, tese.id)
@@ -124,12 +167,12 @@ def aquecer(
     }
 
 
-def main(tickers: list[str]) -> int:
+def main(tickers: list[str], force: bool = False) -> int:
     configure_logging("development")
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
     try:
-        resumo = aquecer(tickers, log_fn=print)
+        resumo = aquecer(tickers, force=force, log_fn=print)
     except RuntimeError:
         print("ERRO: DATABASE_URL ausente (.env).")
         return 2
@@ -142,5 +185,6 @@ def main(tickers: list[str]) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    alvos = sys.argv[1:] or [t for t, _ in TICKERS_IBOV_TOP]
-    raise SystemExit(main(alvos))
+    args = _parse_args()
+    alvos = args.codigos or [t for t, _ in TICKERS_IBOV_TOP]
+    raise SystemExit(main(alvos, force=args.force))

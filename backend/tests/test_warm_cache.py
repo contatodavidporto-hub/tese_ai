@@ -98,3 +98,75 @@ def test_sem_database_url_levanta_erro(monkeypatch) -> None:
     monkeypatch.setattr(db_session, "SessionLocal", None)
     with pytest.raises(RuntimeError):
         wc.aquecer(["VALE3"])
+
+
+# --- Fase 2 multiativo (etapa 14): --force e argv multiclasse -----------------
+
+
+def test_force_ignora_cache_hit_e_regenera(monkeypatch) -> None:
+    # Mesmo com HIT vigente, --force NÃO consulta o cache e regenera tudo.
+    cache_chamadas: list[str] = []
+
+    def _cache(_s, ticker, _h):
+        cache_chamadas.append(ticker)
+        return SimpleNamespace(id="hit", criado_em="2026-07-08")
+
+    _prepara(monkeypatch)
+    monkeypatch.setattr(wc, "buscar_tese_cache", _cache)
+    gerados: list[str] = []
+    monkeypatch.setattr(
+        wc, "criar_tese", lambda _s, t: SimpleNamespace(id=f"t-{t}", status="ready")
+    )
+    monkeypatch.setattr(wc, "gerar_tese", lambda _s, tid: gerados.append(tid))
+    monkeypatch.setattr(wc, "_custo_da_tese", lambda _s, _id: 0.34)
+
+    resumo = wc.aquecer(["HGLG11", "TD-IPCA-2035"], force=True)
+
+    assert cache_chamadas == []  # buscar_tese_cache foi PULADO
+    assert gerados == ["t-HGLG11", "t-TD-IPCA-2035"]
+    assert resumo == {"prontas": 2, "total": 2, "custo_usd": 0.68, "falhas": []}
+
+
+def test_sem_force_cache_hit_continua_pulando(monkeypatch) -> None:
+    # Contraste do --force: sem a flag, HIT pula a geração (comportamento fase 1).
+    _prepara(monkeypatch, em_cache=SimpleNamespace(id="t1", criado_em="2026-07-08"))
+    chamadas: list[str] = []
+    monkeypatch.setattr(wc, "criar_tese", lambda *_a: chamadas.append("criar"))
+    monkeypatch.setattr(wc, "gerar_tese", lambda *_a: chamadas.append("gerar"))
+
+    resumo = wc.aquecer(["HGLG11"], force=False)
+
+    assert chamadas == []
+    assert resumo["prontas"] == 1
+
+
+def test_parse_args_aceita_codigos_multiclasse_sem_validar_ibov() -> None:
+    args = wc._parse_args(["--force", "HGLG11", "TD-IPCA-2035", "ITUB4"])
+    assert args.force is True
+    assert args.codigos == ["HGLG11", "TD-IPCA-2035", "ITUB4"]
+    # códigos multiclasse NÃO precisam estar na lista IBOV (sem validação).
+    ibov = {t for t, _ in wc.TICKERS_IBOV_TOP}
+    assert "HGLG11" not in ibov
+    assert "TD-IPCA-2035" not in ibov
+
+
+def test_parse_args_default_sem_force_e_sem_codigos() -> None:
+    args = wc._parse_args([])
+    assert args.force is False
+    assert args.codigos == []
+
+
+def test_main_repassa_force_para_o_nucleo(monkeypatch) -> None:
+    recebido: dict = {}
+
+    def _aquecer(tickers, *, force=False, log_fn=None):
+        recebido["tickers"] = list(tickers)
+        recebido["force"] = force
+        return {"prontas": 1, "total": 1, "custo_usd": 0.0, "falhas": []}
+
+    monkeypatch.setattr(wc, "aquecer", _aquecer)
+
+    rc = wc.main(["TD-IPCA-2035"], force=True)
+
+    assert rc == 0
+    assert recebido == {"tickers": ["TD-IPCA-2035"], "force": True}

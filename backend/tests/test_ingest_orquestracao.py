@@ -123,3 +123,66 @@ def test_ingest_macro_refresh_roda_so_series_globais(monkeypatch: pytest.MonkeyP
     # Ordem inclui os históricos; nada de empresa/pares aqui.
     assert chamadas == ["macro", "usd_hist", "brent", "brent_hist", "wb", "tr"]
     assert sess.commits == 1
+
+
+# ---------------------------------------------------------------------------
+# Ingest por classe (etapa 11/D) — mesmos passos isolados, escopo da classe
+# ---------------------------------------------------------------------------
+def test_ingest_fii_completo_passos_isolados(monkeypatch: pytest.MonkeyPatch) -> None:
+    chamadas: list[str] = []
+
+    def _reg(nome: str):
+        def _fn(*_a, **_k):
+            chamadas.append(nome)
+
+        return _fn
+
+    def _falha(*_a, **_k):
+        raise RuntimeError("Olinda fora do ar")
+
+    monkeypatch.setattr(orquestracao.fii_dados, "ingest_indicadores", _reg("indicadores"))
+    monkeypatch.setattr(orquestracao.fii_dados, "ingest_vacancia", _reg("vacancia"))
+    monkeypatch.setattr(orquestracao.dados_svc, "ingest_macro", _reg("macro"))
+    monkeypatch.setattr(orquestracao.focus, "ingest_cdi", _reg("cdi"))
+    monkeypatch.setattr(orquestracao.focus, "ingest_focus", _falha)  # <- Focus cai
+
+    sess = _FakeSession()
+    from app.models.models import FiiCadastro
+
+    res = orquestracao.ingest_fii_completo(sess, FiiCadastro(cnpj="00", nome="FII X"))
+
+    # Olinda caiu -> só o passo Focus degrada; indicadores/vacância/CDI seguem.
+    assert res["focus"].startswith("falha")
+    assert res["fii_indicadores"] == "ok"
+    assert res["fii_vacancia"] == "ok"
+    assert res["macro_br"] == "ok"
+    assert res["cdi"] == "ok"
+    assert chamadas == ["indicadores", "vacancia", "macro", "cdi"]
+    assert sess.commits == 1
+    assert set(res) == {"fii_indicadores", "fii_vacancia", "macro_br", "cdi", "focus"}
+
+
+def test_ingest_renda_fixa_completo_so_o_titulo_pedido(monkeypatch: pytest.MonkeyPatch) -> None:
+    capturas: list[tuple] = []
+
+    def _titulo(_sess, familia, ano, **_k):
+        capturas.append((familia, ano))
+
+    def _reg(nome: str):
+        def _fn(*_a, **_k):
+            capturas.append((nome,))
+
+        return _fn
+
+    monkeypatch.setattr(orquestracao.tesouro, "ingest_titulo", _titulo)
+    monkeypatch.setattr(orquestracao.focus, "ingest_cdi", _reg("cdi"))
+    monkeypatch.setattr(orquestracao.focus, "ingest_focus", _reg("focus"))
+
+    sess = _FakeSession()
+    res = orquestracao.ingest_renda_fixa_completo(sess, "IPCA", 2035)
+
+    # Só o título PEDIDO é ingerido (nunca o CSV inteiro) + CDI/Focus.
+    assert capturas[0] == ("IPCA", 2035)
+    assert set(res) == {"titulo_tesouro", "cdi", "focus"}
+    assert all(v == "ok" for v in res.values())
+    assert sess.commits == 1
