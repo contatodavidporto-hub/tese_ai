@@ -168,6 +168,33 @@ def test_escolher_atual_exatamente_30_dias_ainda_serve() -> None:
     assert atual is not None and atual["data_base"] == dt.date(2026, 7, 7)
 
 
+def test_escolher_atual_zero_e_nao_ofertado_vira_ausencia() -> None:
+    # Achado M1 (red-team fase 2): convenção STN — taxa/PU = 0 no CSV significa
+    # título fora da janela de compra/venda ("não ofertado"), nunca taxa 0,00%
+    # nem PU R$ 0,00. Campo zerado abstém; os não-zero seguem.
+    csv_zero = (
+        _HEADER + "Tesouro IPCA+;15/05/2035;07/07/2026;0,00;7,61;0,00;2.105,10;2.108,00\n"
+    ).encode("latin-1")
+    atual = escolher_atual(parse_csv_tesouro(csv_zero), "IPCA", 2035, _HOJE)
+    assert atual is not None
+    assert atual["taxa_compra"] is None  # 0 -> ausência (abstém só este campo)
+    assert atual["pu_compra"] is None
+    assert atual["taxa_venda"] == 7.61  # campos não-zero seguem servindo
+    assert atual["pu_venda"] == 2105.10
+
+
+def test_parse_da_serie_mantem_zero_cru() -> None:
+    # A regra M1 vale só na LEITURA atual/derivadas: o parse da série NÃO
+    # reescreve o 0 (o valor cru fica no banco; 0 legítimo de outros parsers
+    # nunca é tocado por esta regra).
+    csv_zero = (
+        _HEADER + "Tesouro IPCA+;15/05/2035;07/07/2026;0,00;7,61;0,00;2.105,10;2.108,00\n"
+    ).encode("latin-1")
+    linha = parse_csv_tesouro(csv_zero)[0]
+    assert linha["taxa_compra"] == 0.0
+    assert linha["pu_compra"] == 0.0
+
+
 # ---------------------------------------------------------------------------
 # Janela: diária (24 meses) + amostra mensal (primeira Data Base) até 5 anos
 # ---------------------------------------------------------------------------

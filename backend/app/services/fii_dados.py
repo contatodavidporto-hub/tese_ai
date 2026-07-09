@@ -305,6 +305,52 @@ def _upsert_cadastro(
         return fii
 
 
+def _ingest_lote_geral(session: Session, conteudo_zip: bytes, url: str, ano: int) -> int:
+    """Upserta o cadastro de TODOS os fundos do bloco "geral" de um zip anual.
+
+    Miolo compartilhado entre `ensure_fii` (ticker-alvo) e `bootstrap_fiis`
+    (universo, achado A2). A colisão de raiz ISIN só é detectável olhando o
+    lote inteiro. Devolve o nº de fundos do lote (0 = membro geral vazio).
+    """
+    cadastros = _parse_geral(conteudo_zip, ano)
+    if not cadastros:
+        logger.info("fii_geral_vazio", ano=ano)
+        return 0
+    tickers = _mapear_tickers(cadastros)
+    for cnpj, cad in cadastros.items():
+        _upsert_cadastro(session, cad, tickers.get(cnpj), url, ano)
+    return len(cadastros)
+
+
+def bootstrap_fiis(
+    session: Session,
+    *,
+    hoje: dt.date | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> int:
+    """Popula `fii_cadastro` com o UNIVERSO do informe mensal CVM (achado A2).
+
+    Passo de bootstrap para banco fresco: sem ticker-alvo, upserta o lote
+    inteiro do bloco "geral" (mesma cascata ano corrente -> ano-1 do
+    `ensure_fii`; o primeiro ano com dados vence — o ano-1 não regride
+    competência mais nova, regra do `_upsert_cadastro`). Idempotente.
+    Nenhum zip/lote disponível -> DadoNaoEncontrado (abstenção, nunca seed
+    inventado). `hoje` e `transport` injetáveis para teste offline.
+    """
+    for ano in _anos_informe(hoje):
+        url = CVM_FII_MENSAL_URL.format(ano=ano)
+        conteudo = _baixar_zip(url, transport)
+        if conteudo is None:
+            continue
+        n = _ingest_lote_geral(session, conteudo, url, ano)
+        if n:
+            logger.info("fii_bootstrap_universo", ano=ano, fundos=n)
+            return n
+    raise DadoNaoEncontrado(
+        "informe mensal FII indisponível em todos os anos da cascata — dado não encontrado"
+    )
+
+
 def ensure_fii(
     session: Session,
     ticker: str,
@@ -315,11 +361,11 @@ def ensure_fii(
     """Resolve `ticker` -> FiiCadastro via informe mensal CVM. Idempotente.
 
     Baixa inf_mensal_fii_{ano}.zip (ano corrente, fallback ano-1), upserta o
-    cadastro de TODOS os fundos do bloco "geral" (a colisão de raiz só é
-    detectável olhando o lote inteiro) e devolve o fundo do ticker pedido.
-    Abstém (DadoNaoEncontrado) quando o ticker não resolve — inclusive quando a
-    colisão de raiz zera a heurística (o fundo segue acessível por CNPJ).
-    `hoje` e `transport` são injetáveis para teste offline.
+    cadastro de TODOS os fundos do bloco "geral" (`_ingest_lote_geral`) e
+    devolve o fundo do ticker pedido. Abstém (DadoNaoEncontrado) quando o
+    ticker não resolve — inclusive quando a colisão de raiz zera a heurística
+    (o fundo segue acessível por CNPJ). `hoje` e `transport` são injetáveis
+    para teste offline.
     """
     ticker = ticker.upper().strip()
     for ano in _anos_informe(hoje):
@@ -327,13 +373,8 @@ def ensure_fii(
         conteudo = _baixar_zip(url, transport)
         if conteudo is None:
             continue
-        cadastros = _parse_geral(conteudo, ano)
-        if not cadastros:
-            logger.info("fii_geral_vazio", ano=ano)
+        if _ingest_lote_geral(session, conteudo, url, ano) == 0:
             continue
-        tickers = _mapear_tickers(cadastros)
-        for cnpj, cad in cadastros.items():
-            _upsert_cadastro(session, cad, tickers.get(cnpj), url, ano)
         fii = session.execute(
             select(FiiCadastro).where(FiiCadastro.ticker == ticker)
         ).scalar_one_or_none()
@@ -482,6 +523,15 @@ def ingest_vacancia(
     trimestre vem sem Percentual_Vacancia, ou com Area vazia/zero em imóvel com
     vacância informada: agregado parcial seria número enganoso COM fonte.
     Idempotente por (fii, 'VACANCIA_AGREGADA', dt_referencia).
+
+    UNIDADE — fonte da verdade (achado A3 do red-team, só documentação):
+    `Percentual_Vacancia` do inf_trimestral vem como FRAÇÃO decimal, não como
+    percentual. Evidência empírica: valor cru '0.181971821162028' para o
+    imóvel Master Labs (HGLG11, Data_Referencia 2025-12-31), verificado por
+    download real do zip da CVM em 2026-07-08 (≈18,2% de vacância — coerente
+    com o fato público). O agregado é gravado como fração, unidade 'PCT'
+    (fração decimal, padrão dos indicadores do informe), sem multiplicar por
+    100 — o formatador do motor é quem converte para exibição.
     """
     cnpj_alvo = _cnpj_digitos(fii.cnpj)
     for ano in _anos_informe(hoje):

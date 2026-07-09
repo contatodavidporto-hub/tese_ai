@@ -179,6 +179,14 @@ _TOKENS_CLASSE: dict[str, tuple[str, ...]] = {
 }
 
 _FRASE_SPLIT_RE = re.compile(r"(?<=[.;!?])\s+|\n")
+# M4c (red-team fase 2): quebra de linha SIMPLES que só CONTINUA o mesmo
+# bullet/parágrafo ("- A curva DI precifica\n  12,5%...") não pode encerrar o
+# período do check de termos vetados — o número na linha seguinte escapava.
+# A quebra vira espaço, EXCETO quando a próxima linha inicia novo bloco
+# (bullet -/*/+, heading #, citação >, item numerado "1. ") ou é linha em
+# branco/fim do texto (parágrafo novo). SÓ o check de termos vetados usa esta
+# normalização; os demais checks preservam o split legado por linha.
+_QUEBRA_CONTINUACAO_RE = re.compile(r"\n(?![ \t]*(?:[-*+#>]|\d+[.)]\s|\n|$))")
 _PROXY_RE = re.compile(r"\bproxy\b", re.IGNORECASE)
 _DY_ROTULO_INFORME_RE = re.compile(
     r"do\s+informe|auto[\s-]?declarad|informe\s+mensal", re.IGNORECASE
@@ -245,17 +253,33 @@ def _tokens_classe_ausentes(markdown: str, classe: str) -> list[str]:
     return [t for t in _TOKENS_CLASSE.get(classe, ()) if t not in texto]
 
 
-def _numero_apos(frase: str, posicao: int) -> bool:
-    """Há número "de claim" (>= 2 dígitos ou separador decimal) após `posicao`?"""
-    for m in _NUMERO_RE.finditer(frase, posicao):
-        tok = m.group(0)
-        if "," in tok or "." in tok or len(tok) >= 2:
+def _tem_numero_de_claim(frase: str) -> bool:
+    """Há número "de claim" em QUALQUER posição da frase (M4a/M4b do red-team)?
+
+    M4a (falso positivo): usa o MESMO critério de número-de-claim de
+    `_numeros_significativos` — separador de milhar/decimal OU >=5 dígitos.
+    Ano solto (2025) e componentes de data dd/mm/aaaa são metadado de
+    referência, não claim: a linha de lacuna legítima 'P/VP: dado não
+    encontrado (dados do informe de 2025)' não pode bloquear a tese.
+    Percentual explícito ('13%') conta mesmo sem separador (é claim).
+    Trade-off documentado: inteiro curto sem '%' nem separador ('em 123')
+    deixa de contar — o mesmo recorte já aceito na fidelidade numérica.
+
+    M4b (bypass): número ANTES do termo na mesma frase ('Aos 12,5%, a curva
+    DI segue...') também conta — varre a frase INTEIRA, não só o sufixo.
+    """
+    for m in _NUMERO_RE.finditer(frase):
+        tok = m.group(0).rstrip(".")  # ponto final de frase não é separador
+        digitos = tok.replace(".", "").replace(",", "")
+        if "," in tok or "." in tok or len(digitos) >= 5:
+            return True
+        if frase[m.end() : m.end() + 1] == "%":
             return True
     return False
 
 
 def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
-    """Termos VETADOS seguidos de número no mesmo período (bloqueante, D6c).
+    """Termos VETADOS com número no mesmo período (bloqueante, D6c).
 
     Função PURA e determinística. Fecha o convite à alucinação nas lacunas de
     cada classe: 'curva DI' (sem fonte keyless — só o PROXY nomeado via Tesouro
@@ -264,17 +288,22 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
     'dividend yield' (preço B3 licenciado). O DY MENSAL do informe CVM é
     permitido quando rotulado ('do informe'/'auto-declarado') no mesmo período
     e sem 'anualizado'/'a mercado' (NUNCA anualizar o DY do informe).
+
+    Red-team fase 2 (M4): o número conta em qualquer posição da frase (M4b),
+    ano/data não conta como número (M4a) e quebra de linha simples de bullet
+    quebrado é o MESMO período (M4c) — ver `_tem_numero_de_claim` e
+    `_QUEBRA_CONTINUACAO_RE`.
     """
     classe = _normalizar_classe(classe)
     achados: list[str] = []
-    for frase in _FRASE_SPLIT_RE.split(texto or ""):
+    texto_continuo = _QUEBRA_CONTINUACAO_RE.sub(" ", texto or "")
+    for frase in _FRASE_SPLIT_RE.split(texto_continuo):
         if not frase.strip():
             continue
         for rotulo, termo_re, classes in _REGRAS_VETADAS:
             if classes is not None and classe not in classes:
                 continue
-            m = termo_re.search(frase)
-            if m is None or not _numero_apos(frase, m.end()):
+            if termo_re.search(frase) is None or not _tem_numero_de_claim(frase):
                 continue
             if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
                 continue  # proxy NOMEADO no mesmo período é o uso citável permitido
@@ -286,6 +315,23 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                 continue  # DY mensal do informe, auto-declarado e rotulado
             achados.append(f"{rotulo}: '{frase.strip()[:120]}'")
     return achados
+
+
+def _chave_fonte(fonte: dict) -> tuple | None:
+    """Identidade LÓGICA de uma fonte no cálculo de cobertura (achado B1).
+
+    Documentos distintos podem repetir a mesma fonte lógica: no caso RF, cada
+    Data Base do CSV da STN cria uma `Fonte` própria com a MESMA URL+descrição
+    — 1 fonte ancorando 4 docs deprimia o denominador (cobertura máx. 0,25).
+    Dedup por (url, descricao); fonte sem ambos cai para o id (fontes anônimas
+    distintas não colapsam). Sem identificador algum -> None (não conta).
+    """
+    url = (fonte.get("url") or "").strip()
+    descricao = (fonte.get("descricao") or "").strip()
+    if url or descricao:
+        return (url, descricao)
+    fid = fonte.get("id")
+    return ("id", str(fid)) if fid else None
 
 
 def _strip_disclaimer(texto: str) -> str:
@@ -376,8 +422,10 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     fontes = envelope.get("fontes") or []
     lacunas = envelope.get("lacunas") or []
     # Inclui texto gerado por LLM exposto ao usuário (resumo do Haiku) na varredura.
+    # Quebra DUPLA: parágrafo novo — o resumo não pode se fundir à última linha
+    # do markdown sob a normalização de continuação do check de termos vetados.
     resumo = ((envelope.get("metadata") or {}).get("resumo")) or ""
-    texto_varredura = markdown + "\n" + resumo
+    texto_varredura = markdown + "\n\n" + resumo
 
     violacoes = _violacoes_recomendacao(texto_varredura)
     alertas_geo = _alertas_geopolitica(markdown)
@@ -399,13 +447,16 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         if not e.get("origem_fonte_id") or not e.get("destino_fonte_id")
     ]
 
-    fontes_citadas: set[str] = set()
+    # Cobertura DEDUPLICADA por fonte lógica (achado B1): o mesmo
+    # (url, descricao) repetido em N documentos conta UMA vez no denominador,
+    # e a citação a qualquer um deles conta a mesma UMA vez no numerador.
+    chaves_fontes = {ch for f in fontes if (ch := _chave_fonte(f)) is not None}
+    fontes_citadas: set[tuple] = set()
     for c in citacoes:
-        fonte = c.get("fonte") or {}
-        fid = fonte.get("id") or fonte.get("url")
-        if fid:
-            fontes_citadas.add(str(fid))
-    cobertura = (len(fontes_citadas) / len(fontes)) if fontes else 0.0
+        chave = _chave_fonte(c.get("fonte") or {})
+        if chave is not None:
+            fontes_citadas.add(chave)
+    cobertura = (len(fontes_citadas) / len(chaves_fontes)) if chaves_fontes else 0.0
 
     lacunas_no_texto = sum(1 for ln in markdown.splitlines() if "dado não encontrado" in ln.lower())
 
@@ -473,6 +524,7 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         "termos_vetados": termos_vetados,
         "citacoes_total": len(citacoes),
         "fontes_total": len(fontes),
+        "fontes_unicas": len(chaves_fontes),  # dedup (url, descricao) — B1
         "fontes_citadas": len(fontes_citadas),
         "cobertura_fontes": round(cobertura, 3),
         "cobertura_minima": _COBERTURA_MINIMA,

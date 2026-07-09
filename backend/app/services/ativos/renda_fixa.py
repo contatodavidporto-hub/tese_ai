@@ -232,8 +232,13 @@ def _pu_mais_proximo(
     linhas: list[TituloPublico], alvo: dt.date, tolerancia_dias: int = TOLERANCIA_DIAS
 ) -> TituloPublico | None:
     """Linha com PU de venda cuja data_base é a MAIS PRÓXIMA do alvo, dentro da
-    tolerância (~5 dias úteis). NUNCA interpola: fora da tolerância -> None."""
-    candidatos = [ln for ln in linhas if ln.pu_venda is not None]
+    tolerância (~5 dias úteis). NUNCA interpola: fora da tolerância -> None.
+
+    PU = 0 é AUSÊNCIA (convenção STN, achado M1: título fora da janela de
+    venda), não preço: fica fora dos candidatos — senão o 0 "mais próximo"
+    mataria uma janela que um PU válido vizinho (dentro da tolerância) atende.
+    """
+    candidatos = [ln for ln in linhas if ln.pu_venda is not None and float(ln.pu_venda) > 0]
     if not candidatos:
         return None
     melhor = min(candidatos, key=lambda ln: abs((ln.data_base - alvo).days))
@@ -477,9 +482,19 @@ def coletar_contexto(session: Session, ref: TituloRef, *, hoje: dt.date | None =
     serie_taxa: list[tuple[dt.date, float]] = []
     if atual is not None:
         for ln in _serie_titulo(session, ref.tipo, atual["data_vencimento"]):
-            taxa = ln.taxa_venda if ln.taxa_venda is not None else ln.taxa_compra
+            # M1: taxa 0 no CSV da STN = "não ofertado" (ausência), não é
+            # observação de mercado — fora da série do co-movimento. Taxa
+            # NEGATIVA é legítima (ágio do Tesouro Selic) e segue entrando.
+            taxa = next(
+                (
+                    float(t)
+                    for t in (ln.taxa_venda, ln.taxa_compra)
+                    if t is not None and float(t) != 0.0
+                ),
+                None,
+            )
             if taxa is not None:
-                serie_taxa.append((ln.data_base, float(taxa)))
+                serie_taxa.append((ln.data_base, taxa))
     return {
         "familia": ref.familia,
         "codigo": ref.codigo,

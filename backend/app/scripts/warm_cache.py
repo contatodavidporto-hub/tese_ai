@@ -15,8 +15,10 @@ A lista é um RETRATO datado (a carteira muda a cada quadrimestre) — atualizar
 junto com a rebalanceamento da B3.
 
 Empresas financeiras (ITUB4/BBDC4/ITSA4/B3SA3) têm plano de contas próprio: as
-derivadas e os pares SEC abstêm — a tese sai com as dimensões que têm fonte
-(abstenção honesta, nunca inventa).
+derivadas abstêm; pares SEC saem para BANCOS (setores.py v2: SIC 6021 —
+JPM/BAC/C/WFC, com ressalva US-GAAP × IFRS) e abstêm nos demais setores
+financeiros (holding/seguradora/serviços) — a tese sai com as dimensões que
+têm fonte (abstenção honesta, nunca inventa).
 
 Fase 2 multiativo (D7/etapa 14): o argv aceita códigos de QUALQUER classe —
 tickers B3, FIIs (HGLG11) e Tesouro Direto (TD-IPCA-2035) — sem validar contra

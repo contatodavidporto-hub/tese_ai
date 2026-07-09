@@ -171,6 +171,18 @@ def test_cobertura_baixa_reprova_aprovacao():
     assert laudo["bloqueante"] is False  # cobertura é qualidade, não inegociável
 
 
+def test_cobertura_deduplica_fontes_repetidas_por_url_descricao():
+    # Achado B1 (red-team fase 2): no caso RF, cada Data Base do CSV da STN
+    # cria uma `Fonte` própria com a MESMA url+descricao — 4 documentos da
+    # mesma fonte lógica citada 1x davam cobertura 0,25. Dedup -> 1.0.
+    fontes = [{**_FONTE, "id": f"id-{i}"} for i in range(4)]  # mesma url/descricao
+    laudo = avaliar_tese(_envelope("## Fundamentos\nTexto citado.", fontes=fontes))
+    assert laudo["fontes_total"] == 4
+    assert laudo["fontes_unicas"] == 1
+    assert laudo["cobertura_fontes"] == 1.0
+    assert laudo["aprovado"] is True
+
+
 def test_evento_geopolitico_sem_hedge_bloqueia():
     md = "## 3. Camada geopolítica\nA guerra na região derrubou a produção de petróleo."
     laudo = avaliar_tese(_envelope(md))
@@ -380,6 +392,58 @@ def test_termos_vetados_funcao_pura_positivos_e_negativos():
     assert termos_vetados_com_numero("DY mensal do informe (auto-declarado): 0,66%.", "fii") == []
     assert termos_vetados_com_numero("A inflação implícita não é observável aqui.", "rf") == []
     assert termos_vetados_com_numero("Curva DI: dado não encontrado.", "renda_fixa") == []
+
+
+# --- Red-team fase 2 (M4): falso positivo de ano/data e bypasses do veto ------
+
+
+def test_ano_de_referencia_nao_bloqueia_lacuna_legitima_m4a():
+    # M4a: '2025' é metadado de data (mesmo critério de número-de-claim de
+    # _numeros_significativos), não número — a lacuna legítima de FII passa.
+    md = "## Lacunas\n- P/VP a preço de mercado: dado não encontrado (dados do informe de 2025)"
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+
+
+def test_data_dd_mm_aaaa_nao_conta_como_numero_de_claim_m4a():
+    lacuna_datada = "P/VP: dado não encontrado (informe de 31/12/2025)."
+    assert termos_vetados_com_numero(lacuna_datada, "fii") == []
+    assert termos_vetados_com_numero("Curva DI: dado não encontrado em 2025.", "rf") == []
+    # Percentual explícito segue sendo claim mesmo sem separador decimal.
+    assert termos_vetados_com_numero("Curva DI em 13% no curto prazo.", "renda_fixa")
+
+
+def test_numero_antes_do_termo_na_mesma_frase_bloqueia_m4b():
+    # M4b: número ANTES do termo não pode escapar — a frase INTEIRA é varrida.
+    assert termos_vetados_com_numero("Aos 12,5%, a curva DI segue pressionada.", "renda_fixa")
+    laudo = avaliar_tese(
+        _envelope("## Juros\nAos 12,5%, a curva DI segue pressionada no curto prazo."),
+        classe="renda_fixa",
+    )
+    assert laudo["termos_vetados"]
+    assert laudo["bloqueante"] is True
+
+
+def test_numero_em_linha_seguinte_de_bullet_quebrado_bloqueia_m4c():
+    # M4c: quebra de linha SIMPLES dentro do mesmo bullet é o MESMO período.
+    md = "## Juros\n- A curva DI precifica\n  12,5% no vencimento 2027."
+    laudo = avaliar_tese(_envelope(md), classe="renda_fixa")
+    assert laudo["termos_vetados"]
+    assert laudo["bloqueante"] is True
+
+
+def test_bullets_distintos_nao_se_fundem_no_check_m4c():
+    # Bullet novo ('- ') é fronteira de período: a lacuna da curva DI não herda
+    # o número do bullet vizinho (e o DY rotulado do informe segue legítimo).
+    md = (
+        "## Lacunas\n"
+        "- Curva DI completa por prazo: dado não encontrado (B3/ANBIMA licenciadas)\n"
+        "- DY mensal do informe (auto-declarado): 0,66%"
+    )
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
 
 
 # --- Tokens temáticos por classe: NÃO-bloqueantes (derrubam só `aprovado`) ----

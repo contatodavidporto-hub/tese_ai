@@ -45,7 +45,7 @@ from app.models.models import (
     TeseVersao,
 )
 from app.observability.langfuse_client import get_langfuse
-from app.services import correlacao, rotulos, sec
+from app.services import correlacao, planos_contas, rotulos, sec
 from app.services import dados as dados_svc
 from app.services.avaliacao import avaliar_tese
 from app.services.demo_user import get_or_create_demo_user
@@ -577,7 +577,16 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         # CLASSE. Bloqueante (recomendação / evento sem fonte / fonte sem URL)
         # => NÃO serve como pronta: grava status=error com os motivos. O
         # envelope + laudo ficam persistidos para a trilha de auditoria.
-        laudo = avaliar_tese(envelope, classe=classe)
+        # Achado M2 do red-team: banco/seguradora são classe 'acao' (D4 —
+        # 'financeira' não é classe), então `classe=classe` nunca acionava os
+        # tokens/piso de 'banco' no gate. Espelha a MESMA condição do template
+        # variante (acao.system_prompt): plano financeiro => classe do gate.
+        classe_gate = classe
+        if classe == "acao":
+            plano = getattr(ativo, "plano_contas", None)
+            if plano in planos_contas.PLANOS_FINANCEIROS:
+                classe_gate = plano
+        laudo = avaliar_tese(envelope, classe=classe_gate)
         envelope["avaliacao"] = laudo
         if laudo["bloqueante"]:
             envelope["erro"] = "Tese reprovada no gate de confiança: " + "; ".join(laudo["motivos"])

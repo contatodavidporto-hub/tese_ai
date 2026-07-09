@@ -66,6 +66,14 @@ JANELA_DIARIA_MESES = 24  # janela diária p/ marcação a mercado
 HISTORICO_MESES = 60  # amostra mensal p/ co-movimento (5 anos)
 STALENESS_DIAS = 30  # Data Base mais velha que isto -> abstém (fora de oferta)
 
+# Convenção STN (achado M1 do red-team fase 2): título fora da janela de
+# compra/venda vem com taxa/PU = 0 no CSV — 0 é "não ofertado", NUNCA taxa ou
+# preço de mercado. Na leitura ATUAL esses campos zerados viram None (abstém
+# só aquele campo/derivada; os não-zero seguem). A regra NÃO se aplica ao
+# parse/persistência da série (o valor cru fica no banco) nem a parsers de
+# séries onde 0 é legítimo (macro etc.).
+_CAMPOS_TAXA_PU = ("taxa_compra", "taxa_venda", "pu_compra", "pu_venda", "pu_base")
+
 
 def _tipo_da_familia(familia: str) -> str:
     tipo = TIPO_POR_FAMILIA.get((familia or "").strip().upper())
@@ -287,6 +295,8 @@ def escolher_atual(
     O CSV não é cronológico (delta 5): SEMPRE max(data_base), nunca "última
     linha". Data Base > `staleness_dias` corridos de `hoje` -> None (abstenção:
     título fora de oferta; a tese registra a lacuna, nunca serve número velho).
+    Taxa/PU = 0 na linha atual vira None (convenção STN, achado M1: 0 = "não
+    ofertado" — nunca sai como taxa 0,00% nem gera variação de PU de -100%).
     """
     vencimento = resolver_vencimento(linhas, familia, ano)
     do_titulo = [ln for ln in linhas if ln["data_vencimento"] == vencimento]
@@ -301,7 +311,12 @@ def escolher_atual(
             idade_dias=idade_dias,
         )
         return None
-    return {**linha, "codigo": f"TD-{familia.upper().strip()}-{ano}"}
+    atual = dict(linha)
+    for campo in _CAMPOS_TAXA_PU:  # M1: 0 = ausência (negativo é legítimo — ágio)
+        valor = atual.get(campo)
+        if valor is not None and float(valor) == 0.0:
+            atual[campo] = None
+    return {**atual, "codigo": f"TD-{familia.upper().strip()}-{ano}"}
 
 
 def titulo_atual(

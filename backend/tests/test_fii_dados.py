@@ -282,6 +282,69 @@ def test_ensure_fii_sem_zip_em_nenhum_ano_abstem(sessao: Session) -> None:
 
 
 # ---------------------------------------------------------------------------
+# bootstrap_fiis (achado A2) — universo do informe mensal, sem ticker-alvo
+# ---------------------------------------------------------------------------
+def test_bootstrap_fiis_popula_universo_do_fixture(sessao: Session) -> None:
+    n = fii_dados.bootstrap_fiis(sessao, hoje=HOJE, transport=_transport(_mapa_mensal_2025()))
+    assert n == 2  # o lote INTEIRO do bloco geral (HGLG + KNRI), sem ticker-alvo
+    fundos = sessao.execute(select(FiiCadastro)).scalars().all()
+    assert {f.cnpj for f in fundos} == {CNPJ_HGLG, CNPJ_KNRI}
+    assert {f.ticker for f in fundos} == {"HGLG11", "KNRI11"}
+    assert all(f.fonte_id is not None for f in fundos)  # sem fonte não é fato
+
+
+def test_bootstrap_fiis_idempotente(sessao: Session) -> None:
+    transport = _transport(_mapa_mensal_2025())
+    fii_dados.bootstrap_fiis(sessao, hoje=HOJE, transport=transport)
+    fii_dados.bootstrap_fiis(sessao, hoje=HOJE, transport=transport)
+    assert len(sessao.execute(select(FiiCadastro)).scalars().all()) == 2
+
+
+def test_bootstrap_fiis_sem_zip_em_nenhum_ano_abstem(sessao: Session) -> None:
+    with pytest.raises(DadoNaoEncontrado):
+        fii_dados.bootstrap_fiis(sessao, hoje=HOJE, transport=_transport({}))
+
+
+class _FakeSessionCtx:
+    """Context manager mínimo para stubar SessionLocal no script de bootstrap."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def commit(self) -> None:
+        pass
+
+
+def test_bootstrap_cadastro_passo_fii_isolado_nao_derruba_cias(monkeypatch) -> None:
+    # A2: falha do passo FII (rede/CVM fora do ar) NÃO derruba o bootstrap de
+    # cias (padrão de passo isolado da orquestração).
+    from app.scripts import bootstrap_cadastro as bc
+
+    monkeypatch.setattr(bc, "SessionLocal", _FakeSessionCtx)
+    monkeypatch.setattr(bc, "ingest_cvm_cadastro", lambda _s: 7)
+
+    def _boom(_s):
+        raise RuntimeError("CVM fora do ar")
+
+    monkeypatch.setattr(bc, "bootstrap_fiis", _boom)
+    assert bc.main() == 7  # passo das cias preservado
+
+
+def test_bootstrap_cadastro_roda_o_passo_fii(monkeypatch) -> None:
+    from app.scripts import bootstrap_cadastro as bc
+
+    chamados: list[str] = []
+    monkeypatch.setattr(bc, "SessionLocal", _FakeSessionCtx)
+    monkeypatch.setattr(bc, "ingest_cvm_cadastro", lambda _s: 7)
+    monkeypatch.setattr(bc, "bootstrap_fiis", lambda _s: chamados.append("fii") or 3)
+    assert bc.main() == 7
+    assert chamados == ["fii"]
+
+
+# ---------------------------------------------------------------------------
 # Colisão de raiz ISIN -> ticker NULL para AMBOS, sem abortar o ingest
 # ---------------------------------------------------------------------------
 _GERAL_COLISAO = (

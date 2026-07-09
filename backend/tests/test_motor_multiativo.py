@@ -418,6 +418,76 @@ def test_coletar_rf_titulo_stale_abstem_total(sessao: Session) -> None:
         renda_fixa.coletar(sessao, ref)
 
 
+def _seed_titulo_custom(sessao: Session, linhas: tuple) -> Fonte:
+    """Linhas (data_base, taxa_compra, taxa_venda, pu_compra, pu_venda) do IPCA+ 2035."""
+    f = _fonte(
+        sessao,
+        "STN/Tesouro Transparente — Tesouro IPCA+, venc. 15/05/2035",
+        "https://www.tesourotransparente.gov.br/x.csv",
+    )
+    for data_base, tc, tv, pc, pv in linhas:
+        sessao.add(
+            TituloPublico(
+                tipo="Tesouro IPCA+",
+                data_vencimento=dt.date(2035, 5, 15),
+                data_base=data_base,
+                taxa_compra=tc,
+                taxa_venda=tv,
+                pu_compra=pc,
+                pu_venda=pv,
+                pu_base=pv,
+                fonte_id=f.id,
+            )
+        )
+    sessao.flush()
+    return f
+
+
+def test_coletar_rf_taxa_zero_abstem_campo_e_carrego_m1(sessao: Session) -> None:
+    # Achado M1: Taxa Compra/Venda = 0 é "não ofertado" (convenção STN) — o doc
+    # nunca exibe 'taxa de compra 0,00% a.a.' e o carrego vs CDI abstém.
+    base = _HOJE - dt.timedelta(days=1)
+    _seed_titulo_custom(sessao, ((base, 0.0, 0.0, 4010.0, 4000.0),))
+    _macro(sessao, "CDI_ANUAL", 13.65, _HOJE - dt.timedelta(days=1))
+    ref = renda_fixa.ensure_ativo(sessao, "TD-IPCA-2035")
+    textos = [t for _f, t in renda_fixa.coletar(sessao, ref)]
+    doc_titulo = next(t for t in textos if t.startswith("Título público"))
+    assert "0,00% a.a." not in doc_titulo
+    assert "taxas: dado não encontrado" in doc_titulo
+    assert "PU de venda" in doc_titulo  # campos não-zero seguem
+    assert not any("diferencial de taxa" in t for t in textos)  # carrego abstém
+
+
+def test_coletar_rf_pu_atual_zero_abstem_marcacao_m1(sessao: Session) -> None:
+    # Achado M1: PU atual = 0 -> marcação a mercado abstém (nunca variação
+    # de -100% contra o PU histórico válido).
+    base = _HOJE - dt.timedelta(days=1)
+    _seed_titulo_custom(
+        sessao,
+        (
+            (base, 7.55, 7.61, 0.0, 0.0),
+            (base - dt.timedelta(days=30), 7.30, 7.36, 3910.0, 3900.0),
+            (base - dt.timedelta(days=365), 6.80, 6.86, 3510.0, 3500.0),
+        ),
+    )
+    ref = renda_fixa.ensure_ativo(sessao, "TD-IPCA-2035")
+    textos = [t for _f, t in renda_fixa.coletar(sessao, ref)]
+    assert not any("marcação a mercado" in t for t in textos)
+    assert not any("-100" in t for t in textos)
+    doc_titulo = next(t for t in textos if t.startswith("Título público"))
+    assert "PUs: dado não encontrado" in doc_titulo
+    assert "taxa de compra 7,55% a.a." in doc_titulo  # taxas não-zero seguem
+
+
+def test_pu_mais_proximo_ignora_pu_zero_m1() -> None:
+    # Achado M1: PU 0 é AUSÊNCIA — o vizinho VÁLIDO dentro da tolerância vence
+    # (sem o filtro, o 0 "mais próximo" mataria a janela da marcação).
+    alvo = dt.date(2026, 6, 7)
+    zero = SimpleNamespace(data_base=alvo, pu_venda=0.0)
+    valido = SimpleNamespace(data_base=alvo + dt.timedelta(days=2), pu_venda=3900.0)
+    assert renda_fixa._pu_mais_proximo([zero, valido], alvo) is valido
+
+
 def test_rf_ensure_ativo_rejeita_codigo_invalido() -> None:
     with pytest.raises(DadoNaoEncontrado):
         renda_fixa.ensure_ativo(None, "TD-XPTO-2035")
@@ -631,6 +701,48 @@ def test_gerar_tese_acao_legada_continua_com_system_byte_identico(
     assert system_enviado == tese_svc._SYSTEM
     assert hashlib.sha256(system_enviado.encode("utf-8")).hexdigest() == _SYSTEM_SHA256_PINADO
     assert captura_gate["classe"] == "acao"
+
+
+@pytest.mark.parametrize("plano", ["banco", "seguradora"])
+def test_gerar_tese_acao_financeira_gate_recebe_classe_do_plano_m2(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch, plano: str
+) -> None:
+    # Achado M2 (red-team): banco/seguradora são classe 'acao' (D4) — passando
+    # `classe=tese.classe_ativo or 'acao'` cru, os tokens/piso de 'banco' do
+    # gate NUNCA rodavam. O motor espelha a condição do template variante.
+    f = _fonte(sessao, "CVM DFP 2025 (consolidado) — EMISSOR FINANCEIRO")
+    empresa = Empresa(
+        cd_cvm=19348,
+        ticker="ITUB4",
+        nome="ITAU UNIBANCO HOLDING S.A.",
+        cnpj=None,
+        plano_contas=plano,
+    )
+    sessao.add(empresa)
+    sessao.flush()
+    sessao.add(
+        Fundamento(
+            empresa_id=empresa.id,
+            conta="Receitas da Intermediação Financeira (3.01)",
+            valor=100.0,
+            dt_refer=dt.date(2025, 12, 31),
+            fonte_id=f.id,
+        )
+    )
+    sessao.commit()
+    client, captura_gate = _preparar_motor_fake(monkeypatch, _MD_ACAO)
+    tese = _criar_tese(sessao, "ITUB4", None)  # NULL = classe 'acao' (legado)
+
+    tese_svc.gerar_tese(sessao, tese.id)
+
+    sessao.refresh(tese)
+    assert tese.status == "ready"
+    # Gate recebe o PLANO como classe (stub captura os kwargs)...
+    assert captura_gate["classe"] == plano
+    # ...a classe do ATIVO no envelope segue 'acao' (trilha de auditoria)...
+    assert captura_gate["envelope"]["classe"] == "acao"
+    # ...e o template variante financeiro acompanha (mesma condição espelhada).
+    assert client.messages.captured["system"][0]["text"] == acao.system_prompt(empresa)
 
 
 def test_gerar_tese_fii_sem_dados_abstem_total(
