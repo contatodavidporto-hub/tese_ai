@@ -109,6 +109,14 @@ class Settings(BaseSettings):
     scheduler_macro_horas: int = 24
     # Bootstrap do cadastro CVM (horas) — semanal; job mais pesado (ZIPs da CVM).
     scheduler_cadastro_horas: int = 168
+    # Warm-cache das teses da galeria pública (horas): re-gera o top-10 IBOV
+    # quando o cache (`tese_cache_horas`) expira, para a galeria abrir
+    # instantânea. ⚠️ GASTA LLM: lote frio ≈ US$ 2,70 (medido 2026-07-07);
+    # cada geração respeita `tese_teto_custo_usd_dia` (abstém no teto) e o
+    # gate anti-recomendação. Habilitado por decisão expressa do fundador em
+    # 2026-07-08 (gasto automático de LLM exige autorização — LLM06).
+    # 0 desliga o job.
+    scheduler_warm_cache_horas: int = 24
 
     @field_validator("database_url")
     @classmethod
