@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { PapelB3 } from "@/lib/tickers";
+import { slotVirada, type PapelB3 } from "@/lib/tickers";
 
 // Rótulos das 5 dimensões canônicas do motor (ARQUITETURA.md / orquestracao.py):
 // D1 fundamentos (CVM) · D2 pares globais (SEC EDGAR) · D3 macro Brasil (BCB,
@@ -23,12 +23,19 @@ type CartaoTeseProps = {
 // "cobertura por dimensão" — fabricar esse dado seria alucinação — então
 // nenhuma marca recebe altura, cor ou preenchimento diferente das outras.
 export function CartaoTese({ papel, dataCarteira }: CartaoTeseProps) {
+  // Virada de Edição (motion): shared element via classe CSS pré-declarada
+  // (`.vt-tese-N`, globals.css) — só para os 10 tickers do conjunto finito
+  // EXEMPLOS_PRONTOS; cobre a navegação cross-document real (fallback sem
+  // JS/hard nav). O véu em /tese cobre o caso comum (navegação SPA).
+  const slot = slotVirada(papel.ticker);
   return (
     <Link
       href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
       className="cartao-ticker group flex h-full flex-col gap-3 border border-line bg-card p-5 transition-colors duration-[var(--dur-tick)] hover:border-field"
     >
-      <span className="font-mono text-h2 font-semibold tracking-tight text-ink">
+      <span
+        className={`font-mono text-h2 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}
+      >
         {papel.ticker}
       </span>
       <span className="truncate font-display text-lede leading-snug text-ink">

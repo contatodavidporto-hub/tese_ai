@@ -188,6 +188,24 @@ body {
   background: var(--bg-page);
   color: var(--ink-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  /* Cross-fade de tema (assinatura "Virada de Edição", troca clara/escuro
+     do SO): 240ms nas próprias vars de cor — escopo body + superfícies
+     abaixo (.sombra-elevada/.bg-card/.bg-elevated), nunca um `*` global
+     (custo de composição). `prefers-reduced-motion` já zera a duração via
+     a regra `*, ::before, ::after` no fim deste arquivo. */
+  transition:
+    background-color var(--dur-set) var(--ease-ink),
+    color var(--dur-set) var(--ease-ink);
+}
+
+/* Mesma troca de tema nas superfícies elevadas ("folha"/card/dropdown):
+   sem isso, só o `body` cross-fadeia e os cards trocam de cor num corte
+   seco, quebrando a assinatura. */
+.bg-card,
+.bg-elevated {
+  transition:
+    background-color var(--dur-set) var(--ease-ink),
+    border-color var(--dur-set) var(--ease-ink);
 }
 
 /* Gate anti-alucinação como regra visual: número factual nunca na sans —
@@ -427,6 +445,204 @@ html {
   border: 1px solid var(--warn-border);
 }
 
+/* 7. TRAÇO DO ELO — SVG causal da cláusula 05 (/como-funciona, TracoDoElo em
+      como-funciona/page.tsx): os elos (.traco-elo) desenham-se em sequência
+      e os pontos de origem (.ponto-elo) pulsam 1x ao conectar. Reaproveita
+      o ciclo is-armed/is-revealed do <Reveal variant="reveal-ticker"> que já
+      envolve o card inteiro da cláusula — sem observer adicional. Cada
+      <path> usa `pathLength={1}` (atributo SVG) para o dash normalizar em
+      0–1 independente da geometria — não precisa saber o comprimento real
+      do traço em px. Fallback sem JS/sem is-armed: sem dasharray nenhum,
+      traço estático sempre visível (nunca escondido por padrão). */
+.reveal-ticker.is-armed .traco-elo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--dur-press) var(--ease-rule);
+}
+.reveal-ticker.is-armed.is-revealed .traco-elo {
+  stroke-dashoffset: 0;
+}
+/* Ordem de leitura: cada elo desenha 120ms depois do anterior — nunca todos
+   de uma vez (a cadeia causal é lida em sequência, não simultânea). */
+.reveal-ticker.is-armed .traco-elo:nth-of-type(2) {
+  transition-delay: 120ms;
+}
+.reveal-ticker.is-armed .traco-elo:nth-of-type(3) {
+  transition-delay: 240ms;
+}
+
+/* Pulso único do ponto de origem ao conectar (scale 1→1.4→1, 400ms) — NÃO é
+   o spring do sistema (usa `--ease-ink`, não `--ease-settle`: o único spring
+   continua exclusivo do Pin de Citação). `transform-box: fill-box` centra a
+   escala no próprio círculo (o padrão do SVG usa a viewBox como origem). */
+.ponto-elo {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo {
+  animation: pulso-elo var(--dur-press) var(--ease-ink) both;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-1 {
+  animation-delay: 80ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-2 {
+  animation-delay: 200ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-3 {
+  animation-delay: 320ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-4 {
+  animation-delay: 440ms;
+}
+@keyframes pulso-elo {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 8. RÉGUA DE LEITURA — barra de progresso de 2px em brasa no topo da
+      página da tese (gancho `.regua-leitura` em TeseView.tsx). Scroll-driven
+      nativo (zero JS): a barra é dirigida pela posição de scroll do
+      documento, não por tempo — a regra global de `prefers-reduced-motion`
+      (que zera `animation-duration`) não a esconde nem trava, porque a
+      "duração" de uma scroll-timeline não representa tempo real, e o
+      progresso reflete diretamente o scroll que o próprio leitor decidiu
+      fazer (não é movimento autônomo). Sem suporte ao recurso (@supports
+      abaixo falha): a barra fica com `scaleX(0)` (inerte) e o wayfinding
+      passa a ser só o scrollspy do sumário (Sumario/useSecaoAtiva em
+      TeseView.tsx) — nunca as duas coisas competindo. */
+.regua-leitura {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent-action);
+  transform-origin: left;
+  transform: scaleX(0);
+  z-index: 55; /* acima da Tarja (z-50, sticky) e ainda abaixo do skip-link (z-60) */
+  pointer-events: none;
+}
+@supports (animation-timeline: scroll(root block)) {
+  .regua-leitura {
+    animation-name: regua-leitura-progresso;
+    animation-duration: 1ms; /* irrelevante: o progresso vem da timeline, não do tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes regua-leitura-progresso {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 9. VIRADA DE EDIÇÃO / ABERTURA INSTANTÂNEA — decisão registrada no
+      relatório da passada de motion: o React `<ViewTransition>` (flag
+      `experimental.viewTransition` do Next 16) exige React canary; este
+      projeto está pinado em react/react-dom 19.2.4 ESTÁVEL — o componente
+      não existe no runtime instalado e seu tipo só existe em
+      `@types/react/canary.d.ts` (não no entry-point padrão de "react"),
+      então habilitar a flag quebraria `tsc --noEmit` e o build. Alternativa
+      100% CSS/CSP-safe adotada:
+        a) `@view-transition { navigation: auto }` — ativa a transição
+           NATIVA do navegador em navegação cross-document de verdade (sem
+           JS, sem SPA: hard nav / no-JS / abrir em nova aba). At-rule
+           desconhecida é só ignorada onde não há suporte — zero risco.
+        b) shared element (só para os 10 tickers pré-gerados, conjunto
+           finito e estático — EXEMPLOS_PRONTOS em lib/tickers.ts): classes
+           `.vt-tese-1`…`.vt-tese-10` PRÉ-DECLARADAS (nunca geradas em
+           runtime) aplicadas ao ticker do card e ao ticker do cabeçalho da
+           tese — cobre o mesmo caso (a). Ticker fora da lista não recebe
+           nome, cai só no véu abaixo.
+        c) o véu — cobre a navegação SPA real do App Router (a maioria dos
+           cliques): `.virada-edicao` no <main> de /tese, 1x por
+           carregamento de página (o <main> é recriado a cada navegação
+           para a rota, então a animação nunca se repete dentro da mesma
+           view). Implementado como um OVERLAY (::after) que se recolhe de
+           baixo para cima — de propósito, NÃO um `clip-path` no próprio
+           `<main>`: `clip-path`/`transform`/`filter` diferente de `none`
+           num ancestral vira containing block para descendentes
+           `position: fixed` (a Régua de Leitura mora dentro do <main>) — um
+           clip-path no <main> prenderia a régua ao box do <main> em vez do
+           viewport pelos 700ms da transição. O overlay evita o problema por
+           ser uma camada própria, sem envolver o conteúdo real. */
+@view-transition {
+  navigation: auto;
+}
+
+.vt-tese-1 {
+  view-transition-name: tese-titulo-1;
+}
+.vt-tese-2 {
+  view-transition-name: tese-titulo-2;
+}
+.vt-tese-3 {
+  view-transition-name: tese-titulo-3;
+}
+.vt-tese-4 {
+  view-transition-name: tese-titulo-4;
+}
+.vt-tese-5 {
+  view-transition-name: tese-titulo-5;
+}
+.vt-tese-6 {
+  view-transition-name: tese-titulo-6;
+}
+.vt-tese-7 {
+  view-transition-name: tese-titulo-7;
+}
+.vt-tese-8 {
+  view-transition-name: tese-titulo-8;
+}
+.vt-tese-9 {
+  view-transition-name: tese-titulo-9;
+}
+.vt-tese-10 {
+  view-transition-name: tese-titulo-10;
+}
+
+.virada-edicao {
+  /* `position: relative` só ancora o overlay abaixo (containing block de
+     elemento ABSOLUTE) — isto NÃO afeta descendentes `position: fixed`
+     como `.regua-leitura` (só transform/filter/perspective/clip-path/
+     will-change/contain fariam isso, nenhum presente aqui). */
+  position: relative;
+}
+.virada-edicao::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40; /* acima do conteúdo, abaixo da Tarja sticky (z-50) */
+  background: var(--bg-page);
+  pointer-events: none;
+  transform-origin: top;
+  /* `both`: mantém o estado final (scaleY(0), recolhido) depois dos
+     --dur-edition — SEM side-effect no <main> (containing block de fixed),
+     porque quem persiste é o transform de um pseudo-elemento sem filhos, não
+     de um ancestral da Régua de Leitura. Sem `both`/`forwards` o overlay
+     voltaria a `transform: none` (scaleY(1), cobrindo tudo de novo) assim
+     que a animação "termina" — bug oposto ao do <main>, cuidado ao mexer. */
+  animation: virada-edicao-veu var(--dur-edition) var(--ease-rule) both;
+}
+@keyframes virada-edicao-veu {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0);
+  }
+}
+
 /* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -455,5 +671,42 @@ html {
   }
   .citacao-pin::before {
     transition-duration: 120ms !important;
+  }
+
+  /* Traço do Elo: sem desenho progressivo nem pulso — traço e pontos ficam
+     no estado final direto (o guard genérico acima já zera a duração; isto
+     cobre o caso raro de `.is-armed` já ter sido setado antes do usuário
+     ligar "reduzir movimento" em pleno uso). */
+  .traco-elo {
+    stroke-dashoffset: 0 !important;
+  }
+  .ponto-elo {
+    animation: none !important;
+  }
+
+  /* Virada de Edição: corte seco + fade curto (≤120ms) no lugar do véu que
+     desliza — comportamento explícito do brief para View Transitions/troca
+     de tema. Troca a animação do overlay (scaleY) por um simples fade de
+     opacidade. */
+  .virada-edicao::after {
+    animation: virada-edicao-veu-fade 120ms var(--ease-ink) both !important;
+  }
+
+  /* Transição nativa do navegador (@view-transition {navigation:auto}):
+     mesma orientação da doc oficial do Next para View Transitions — sem
+     duração, sem delay, troca instantânea. */
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+@keyframes virada-edicao-veu-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

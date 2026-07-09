@@ -139,10 +139,13 @@ function ChipFonte({ children }: { children: React.ReactNode }) {
 }
 
 // Diagrama estrutural da dimensão 05 — SVG inline estático (sem
-// dangerouslySetInnerHTML, CSP-safe). As classes `traco-elo`/`ponto-elo` são
-// os ganchos que a onda de motion vai animar (stroke-dasharray/dashoffset +
-// pulso único do ponto de origem, brief seção 4, assinatura 7); aqui a
-// estrutura fica semântica e sempre visível mesmo sem a animação.
+// dangerouslySetInnerHTML, CSP-safe). As classes `traco-elo`/`ponto-elo`
+// (+ `ponto-elo-1`…`-4`, para o pulso em sequência) são os ganchos que o CSS
+// de motion anima (stroke-dasharray/dashoffset + pulso único do ponto de
+// origem, brief seção 4, assinatura 7 — ver globals.css). `pathLength={1}`
+// normaliza o dash em 0–1 independente da geometria real de cada segmento.
+// Fallback sem JS/CSS de motion: nenhuma classe esconde nada — o traço fica
+// estático e sempre visível.
 function TracoDoElo() {
   const nós = [
     { x: 40, rotulo: "Evento" },
@@ -178,12 +181,13 @@ function TracoDoElo() {
               stroke="currentColor"
               strokeWidth={2}
               strokeLinecap="round"
+              pathLength={1}
             />
           );
         })}
-        {nós.map((no) => (
+        {nós.map((no, i) => (
           <g key={no.rotulo}>
-            <circle className="ponto-elo fill-brasa" cx={no.x} cy={y} r={5} />
+            <circle className={`ponto-elo ponto-elo-${i + 1} fill-brasa`} cx={no.x} cy={y} r={5} />
             <text
               x={no.x}
               y={y + 28}

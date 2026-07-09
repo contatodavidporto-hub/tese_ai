@@ -3,8 +3,10 @@
 // registro auditável de fontes ao fim. Presentacional — sem estado próprio
 // (só `useReveal` local para orquestrar a assinatura "Impressão de Régua").
 
+import { useEffect, useState } from "react";
+
 import { classesReveal, Reveal, useReveal } from "@/components/motion/Reveal";
-import { papelPorTicker } from "@/lib/tickers";
+import { papelPorTicker, slotVirada } from "@/lib/tickers";
 import {
   Blocos,
   construirRefs,
@@ -117,7 +119,54 @@ function TextoCitado({ texto, url }: { texto: string; url: string | null | undef
   );
 }
 
+// Régua de Leitura — fallback (motion, DESIGN-BRIEF.md §4.8): scrollspy via
+// IntersectionObserver que só destaca a seção atual no Sumário. Não depende
+// de suporte a `animation-timeline: scroll()` (a barra de progresso do topo,
+// `.regua-leitura` em globals.css) — roda sempre, nos dois casos é
+// wayfinding, nunca competindo (a barra é a assinatura visual; isto é a
+// rede de segurança que funciona em qualquer navegador). `chave` (string
+// estável) evita reassinar o observer a cada re-render só porque `secoes` é
+// um array recriado (TeseView não memoiza `separarSecoes`).
+function useSecaoAtiva(secoes: readonly Secao[]): string | null {
+  const [ativo, setAtivo] = useState<string | null>(null);
+  const chave = secoes.map((s) => s.id).join("|");
+
+  useEffect(() => {
+    // "citacoes" é uma âncora fixa da página (fora de `secoes`, ver JSX de
+    // TeseView) — inclui-se sempre; se o bloco não existir nesta tese,
+    // `getElementById` só devolve `null` e o filtro abaixo descarta.
+    const ids = [...(chave ? chave.split("|") : []), "citacoes"];
+    const elementos = ids
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (elementos.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entradas) => {
+        setAtivo((atual) => {
+          const visiveis = entradas.filter((e) => e.isIntersecting);
+          if (visiveis.length === 0) return atual;
+          // A seção mais próxima do topo entre as visíveis é a "atual" —
+          // ordem de leitura, não a mais visível em área.
+          const primeira = visiveis.reduce((a, b) =>
+            b.boundingClientRect.top < a.boundingClientRect.top ? b : a,
+          );
+          return primeira.target.id;
+        });
+      },
+      // Faixa de leitura: ignora a barra de topo (Tarja + masthead) e
+      // considera "atual" a seção que ocupa a parte de cima da viewport.
+      { rootMargin: "-112px 0px -65% 0px", threshold: 0 },
+    );
+    elementos.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [chave]);
+
+  return ativo;
+}
+
 function Sumario({ secoes }: { secoes: Secao[] }) {
+  const ativo = useSecaoAtiva(secoes);
   return (
     <nav aria-label="Sumário da tese">
       <p className="mb-3 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -127,12 +176,16 @@ function Sumario({ secoes }: { secoes: Secao[] }) {
         {secoes.map((s) => {
           const { numero, texto } = splitClausula(s.titulo);
           const lacunas = ehSecaoLacunas(s);
+          const ehAtivo = ativo === s.id;
           return (
             <li key={s.id}>
               <a
                 href={`#${s.id}`}
-                className={`flex items-baseline gap-2 border-l-2 border-transparent py-1 pl-3 text-ui leading-snug transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto hover:text-ink ${
-                  lacunas ? "text-aviso-texto" : "text-ink-2"
+                aria-current={ehAtivo ? "location" : undefined}
+                className={`flex items-baseline gap-2 border-l-2 py-1 pl-3 text-ui leading-snug transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto hover:text-ink ${
+                  ehAtivo
+                    ? "border-brasa-texto text-ink"
+                    : `border-transparent ${lacunas ? "text-aviso-texto" : "text-ink-2"}`
                 }`}
               >
                 {numero && <span className="font-mono text-meta text-ink-3">{numero}</span>}
@@ -144,7 +197,10 @@ function Sumario({ secoes }: { secoes: Secao[] }) {
         <li>
           <a
             href="#citacoes"
-            className="flex items-baseline gap-2 border-l-2 border-transparent py-1 pl-3 text-ui leading-snug text-ink-2 transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto hover:text-ink"
+            aria-current={ativo === "citacoes" ? "location" : undefined}
+            className={`flex items-baseline gap-2 border-l-2 py-1 pl-3 text-ui leading-snug transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto hover:text-ink ${
+              ativo === "citacoes" ? "border-brasa-texto text-ink" : "border-transparent text-ink-2"
+            }`}
           >
             <span aria-hidden className="font-mono text-meta text-ink-3">
               §
@@ -231,11 +287,17 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   const papel = papelPorTicker(tese.ticker);
   const secaoLacunas = documento?.secoes.find(ehSecaoLacunas);
   const temEstrutura = (documento?.secoes.length ?? 0) > 0;
+  // Virada de Edição (motion): mesmo slot estático da galeria/teaser — só
+  // os 10 tickers pré-gerados recebem shared element (view-transition-name
+  // via classe pré-declarada); os demais seguem sem nome, cobertos só pelo
+  // véu de `.virada-edicao` (tese/page.tsx).
+  const slotEdicao = slotVirada(tese.ticker);
 
   return (
     <article className="flex w-full flex-col gap-10">
-      {/* Âncora para a Régua de Leitura (barra de progresso de scroll) — CSS e
-          disparo ficam para a onda de motion; só o gancho no DOM aqui. */}
+      {/* Régua de Leitura: barra de progresso de 2px em brasa no topo da
+          página (CSS scroll-driven em globals.css, `.regua-leitura`); o
+          scrollspy de fallback vive em `useSecaoAtiva`, logo acima. */}
       <div className="regua-leitura" aria-hidden />
 
       <AvisoBanner aviso={tese.aviso} />
@@ -247,7 +309,11 @@ export function TeseView({ tese }: { tese: TeseOut }) {
             <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
               Research report
             </p>
-            <h2 className="font-mono text-h1 font-bold tracking-tight text-ink">{tese.ticker}</h2>
+            <h2
+              className={`font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
+            >
+              {tese.ticker}
+            </h2>
             {(papel || documento?.titulo) && (
               <p className="font-display text-lede text-ink-2">{papel?.nome ?? documento?.titulo}</p>
             )}

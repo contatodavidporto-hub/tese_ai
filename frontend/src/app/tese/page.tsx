@@ -40,7 +40,7 @@ export default async function TesePage({
       <Header />
       <main
         id="conteudo"
-        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16"
+        className="virada-edicao mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16"
       >
         <Reveal className="flex max-w-2xl flex-col gap-3 border-b border-line pb-8">
           <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">

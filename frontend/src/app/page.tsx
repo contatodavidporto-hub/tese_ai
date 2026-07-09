@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
-import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
+import { DATA_CARTEIRA_IBOV, exemplosProntos, slotVirada } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
@@ -213,7 +213,12 @@ export default function Home() {
               </div>
             </Reveal>
             <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {exemplos.map((papel, i) => (
+              {exemplos.map((papel, i) => {
+                // Virada de Edição (motion): mesmo slot estático usado no
+                // masthead da tese (TeseView.tsx) e na galeria (CartaoTese.tsx)
+                // — shared element só para a navegação cross-document real.
+                const slot = slotVirada(papel.ticker);
+                return (
                 <li key={papel.ticker}>
                   <Reveal
                     variant="reveal-ticker"
@@ -223,7 +228,9 @@ export default function Home() {
                       href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
                       className="cartao-ticker group flex h-full flex-col gap-1 border border-line bg-card px-4 py-4"
                     >
-                      <span className="font-mono text-h3 font-semibold tracking-tight text-ink">
+                      <span
+                        className={`font-mono text-h3 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}
+                      >
                         {papel.ticker}
                       </span>
                       <span className="truncate font-sans text-ui text-ink-2">{papel.nome}</span>
@@ -238,7 +245,8 @@ export default function Home() {
                     </Link>
                   </Reveal>
                 </li>
-              ))}
+                );
+              })}
             </ul>
             <Reveal>
               <Link href="/teses" className="sublinhado-brasa w-fit font-sans text-ui font-semibold text-brasa-texto">
