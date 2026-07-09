@@ -425,6 +425,45 @@ def test_numero_antes_do_termo_na_mesma_frase_bloqueia_m4b():
     assert laudo["bloqueante"] is True
 
 
+# --- Achado da 1ª síntese FII ao vivo (HGLG11, 09/07/2026): ressalva negada ---
+
+
+def test_dy_do_informe_com_ressalva_negada_nao_bloqueia():
+    # Regressão do falso positivo ao vivo: o rótulo mandatório do informe
+    # (fii._ROTULOS_INDICADOR) contém ';' — o split de frase separa 'do
+    # informe (auto-declarado' do número — e a ressalva protetora "NÃO é DY a
+    # preço de mercado e não deve ser anualizado" acionava o veto. Negação
+    # na mesma cláusula é cautela, não claim.
+    md = (
+        "## 1. Fundamentos do fundo\n"
+        "- **Dividend yield mensal do informe (auto-declarado; NÃO é DY a preço "
+        "de mercado e não deve ser anualizado):** 0,66% (competência 2026-05-01; "
+        "metodologia: auto-declarado pelo administrador; informe mensal CVM)."
+    )
+    assert termos_vetados_com_numero(md, "fii") == []
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+
+
+def test_dy_anualizado_sem_negacao_segue_vetado():
+    # A ressalva só protege quando NEGADA na MESMA cláusula: negação seguida
+    # de ':' (outra cláusula, mesmo período do split) não blinda o termo.
+    assert termos_vetados_com_numero("DY do informe anualizado: 8,0%.", "fii")
+    assert termos_vetados_com_numero(
+        "O DY do informe não é especulativo: anualizado atinge 8,1% (auto-declarado).",
+        "fii",
+    )
+
+
+def test_dy_a_preco_de_mercado_sem_negacao_e_vetado():
+    # Furo fechado junto: 'a PREÇO DE mercado' não casava com r'\ba\s+mercado\b'
+    # — um DY rotulado 'do informe' mas afirmado A PREÇO DE MERCADO passava.
+    assert termos_vetados_com_numero(
+        "DY do informe (auto-declarado) a preço de mercado: 9,0%.", "fii"
+    )
+
+
 def test_numero_em_linha_seguinte_de_bullet_quebrado_bloqueia_m4c():
     # M4c: quebra de linha SIMPLES dentro do mesmo bullet é o MESMO período.
     md = "## Juros\n- A curva DI precifica\n  12,5% no vencimento 2027."

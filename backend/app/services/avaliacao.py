@@ -191,7 +191,19 @@ _PROXY_RE = re.compile(r"\bproxy\b", re.IGNORECASE)
 _DY_ROTULO_INFORME_RE = re.compile(
     r"do\s+informe|auto[\s-]?declarad|informe\s+mensal", re.IGNORECASE
 )
-_DY_ANUALIZADO_OU_MERCADO_RE = re.compile(r"anualizad|\ba\s+mercado\b", re.IGNORECASE)
+_DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
+    r"anualizad|\ba\s+(?:preço\s+de\s+)?mercado\b", re.IGNORECASE
+)
+# Ressalva PROTETORA negada na mesma cláusula ("NÃO é DY a preço de mercado",
+# "não deve ser anualizado") — é a cautela que o rótulo do informe MANDA
+# escrever (fii._ROTULOS_INDICADOR), não um claim: apagada antes de julgar a
+# regra do DY. A negação não atravessa cláusula ([.;:!?]): "não caiu;
+# anualizado dá 8%" segue vetado.
+_DY_RESSALVA_NEGADA_RE = re.compile(
+    r"\b(?:não|nao|nunca|jamais)\b[^.;:!?]{0,60}?"
+    r"(?:anualizad\w*|a\s+(?:preço\s+de\s+)?mercado\b)",
+    re.IGNORECASE,
+)
 
 _VETADO_CURVA_DI = "curva DI com número sem rótulo 'proxy'"
 _VETADO_DY = "dividend yield/DY com número sem rótulo 'do informe'/'auto-declarado'"
@@ -287,7 +299,11 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
     'índice de Basileia' (não está na DFP) e — só para FII — 'P/VP' e
     'dividend yield' (preço B3 licenciado). O DY MENSAL do informe CVM é
     permitido quando rotulado ('do informe'/'auto-declarado') no mesmo período
-    e sem 'anualizado'/'a mercado' (NUNCA anualizar o DY do informe).
+    e sem 'anualizado'/'a (preço de) mercado' NÃO-NEGADOS (NUNCA anualizar o
+    DY do informe). Ressalvas NEGADAS na mesma cláusula ("NÃO é DY a preço de
+    mercado e não deve ser anualizado" — o texto que o rótulo do informe manda
+    escrever) são apagadas antes do julgamento da regra do DY: negação
+    protetora não é claim (achado da 1ª síntese FII ao vivo, HGLG11 09/07).
 
     Red-team fase 2 (M4): o número conta em qualquer posição da frase (M4b),
     ano/data não conta como número (M4a) e quebra de linha simples de bullet
@@ -303,14 +319,19 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
         for rotulo, termo_re, classes in _REGRAS_VETADAS:
             if classes is not None and classe not in classes:
                 continue
-            if termo_re.search(frase) is None or not _tem_numero_de_claim(frase):
+            # A regra do DY julga a frase SEM as ressalvas negadas — o split de
+            # frase por ';' separa o rótulo do informe do número, e a ressalva
+            # mandatória sozinha ("NÃO é DY a preço de mercado e não deve ser
+            # anualizado") não pode virar veto.
+            alvo = _DY_RESSALVA_NEGADA_RE.sub(" ", frase) if rotulo is _VETADO_DY else frase
+            if termo_re.search(alvo) is None or not _tem_numero_de_claim(alvo):
                 continue
-            if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
+            if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(alvo):
                 continue  # proxy NOMEADO no mesmo período é o uso citável permitido
             if (
                 rotulo is _VETADO_DY
-                and _DY_ROTULO_INFORME_RE.search(frase)
-                and not _DY_ANUALIZADO_OU_MERCADO_RE.search(frase)
+                and _DY_ROTULO_INFORME_RE.search(alvo)
+                and not _DY_ANUALIZADO_OU_MERCADO_RE.search(alvo)
             ):
                 continue  # DY mensal do informe, auto-declarado e rotulado
             achados.append(f"{rotulo}: '{frase.strip()[:120]}'")
