@@ -464,6 +464,56 @@ def test_dy_a_preco_de_mercado_sem_negacao_e_vetado():
     )
 
 
+def test_redteam_negacao_retorica_nao_blinda_dy():
+    # Red-team do fix v1 (deleção por janela de negação): negação RETÓRICA não
+    # pode engolir o termo nem blindar 'anualizado' afirmativo. Só as ressalvas
+    # mandatórias quase-verbatim protegem, por span, sem deletar nada.
+    assert termos_vetados_com_numero("Não é exagero dizer que o DY anualizado chega a 12%.", "fii")
+    assert termos_vetados_com_numero("Não à toa, o DY anualizado do fundo atinge 12,4%.", "fii")
+    assert termos_vetados_com_numero(
+        "O DY do informe, que não raro supera 1% ao mês, anualizado chega a 12,7% "
+        "(auto-declarado).",
+        "fii",
+    )
+    assert termos_vetados_com_numero(
+        "O DY do informe (auto-declarado), que não por acaso reflete o preço de mercado, "
+        "rende 9,3% a preço de mercado.",
+        "fii",
+    )
+    # Deleção colava 'do  informe' e fabricava o rótulo — sem deleção, veta.
+    assert termos_vetados_com_numero("O DY do não anualizado informe atinge 12% projetado.", "fii")
+
+
+def test_dy_ressalva_parafraseada_nao_representa_nao_bloqueia():
+    # Paráfrases REAIS do Opus para a ressalva mandatória (gen2/gen3 do HGLG11):
+    # 'não representa DY/yield a preço de mercado' protege como 'NÃO é DY...'.
+    md = (
+        "## 1. Fundamentos do fundo\n"
+        "- **Dividend yield mensal do informe (auto-declarado):** 0,66% "
+        "(competência 2026-05-01). Ressalva metodológica: valor auto-declarado, "
+        "não representa DY a preço de mercado e não deve ser anualizado."
+    )
+    assert termos_vetados_com_numero(md, "fii") == []
+    md2 = (
+        "**Elo [selic→vp_dy_fii] (interpretação com hedge; força 0,50):** o DY "
+        "mensal do informe (0,66%, auto-declarado) segue metodologia própria do "
+        "informe e não representa yield a preço de mercado."
+    )
+    assert termos_vetados_com_numero(md2, "fii") == []
+    # 'anualizaDO INFORME' não fabrica o rótulo (regex ancorado com \b).
+    assert termos_vetados_com_numero("O DY do não anualizado informe atinge 12% projetado.", "fii")
+
+
+def test_redteam_vp_dy_so_descontado_em_contexto_de_elo():
+    # Red-team do fix v1: 'VP/DY' descontado INCONDICIONALMENTE virava túnel
+    # para claims de yield. Sem vocabulário de elo no período, veta.
+    assert termos_vetados_com_numero("O VP/DY implica yield de 8,5% ao ano.", "fii")
+    assert termos_vetados_com_numero(
+        "O VP/DY atual do fundo é 12,5x, um yield bastante atrativo.", "fii"
+    )
+    assert termos_vetados_com_numero("Pelo VP/DY, o retorno anualizado projetado é 11,2%.", "fii")
+
+
 def test_elo_vp_dy_com_forca_nao_bloqueia():
     # 2º falso positivo ao vivo (HGLG11): 'VP/DY' é o nome do elo interpretativo
     # do MOTOR (fii.py 'Selic→VP/DY') — direção do elo com a força numérica não
