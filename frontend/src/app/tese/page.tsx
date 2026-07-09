@@ -1,5 +1,6 @@
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
+import { Reveal } from "@/components/motion/Reveal";
 import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Gerar tese",
+  description:
+    "Gere a tese estruturada de uma companhia aberta da B3: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,19 +40,22 @@ export default async function TesePage({
       <Header />
       <main
         id="conteudo"
-        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6"
+        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16"
       >
-        <div className="flex max-w-2xl flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
+        <Reveal className="flex max-w-2xl flex-col gap-3 border-b border-line pb-8">
+          <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+            Nova tese
+          </p>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
             Gerar tese
           </h1>
-          <p className="text-sm leading-relaxed text-tinta-2">
+          <p className="text-body text-ink-2">
             Informe o ticker de uma companhia aberta da B3. A tese sai estruturada
             em dimensões — fundamentos, macro, pares globais e geopolítica — com
             cada afirmação factual ligada à sua fonte, e sem recomendação de
             compra ou venda.
           </p>
-        </div>
+        </Reveal>
 
         <TeseClient tickerInicial={ticker} autoIniciar={autoIniciar} idInicial={id} />
       </main>
