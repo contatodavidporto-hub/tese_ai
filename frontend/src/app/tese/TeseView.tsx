@@ -3,9 +3,8 @@
 // registro auditável de fontes ao fim. Presentacional — sem estado próprio
 // (só `useReveal` local para orquestrar a assinatura "Impressão de Régua").
 
-import { useEffect, useState } from "react";
-
 import { classesReveal, Reveal, useReveal } from "@/components/motion/Reveal";
+import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
 import { papelPorTicker, slotVirada } from "@/lib/tickers";
 import {
   Blocos,
@@ -119,54 +118,14 @@ function TextoCitado({ texto, url }: { texto: string; url: string | null | undef
   );
 }
 
-// Régua de Leitura — fallback (motion, DESIGN-BRIEF.md §4.8): scrollspy via
-// IntersectionObserver que só destaca a seção atual no Sumário. Não depende
-// de suporte a `animation-timeline: scroll()` (a barra de progresso do topo,
-// `.regua-leitura` em globals.css) — roda sempre, nos dois casos é
-// wayfinding, nunca competindo (a barra é a assinatura visual; isto é a
-// rede de segurança que funciona em qualquer navegador). `chave` (string
-// estável) evita reassinar o observer a cada re-render só porque `secoes` é
-// um array recriado (TeseView não memoiza `separarSecoes`).
-function useSecaoAtiva(secoes: readonly Secao[]): string | null {
-  const [ativo, setAtivo] = useState<string | null>(null);
-  const chave = secoes.map((s) => s.id).join("|");
-
-  useEffect(() => {
-    // "citacoes" é uma âncora fixa da página (fora de `secoes`, ver JSX de
-    // TeseView) — inclui-se sempre; se o bloco não existir nesta tese,
-    // `getElementById` só devolve `null` e o filtro abaixo descarta.
-    const ids = [...(chave ? chave.split("|") : []), "citacoes"];
-    const elementos = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (elementos.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entradas) => {
-        setAtivo((atual) => {
-          const visiveis = entradas.filter((e) => e.isIntersecting);
-          if (visiveis.length === 0) return atual;
-          // A seção mais próxima do topo entre as visíveis é a "atual" —
-          // ordem de leitura, não a mais visível em área.
-          const primeira = visiveis.reduce((a, b) =>
-            b.boundingClientRect.top < a.boundingClientRect.top ? b : a,
-          );
-          return primeira.target.id;
-        });
-      },
-      // Faixa de leitura: ignora a barra de topo (Tarja + masthead) e
-      // considera "atual" a seção que ocupa a parte de cima da viewport.
-      { rootMargin: "-112px 0px -65% 0px", threshold: 0 },
-    );
-    elementos.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [chave]);
-
-  return ativo;
-}
-
 function Sumario({ secoes }: { secoes: Secao[] }) {
-  const ativo = useSecaoAtiva(secoes);
+  // D2 (CORRECOES-RODADA-1.md): hook extraído para módulo compartilhado
+  // (src/components/motion/useSecaoAtiva.ts) — o mesmo scrollspy também
+  // move o IndiceNav de /como-funciona. "citacoes" é a âncora fixa da
+  // página (fora de `secoes`, ver JSX de TeseView) — inclui-se sempre; se o
+  // bloco não existir nesta tese, `getElementById` só devolve `null` e o
+  // hook descarta.
+  const ativo = useSecaoAtiva([...secoes.map((s) => s.id), "citacoes"]);
   return (
     <nav aria-label="Sumário da tese">
       <p className="mb-3 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -390,9 +349,14 @@ export function TeseView({ tese }: { tese: TeseOut }) {
         <div className="grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16">
           {/* Sumário: fixo na lateral no desktop, dobrável no mobile */}
           <div className="lg:sticky lg:top-16 lg:self-start">
-            <details className="border border-line bg-card px-4 py-3 lg:hidden">
-              <summary className="cursor-pointer font-sans text-ui font-medium text-ink">Sumário</summary>
-              <div className="pt-3">
+            {/* A3 (alvo ≥24px, WCAG 2.5.8): padding vai NO <summary> — é o
+                elemento focável/clicável de verdade; o <details> só molda
+                o card por fora. */}
+            <details className="border border-line bg-card px-4 lg:hidden">
+              <summary className="flex min-h-11 cursor-pointer items-center font-sans text-ui font-medium text-ink">
+                Sumário
+              </summary>
+              <div className="pb-3">
                 <Sumario secoes={documento.secoes} />
               </div>
             </details>
@@ -463,7 +427,9 @@ export function TeseView({ tese }: { tese: TeseOut }) {
                       <div className="min-w-0 flex flex-col gap-1">
                         <TextoCitado texto={c.texto_citado} url={c.fonte?.url} />
                         {(c.titulo_documento || c.fonte) && (
-                          <p className="font-mono text-meta text-ink-3">
+                          // A4 (contraste 1.4.3): text-ink-3 sobre bg-realce reprova
+                          // por 0,011 — text-ink-2 verifica em 7.11:1 no mesmo par.
+                          <p className="font-mono text-meta text-ink-2">
                             {c.titulo_documento || c.fonte?.descricao}
                             {c.fonte?.dt_referencia && ` · ${formatData(c.fonte.dt_referencia)}`}
                           </p>

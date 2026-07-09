@@ -233,7 +233,15 @@ function renderEnfase(text: string, keyBase: string): ReactNode[] {
     const bold = /^\*\*([^*]+)\*\*$/.exec(part);
     if (bold) return <strong key={key}>{bold[1]}</strong>;
     const italic = /^\*([^*]+)\*$/.exec(part);
-    if (italic) return <em key={key}>{italic[1]}</em>;
+    // font-display-italico (P1, CORRECOES-RODADA-1.md): família itálica REAL
+    // (segunda instância next/font, só carregada em /tese — única rota que
+    // renderiza este componente). Sem a classe, o navegador sintetizaria um
+    // oblíquo falso a partir do Newsreader normal.
+    if (italic) return (
+      <em key={key} className="font-display-italico">
+        {italic[1]}
+      </em>
+    );
     const code = /^`([^`]+)`$/.exec(part);
     if (code) {
       return (
@@ -419,10 +427,28 @@ export function MarcadorCitacao({ refCitacao }: { refCitacao: CitacaoRef }) {
       </a>
       {/* Sem margem entre âncora e balão e sem pointer-events-none: o ponteiro
           pode ENTRAR no balão sem que ele feche (WCAG 1.4.13 — hoverable). O
-          clique na âncora leva à citação completa (alternativa sempre acessível). */}
+          clique na âncora leva à citação completa (alternativa sempre acessível).
+          Q2 (CORRECOES-RODADA-1.md): a âncora `[n]` é um `inline-block` minúsculo
+          dentro de texto corrido — pode cair em QUALQUER x da linha. Nenhuma
+          âncora estática relativa a ela (centralizada, `right-0`, `left-0`...)
+          garante contenção: um balão de 256px sempre estoura um dos dois lados
+          da viewport para alguma posição possível do marcador dentro da coluna
+          de leitura (medido: `left-1/2` estourava perto da borda direita —
+          +90px de scroll horizontal documento inteiro, mesmo invisível, porque
+          um `absolute` fora da tela ainda soma no scrollWidth; testar a troca
+          por `right-0` isolado só move o mesmo bug para citações perto da
+          borda ESQUERDA/meio da linha). Sem JS de posicionamento e sem CSS
+          Anchor Positioning (suporte de browser insuficiente sem @supports
+          complexo), a única contenção MATEMATICAMENTE garantida em mobile é
+          desacoplar o balão do marcador: abaixo de `sm` ele vira `fixed`,
+          ancorado à VIEWPORT (não ao marcador) com margem segura fixa dos
+          dois lados — nunca vaza, custe a perder a proximidade exata com o
+          marcador nesse breakpoint (troca aceitável: `sm:` e acima mantém a
+          ancoragem original, relativa ao marcador, onde a coluna de leitura
+          já tem folga suficiente da borda da viewport). */}
       <span
         role="tooltip"
-        className="sombra-elevada invisible absolute bottom-full left-1/2 z-40 w-64 -translate-x-1/2 border border-line-strong bg-elevated p-3 text-left text-ui leading-snug text-ink opacity-0 transition-opacity duration-[var(--dur-tick)] group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+        className="sombra-elevada invisible fixed inset-x-4 bottom-4 z-40 border border-line-strong bg-elevated p-3 text-left text-ui leading-snug text-ink opacity-0 transition-opacity duration-[var(--dur-tick)] group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:bottom-full sm:w-64 sm:max-w-[min(16rem,calc(100vw-2rem))]"
       >
         <span className="mb-1 block font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
           Fonte da citação {indice}
@@ -586,7 +612,16 @@ export function Blocos({
           case "p":
           default:
             return (
-              <p key={i} className={narrada ? "text-body font-display italic font-medium" : "text-body"}>
+              <p
+                key={i}
+                className={
+                  narrada
+                    ? // font-display-italico (P1): família itálica REAL — ver nota em
+                      // renderEnfase acima e em src/lib/fontes.ts.
+                      "text-body font-display-italico italic font-medium"
+                    : "text-body"
+                }
+              >
                 {renderInline(bloco.text, hostsOk)}
                 <Marcadores refs={citacoesDoTexto(bloco.text, refs)} />
               </p>

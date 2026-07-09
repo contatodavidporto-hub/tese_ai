@@ -32,8 +32,11 @@ export default function TesesPage() {
         {/* Masthead da galeria */}
         <section aria-labelledby="teses-titulo" className="border-b border-line">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-14 sm:px-6">
+            {/* D4 (brasa gratuita no eyebrow): a brasa é acento de ação/evidência,
+                não decoração de rótulo — padrão dos demais eyebrows do site
+                (text-ink-3). */}
             <Reveal>
-              <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-brasa-texto">
+              <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
                 Galeria warm-cache
               </p>
             </Reveal>

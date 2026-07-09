@@ -15,10 +15,15 @@ import { Tarja } from "@/components/site/Tarja";
 // ao tamanho de fonte usado, sem CSS extra. IBM Plex Mono não é variável —
 // pesos discretos (400/500/600), sempre com `font-variant-numeric:
 // tabular-nums` (ver globals.css, regra `.font-mono`).
+//
+// P1 (CORRECOES-RODADA-1.md): só o estilo "normal" aqui — o itálico (147 kB)
+// virou uma segunda instância (src/lib/fontes.ts), preloadada só nas rotas
+// que renderizam itálico de verdade (/tese, /como-funciona), não em toda
+// página via este layout raiz.
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
-  style: ["normal", "italic"],
+  style: ["normal"],
   axes: ["opsz"],
   display: "swap",
 });

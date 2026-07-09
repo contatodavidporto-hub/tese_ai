@@ -14,6 +14,13 @@ type Props = {
   onChange: (valor: string) => void;
   disabled?: boolean;
   inputId: string;
+  /**
+   * id do `<p>` de erro externo (ex.: TeseClient), só quando HÁ erro — `undefined`
+   * quando o campo está válido. A2 (WCAG 3.3.1/4.1.2): liga `aria-invalid` e
+   * soma esse id ao `aria-describedby` (hint + erro), em vez de deixar a
+   * mensagem de erro sem associação programática ao campo.
+   */
+  erroId?: string;
 };
 
 function formatPct(pct: number): string {
@@ -28,7 +35,7 @@ function formatDataIso(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
-export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
+export function TickerCombobox({ value, onChange, disabled, inputId, erroId }: Props) {
   const [aberto, setAberto] = useState(false);
   const [ativo, setAtivo] = useState(-1);
   const raizRef = useRef<HTMLDivElement>(null);
@@ -115,8 +122,9 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
         autoComplete="off"
         spellCheck={false}
         disabled={disabled}
-        aria-describedby={`${inputId}-hint`}
-        className="min-h-11 w-full border border-field bg-card px-3 py-2.5 font-mono text-ui text-ink outline-none placeholder:text-ink-3 focus:border-brasa-texto disabled:opacity-60"
+        aria-invalid={!!erroId}
+        aria-describedby={erroId ? `${inputId}-hint ${erroId}` : `${inputId}-hint`}
+        className="min-h-11 w-full border border-field bg-card px-3 py-2.5 font-mono text-ui text-ink placeholder:text-ink-3 focus:border-brasa-texto disabled:opacity-60"
       />
       <span id={`${inputId}-hint`} className="mt-1.5 block text-label text-ink-3">
         {exato ? (
@@ -149,13 +157,19 @@ export function TickerCombobox({ value, onChange, disabled, inputId }: Props) {
                 selecionar(papel);
               }}
               onPointerMove={() => setAtivo(i)}
-              className={`flex min-h-11 cursor-pointer items-baseline justify-between gap-3 px-3 py-2 text-ui ${
-                i === ativo ? "bg-realce" : ""
+              // D1 (guard-rail bg-realce): a opção ativa NÃO usa mais o realce de
+              // citação (token sagrado, exclusivo de evidência) — bg-page + marca
+              // de seleção em brasa à esquerda, sempre a mesma largura de borda
+              // (transparente quando inativa) para não pular layout.
+              className={`flex min-h-11 cursor-pointer items-baseline justify-between gap-3 border-l-2 px-3 py-2 text-ui ${
+                i === ativo ? "border-brasa bg-page" : "border-transparent"
               }`}
             >
               <span className="font-mono font-semibold text-ink">{papel.ticker}</span>
               <span className="min-w-0 flex-1 truncate text-right text-ink-2">{papel.nome}</span>
-              <span className="font-mono text-meta text-ink-3">{formatPct(papel.participacaoPct)}%</span>
+              {/* A4 (contraste 1.4.3): text-ink-3 reprovava por 0,011 no fundo
+                  anterior — text-ink-2 verifica 7.11:1. */}
+              <span className="font-mono text-meta text-ink-2">{formatPct(papel.participacaoPct)}%</span>
             </li>
           ))}
         </ul>

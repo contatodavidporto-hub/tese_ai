@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Reveal } from "@/components/motion/Reveal";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
+import { newsreaderItalico } from "@/lib/fontes";
+import { IndiceNav } from "./IndiceNav";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta — mesma regra de toda página
@@ -108,28 +110,6 @@ const INDICE = [
   { href: "#entrega", label: "O que a tese entrega" },
 ] as const;
 
-function IndiceNav() {
-  return (
-    <nav aria-label="Sumário desta página" className="text-ui">
-      <p className="mb-3 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
-        Sumário
-      </p>
-      <ol className="flex flex-col gap-1 border-l border-line">
-        {INDICE.map((item) => (
-          <li key={item.href}>
-            <a
-              href={item.href}
-              className="sublinhado-brasa block border-l-2 border-transparent py-1 pl-3 font-sans text-ui leading-snug text-ink-2 hover:text-ink"
-            >
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
 function ChipFonte({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex w-fit items-center gap-1.5 border border-line-strong bg-card px-2 py-1 font-mono text-meta uppercase tracking-wide text-ink-3">
@@ -211,7 +191,10 @@ export default function ComoFuncionaPage() {
   return (
     <>
       <Header />
-      <main id="conteudo" className="flex-1">
+      {/* `newsreaderItalico.variable` (P1): a única outra rota (além de
+          /tese) que renderiza itálico de verdade — a voz narrada da
+          cláusula 05. */}
+      <main id="conteudo" className={`${newsreaderItalico.variable} flex-1`}>
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
           <Reveal className="max-w-2xl">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
@@ -228,16 +211,19 @@ export default function ComoFuncionaPage() {
             {/* Sumário: fixo na lateral no desktop, dobrável no mobile — mesmo
                 padrão do sumário da tese (TeseView.tsx). */}
             <div className="lg:sticky lg:top-24 lg:self-start">
-              <details className="border border-line bg-card px-4 py-3 lg:hidden">
-                <summary className="cursor-pointer font-sans text-ui font-medium text-ink">
+              {/* A3 (alvo ≥24px, WCAG 2.5.8): padding vai NO <summary> — é o
+                  elemento focável/clicável de verdade; o <details> só molda
+                  o card por fora. */}
+              <details className="border border-line bg-card px-4 lg:hidden">
+                <summary className="flex min-h-11 cursor-pointer items-center font-sans text-ui font-medium text-ink">
                   Sumário
                 </summary>
-                <div className="pt-3">
-                  <IndiceNav />
+                <div className="pb-3">
+                  <IndiceNav items={INDICE} />
                 </div>
               </details>
               <div className="hidden lg:block">
-                <IndiceNav />
+                <IndiceNav items={INDICE} />
               </div>
             </div>
 
@@ -296,7 +282,10 @@ export default function ComoFuncionaPage() {
                           <p
                             className={
                               c.narrada
-                                ? "max-w-prose font-display text-lede italic font-medium leading-relaxed text-ink-2"
+                                ? // font-display-italico (P1): família itálica REAL — só
+                                  // `italic` sozinho sintetizaria um oblíquo falso a partir
+                                  // do Newsreader normal (única instância do layout raiz).
+                                  "max-w-prose font-display-italico text-lede italic font-medium leading-relaxed text-ink-2"
                                 : "max-w-prose text-body leading-relaxed text-ink-2"
                             }
                           >

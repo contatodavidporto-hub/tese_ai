@@ -338,9 +338,14 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
               if (erroLocal) setErroLocal(null);
             }}
             disabled={isBusy}
+            erroId={erroLocal ? "ticker-erro" : undefined}
           />
           <div aria-live="polite">
-            {erroLocal && <p className="mt-1 text-ui font-medium text-erro-texto">{erroLocal}</p>}
+            {erroLocal && (
+              <p id="ticker-erro" className="mt-1 text-ui font-medium text-erro-texto">
+                {erroLocal}
+              </p>
+            )}
           </div>
         </div>
         <button

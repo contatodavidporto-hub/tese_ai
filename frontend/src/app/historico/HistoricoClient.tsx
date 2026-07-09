@@ -135,9 +135,16 @@ export function HistoricoClient() {
             {grupo.itens.map((item) => (
               <li key={item.id} className="border-b border-line">
                 <Reveal>
+                  {/* A1 (foco não obscurecido, 2.4.11): id estável herda
+                      `[id] { scroll-margin-top: 6rem }` (globals.css) — sem
+                      isso, focar este link por teclado e rolar até ele o
+                      deixava colado sob o cabeçalho de dia sticky (top-10). */}
                   <Link
+                    id={`registro-${item.id}`}
                     href={`/tese?id=${encodeURIComponent(item.id)}&ticker=${encodeURIComponent(item.ticker)}`}
-                    className="grid min-h-11 grid-cols-[4.5rem_1fr_auto] items-center gap-4 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr_auto]"
+                    // D8: a linha inteira já É o link — o "abrir →" era um CTA
+                    // redundante (grid de 2 colunas agora, não 3).
+                    className="grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-4 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr]"
                   >
                     <span className="font-mono text-meta text-ink-3">
                       {formatHora(item.criadoEm)}
@@ -151,12 +158,6 @@ export function HistoricoClient() {
                       >
                         {ROTULO_STATUS[item.status]}
                       </span>
-                    </span>
-                    <span
-                      aria-hidden
-                      className="sublinhado-brasa font-sans text-ui text-brasa-texto"
-                    >
-                      abrir →
                     </span>
                   </Link>
                 </Reveal>

@@ -55,9 +55,18 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 
 | Utilitário | Fonte | Pesos/eixos carregados | Papel |
 |---|---|---|---|
-| `font-display` | Newsreader (variável) | `wght` 200–800 inteiro + `opsz` 6–72 + itálico | H1–H3, corpo longo de research report, blockquotes. Itálico 500 = voz exclusiva da D5 narrada |
+| `font-display` | Newsreader (variável) | `wght` 200–800 inteiro + `opsz` 6–72, só estilo **normal** | H1–H3, corpo longo de research report, blockquotes |
+| `font-display-italico` | Newsreader (2ª instância, `src/lib/fontes.ts`) | peso 500 itálico + `opsz` 6–72 | Voz exclusiva da D5 narrada — SÓ existe onde a página aplica `newsreaderItalico.variable` a um ancestral (hoje `/tese` e `/como-funciona`; ver §3 "P1" abaixo). Combine sempre com a utilidade `italic` do Tailwind (família + estilo); só um dos dois sintetiza um itálico falso |
 | `font-sans` | Archivo (variável) | `wght` 100–900 inteiro + `wdth` 62–125 | UI (nav, botões, forms) em wdth ~100; labels de dado em wdth ~72 (`font-stretch: 72%`) + `font-semibold` + `uppercase` + tracking aberto |
 | `font-mono` | IBM Plex Mono | 400/500/600 (não é variável) | **Todo número factual, timestamp, ID de auditoria, versão de modelo.** Sempre `tabular-nums` — já embutido na classe `.font-mono` (ver globals.css), não precisa adicionar manualmente |
+
+**P1 (CORRECOES-RODADA-1.md):** o itálico do Newsreader (147 kB) deixou de
+ser preloadado em toda rota — só `/tese` e `/como-funciona` (as únicas que
+renderizam itálico de verdade: `Markdown.tsx` `<em>`/voz D5 e o parágrafo
+narrado da cláusula 05) importam `newsreaderItalico` de `src/lib/fontes.ts`
+e aplicam `.variable` a um elemento ancestral (o `<main>` da página). As
+outras 5 rotas (`/`, `/teses`, `/cobertura`, `/sobre`, `/historico`) não
+pagam esse peso.
 
 `opsz` (Newsreader) e `wdth` (Archivo) são eixos variáveis reais: o navegador
 já ajusta `opsz` sozinho pelo tamanho de fonte usado (`font-optical-sizing:
@@ -143,16 +152,26 @@ o observer se desconecta ao revelar.
 
 | Classe | Assinatura | Efeito | Combine com |
 |---|---|---|---|
-| `.reveal` | Assentamento de Tipo | `translateY(0.35em)+opacity+clip-path` → 0, `--dur-press`/`ease-ink` | padrão do `<Reveal>` sem `variant` |
-| `.reveal-regua` | Impressão de Régua | `scaleX(0→1)` origem esquerda, `--dur-press`/`ease-rule` | aplique numa `<hr>`/barra fina; o texto que segue leva `.atraso-regua` (delay 80ms) para assentar depois da régua |
+| `.reveal` | Assentamento de Tipo | `translateY(0.35em)+opacity` → 0, `--dur-press`/`ease-ink` | padrão do `<Reveal>` sem `variant`. **Fix Q1** (CORRECOES-RODADA-1.md): não anima mais `clip-path` no nó observado pelo IntersectionObserver — isso zerava a geometria e travava o reveal com JS ligado (39/39 elementos presos). Só opacity+transform, como as demais variantes |
+| `.entrada-hero` | Entrada do Hero (LCP-safe) | SÓ `transform: translateY(0.35em)→0` via `animation` (não `transition`+classe), incondicional no load — **sem opacity**, sem gate de IO | conteúdo acima da dobra (P2) — nasce com opacity:1 (não atrasa LCP); usa `.i-1`…`.i-12` para o stagger (mesmas classes, que também setam `animation-delay`) |
+| `.reveal-regua` | Impressão de Régua | `scaleX(0→1)` origem esquerda, `--dur-press`/`ease-rule` | aplique numa `<hr>`/barra fina; o texto que segue leva `.atraso-regua` (delay 80ms) para assentar depois da régua — **só quando existe uma régua irmã antes** (D7); sem régua precedente, use `.i-N` puro |
 | `.reveal-ticker` | Fila do Ticker | `translateY(12px)+opacity`, `--dur-set`/`ease-ink` | grade de cards — envolva o grid com `.stagger` e cada card com `.i-1`…`.i-12` |
 | `.cartao-ticker` | hover do card da fila | hairline superior 1px→2px em brasa, `--dur-tick` | **não** é reveal (é hover/focus-within) — sem levitação, sem sombra |
 | `.citacao-pin` | Pin de Citação (único spring) | `scale(0.92→1)+opacity`, `--ease-settle`; borda esquerda 2px `scaleY(0→1)` via `::before` | chip com `bg-realce font-mono` por cima |
-| `.sublinhado-brasa` | Sublinhado de Brasa | `background-size` 0%→100% de 2px, `--dur-tick`/`ease-rule`, ativa em hover/focus-visible/`aria-current="page"` | links de nav, tabs — dark ganha `text-shadow` sutil junto |
+| `.sublinhado-brasa` | Sublinhado de Brasa | `background-size` 0%→100% de 2px, `--dur-tick`/`ease-rule`, ativa em hover/focus-visible/`aria-current="page"`/`aria-current="location"` | links de nav, tabs — dark ganha `text-shadow` sutil junto. `location` cobre TOCs/sumários (D2: scrollspy do IndiceNav) |
 | `.lacuna-declarada` | Lacuna Declarada | outline tracejado (`--warn-border`) expande 6px e dissolve, `--dur-press`/`ease-ink` | badge "dado não encontrado" — **mesma hierarquia visual de citação**, nunca a de erro |
 | `.hachura-lacuna` | (estática, sem reveal) | `repeating-linear-gradient` 45°, CSS puro, sem imagem | célula de tabela com dado ausente |
-| `.stagger` + `.i-1`…`.i-12` | stagger CSP-safe | `transition-delay: calc(var(--stagger-step) * N)`, passo 60ms | qualquer grade/lista que entra em ordem de leitura |
+| `.stagger` + `.i-1`…`.i-12` | stagger CSP-safe | `transition-delay` E `animation-delay`: `calc(var(--stagger-step) * N)`, passo 60ms | qualquer grade/lista que entra em ordem de leitura (via `transition`) ou o hero acima da dobra (via `animation`, `.entrada-hero`) |
 | `.sombra-elevada` | elevação (camada componente) | sombra fria só no claro; `none` no escuro (elevação por borda) | `bg-elevated` + esta classe |
+
+### Scrollspy compartilhado (`useSecaoAtiva`)
+
+`src/components/motion/useSecaoAtiva.ts` (D2, CORRECOES-RODADA-1.md):
+`useSecaoAtiva(ids: readonly string[]): string | null` — observa os elementos
+com os `ids` informados e devolve o id da seção "atual" (mais próxima do
+topo da faixa de leitura). Usado por `Sumario` (`app/tese/TeseView.tsx`) e
+por `IndiceNav` (`app/como-funciona/IndiceNav.tsx`, client component pequeno
+— a página em si continua Server Component, só passa `items` como prop).
 
 **Fora de escopo desta fundação** (ficam para as ondas de tela, que têm o
 DOM específico de cada página): **Virada de Edição** (View Transitions API,

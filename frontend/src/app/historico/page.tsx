@@ -57,12 +57,13 @@ export default function HistoricoPage() {
           <p className="max-w-2xl font-sans text-ui text-ink-2">
             Pré-geradas para os maiores pesos do Ibovespa — abrem na hora.
           </p>
+          {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block. */}
           <ul className="flex flex-wrap gap-x-6 gap-y-2">
             {exemplos.map((papel) => (
               <li key={papel.ticker}>
                 <Link
                   href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
-                  className="sublinhado-brasa font-mono text-ui text-ink-2 hover:text-ink"
+                  className="sublinhado-brasa inline-block py-1.5 font-mono text-ui text-ink-2 hover:text-ink"
                 >
                   {papel.ticker}
                 </Link>

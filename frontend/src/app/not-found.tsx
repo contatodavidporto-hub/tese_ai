@@ -17,17 +17,19 @@ export default async function NaoEncontrada() {
         id="conteudo"
         className="mx-auto flex w-full max-w-xl flex-1 flex-col items-start gap-5 px-4 py-24 sm:px-6"
       >
-        <Reveal>
+        {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
+            aqui não há nenhuma. Stagger simples (.i-N). */}
+        <Reveal className="i-1">
           <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
             Erro 404
           </p>
         </Reveal>
-        <Reveal className="atraso-regua">
+        <Reveal className="i-2">
           <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
             Esta página não consta nesta edição.
           </h1>
         </Reveal>
-        <Reveal className="atraso-regua">
+        <Reveal className="i-3">
           <p className="max-w-md text-body leading-relaxed text-ink-2">
             O endereço não existe ou mudou. Nada foi perdido — as teses
             geradas neste navegador continuam no Histórico.

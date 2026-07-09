@@ -4,6 +4,16 @@
 // ilustração), par --erro-* (falha técnica — nunca o par de aviso, reservado
 // à lacuna declarada). Mensagem amigável sem detalhes internos (stack/URLs
 // ficam no console do servidor, não na tela do usuário).
+//
+// D9 (CORRECOES-RODADA-1.md): SEM Header nem Footer aqui, de propósito —
+// este arquivo é uma fronteira de erro `"use client"` (contrato do Next para
+// `error.tsx`), e o Footer compõe `ChipSaudeAoVivo` (Server Component
+// assíncrono); misturar os dois é o tipo de composição frágil que pode
+// disparar OUTRO erro dentro do próprio boundary de erro. `not-found.tsx`
+// não tem essa restrição (é uma página normal, Server Component) e mantém o
+// Header. O link abaixo é a única forma de navegação garantida daqui.
+import Link from "next/link";
+
 export default function ErroGlobal({ reset }: { error: Error; reset: () => void }) {
   return (
     <main
@@ -21,13 +31,21 @@ export default function ErroGlobal({ reset }: { error: Error; reset: () => void 
         dado foi perdido — as teses já geradas continuam disponíveis no
         Histórico deste navegador.
       </p>
-      <button
-        type="button"
-        onClick={reset}
-        className="bg-brasa px-5 py-2.5 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
-      >
-        Tentar novamente
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={reset}
+          className="bg-brasa px-5 py-2.5 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+        >
+          Tentar novamente
+        </button>
+        <Link
+          href="/"
+          className="border border-field px-5 py-2.5 font-sans text-ui font-medium text-ink transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto"
+        >
+          Voltar ao início
+        </Link>
+      </div>
     </main>
   );
 }

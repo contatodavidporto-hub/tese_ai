@@ -56,11 +56,13 @@ export function Header() {
 
         {/* Nav desktop */}
         <nav aria-label="Principal" className="hidden items-center gap-6 md:flex">
+          {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block — a caixa
+              clicável de um link de texto sem padding vertical media 19.6px. */}
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="sublinhado-brasa font-sans text-ui text-ink-2 hover:text-ink"
+              className="sublinhado-brasa inline-block py-1.5 font-sans text-ui text-ink-2 hover:text-ink"
             >
               {item.label}
             </Link>

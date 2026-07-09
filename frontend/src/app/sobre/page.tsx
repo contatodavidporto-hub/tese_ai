@@ -76,12 +76,14 @@ export default function Sobre() {
       <main id="conteudo" className="flex-1">
         <section aria-labelledby="sobre-titulo" className="border-b border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-14 sm:px-6 sm:py-20">
-            <Reveal>
+            {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
+                aqui não há nenhuma. Stagger simples (.i-N). */}
+            <Reveal className="i-1">
               <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
                 Sobre
               </p>
             </Reveal>
-            <Reveal className="atraso-regua">
+            <Reveal className="i-2">
               <h1
                 id="sobre-titulo"
                 className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink"

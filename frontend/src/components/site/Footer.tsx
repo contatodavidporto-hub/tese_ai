@@ -77,11 +77,12 @@ export function Footer({ saudeSlot }: { saudeSlot?: React.ReactNode }) {
           <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
             Navegação
           </span>
+          {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block. */}
           {NAV_FOOTER.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="w-fit font-sans text-ui text-ink-2 underline-offset-4 hover:text-ink hover:underline"
+              className="inline-block w-fit py-1.5 font-sans text-ui text-ink-2 underline-offset-4 hover:text-ink hover:underline"
             >
               {item.label}
             </Link>

@@ -2,10 +2,14 @@ import Link from "next/link";
 
 import { slotVirada, type PapelB3 } from "@/lib/tickers";
 
-// Rótulos das 5 dimensões canônicas do motor (ARQUITETURA.md / orquestracao.py):
-// D1 fundamentos (CVM) · D2 pares globais (SEC EDGAR) · D3 macro Brasil (BCB,
-// Brent) · D4 macro global (World Bank + Treasury) · D5 elos causais.
-const DIMENSOES = ["D1", "D2", "D3", "D4", "D5"] as const;
+// Régua D1..D5: rótulos mono FACTUAIS (D5, CORRECOES-RODADA-1.md) — a fonte
+// oficial de cada dimensão é fato verificado em ARQUITETURA.md /
+// orquestracao.py, não uma métrica de "cobertura" (o produto não expõe, nem
+// finge expor, um percentual de preenchimento por dimensão — fabricar esse
+// dado seria alucinação). D1 fundamentos (CVM) · D2 pares globais (SEC
+// EDGAR) · D3 macro Brasil (BCB) · D4 macro global (World Bank) · D5 elos
+// causais (interpretação, fonte nas duas pontas — sem sigla de fonte única).
+const REGUA_D1_D5 = "D1 CVM · D2 SEC · D3 BCB · D4 WB · D5 ELOS";
 
 function formatDataIso(iso: string): string {
   const [ano, mes, dia] = iso.split("-");
@@ -50,15 +54,16 @@ export function CartaoTese({ papel, dataCarteira }: CartaoTeseProps) {
           % do IBOV · fonte B3, {formatDataIso(dataCarteira)}
         </span>
       )}
-      {/* Régua D1..D5: decorativa/rotuladora, aria-hidden — não é medidor. */}
-      <div aria-hidden className="mt-auto flex gap-1.5 pt-3">
-        {DIMENSOES.map((d) => (
-          <span key={d} className="flex flex-1 flex-col items-center gap-1">
-            <span className="h-2.5 w-full border border-line-strong bg-line" />
-            <span className="font-mono text-[0.625rem] text-ink-3">{d}</span>
-          </span>
-        ))}
-      </div>
+      {/* Régua D1..D5: linha mono factual (fonte oficial por dimensão) — não é
+          medidor, `aria-hidden` porque o texto é constante em TODO card (já
+          explicado em /como-funciona); repeti-lo por leitor de tela em cada
+          card da grade seria ruído sem informação nova. */}
+      <p
+        aria-hidden
+        className="mt-auto border-t border-line pt-3 font-mono text-meta tracking-wide text-ink-3"
+      >
+        {REGUA_D1_D5}
+      </p>
       <span className="sublinhado-brasa w-fit font-sans text-ui font-semibold text-brasa-texto opacity-0 transition-opacity duration-[var(--dur-tick)] group-hover:opacity-100 group-focus-visible:opacity-100">
         Abrir tese →
       </span>

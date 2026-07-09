@@ -1,6 +1,7 @@
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
+import { newsreaderItalico } from "@/lib/fontes";
 import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
@@ -40,7 +41,10 @@ export default async function TesePage({
       <Header />
       <main
         id="conteudo"
-        className="virada-edicao mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16"
+        // `newsreaderItalico.variable` (P1): esta página renderiza itálico de
+        // verdade (voz narrada da D5 e <em> do markdown, via Markdown.tsx) —
+        // liga a família itálica só aqui, não em toda rota do site.
+        className={`virada-edicao ${newsreaderItalico.variable} mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16`}
       >
         <Reveal className="flex max-w-2xl flex-col gap-3 border-b border-line pb-8">
           <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">

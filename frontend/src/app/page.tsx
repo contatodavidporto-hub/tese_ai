@@ -5,7 +5,8 @@ import { Suspense } from "react";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
-import { DATA_CARTEIRA_IBOV, exemplosProntos, slotVirada } from "@/lib/tickers";
+import { CartaoTese } from "@/components/teses/CartaoTese";
+import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
@@ -98,15 +99,21 @@ export default function Home() {
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Hero */}
+        {/* Hero — P2 (CORRECOES-RODADA-1.md): acima da dobra, então SEM Reveal
+            (opacity:0 preso a IntersectionObserver atrasaria o LCP à toa, já
+            que o hero está na viewport desde o load). `.entrada-hero` anima
+            só `transform`, incondicionalmente, via keyframe CSS — o conteúdo
+            nasce pintável (opacity:1) no primeiro frame. Reveal (com fade de
+            opacidade) fica reservado para as seções abaixo da dobra, logo a
+            seguir. */}
         <section className="border-b border-line" aria-labelledby="hero-titulo">
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
-            <Reveal className="i-1">
+            <div className="entrada-hero i-1">
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
                 Teses de investimento · B3
               </p>
-            </Reveal>
-            <Reveal className="i-2">
+            </div>
+            <div className="entrada-hero i-2">
               <h1
                 id="hero-titulo"
                 className="max-w-3xl font-display text-hero font-semibold tracking-tight text-ink"
@@ -114,16 +121,16 @@ export default function Home() {
                 A tese inteira, com a <span className="text-brasa-texto">fonte</span> de cada
                 número.
               </h1>
-            </Reveal>
-            <Reveal className="i-3">
+            </div>
+            <div className="entrada-hero i-3">
               <p className="max-w-2xl text-lede leading-relaxed text-ink-2">
                 O Tese AI estrutura teses de investimento cruzando fundamentos, contexto macro,
                 pares globais e geopolítica. Cada afirmação factual é rastreável até o dado
                 público de origem, interpretação vem rotulada como tal — e cada lacuna é
                 declarada, nunca preenchida com chute.
               </p>
-            </Reveal>
-            <Reveal className="i-4">
+            </div>
+            <div className="entrada-hero i-4">
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href="/tese"
@@ -138,12 +145,12 @@ export default function Home() {
                   Ver exemplo: {primeiroTicker}
                 </Link>
               </div>
-            </Reveal>
-            <Reveal className="i-5">
+            </div>
+            <div className="entrada-hero i-5">
               <p className="text-ui text-ink-3">
                 Ferramenta de estruturação — não é recomendação de compra ou venda.
               </p>
-            </Reveal>
+            </div>
           </div>
         </section>
 
@@ -176,7 +183,9 @@ export default function Home() {
                       <span>{formatPct(papel.participacaoPct)}% do IBOV</span>
                       <sup className="text-brasa-texto">[{i + 1}]</sup>
                     </span>
-                    <span className="font-mono text-meta text-ink-3">
+                    {/* A4 (contraste 1.4.3): text-ink-3 sobre bg-realce reprova por
+                        0,011 — text-ink-2 verifica em 7.11:1 no mesmo par. */}
+                    <span className="font-mono text-meta text-ink-2">
                       Fonte: B3 · Carteira teórica do Ibovespa · {dataCarteira}
                     </span>
                   </Reveal>
@@ -212,41 +221,18 @@ export default function Home() {
                 </p>
               </div>
             </Reveal>
+            {/* D3 (CORRECOES-RODADA-1.md): mesma anatomia de card-manchete da
+                galeria — reusa <CartaoTese> em vez de uma segunda anatomia
+                inline (o diretor de design reprovou as duas versões
+                divergentes). */}
             <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {exemplos.map((papel, i) => {
-                // Virada de Edição (motion): mesmo slot estático usado no
-                // masthead da tese (TeseView.tsx) e na galeria (CartaoTese.tsx)
-                // — shared element só para a navegação cross-document real.
-                const slot = slotVirada(papel.ticker);
-                return (
+              {exemplos.map((papel, i) => (
                 <li key={papel.ticker}>
-                  <Reveal
-                    variant="reveal-ticker"
-                    className={i < 12 ? `i-${i + 1}` : undefined}
-                  >
-                    <Link
-                      href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
-                      className="cartao-ticker group flex h-full flex-col gap-1 border border-line bg-card px-4 py-4"
-                    >
-                      <span
-                        className={`font-mono text-h3 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}
-                      >
-                        {papel.ticker}
-                      </span>
-                      <span className="truncate font-sans text-ui text-ink-2">{papel.nome}</span>
-                      {papel.participacaoPct > 0 && (
-                        <span className="font-mono text-meta text-ink-3">
-                          {formatPct(papel.participacaoPct)}% do IBOV
-                        </span>
-                      )}
-                      <span className="sublinhado-brasa mt-2 w-fit font-sans text-ui font-medium text-brasa-texto opacity-0 transition-opacity duration-[var(--dur-tick)] group-hover:opacity-100 group-focus-visible:opacity-100">
-                        Abrir tese →
-                      </span>
-                    </Link>
+                  <Reveal variant="reveal-ticker" className={i < 12 ? `i-${i + 1}` : undefined}>
+                    <CartaoTese papel={papel} dataCarteira={DATA_CARTEIRA_IBOV} />
                   </Reveal>
                 </li>
-                );
-              })}
+              ))}
             </ul>
             <Reveal>
               <Link href="/teses" className="sublinhado-brasa w-fit font-sans text-ui font-semibold text-brasa-texto">
