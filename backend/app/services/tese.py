@@ -312,7 +312,7 @@ def _synthesize(
     )
     instrucao = (
         f"Com base EXCLUSIVAMENTE nos documentos-fonte acima, monte a tese para "
-        f"{_sanitizar_instrucao(ticker, limite=10)} ({_sanitizar_instrucao(nome)}). "
+        f"{_sanitizar_instrucao(ticker, limite=16)} ({_sanitizar_instrucao(nome)}). "
         f"Cite cada número à sua fonte. Onde faltar um dado, "
         f"escreva 'dado não encontrado'. Nunca recomende comprar ou vender."
         f"{bloco_elos}"
@@ -684,9 +684,24 @@ def reaper_teses_orfas(session: Session, timeout_min: int) -> int:
 
 
 def criar_tese(session: Session, ticker: str) -> Tese:
-    """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda."""
+    """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda.
+
+    Resolve a classe do ativo AQUI (fonte única): scripts que chamam direto
+    (warm_cache, gerar_e_avaliar) geram FII/renda fixa sem depender do router.
+    NULL = 'acao' (legado byte-idêntico); identidade não resolvida deixa NULL e
+    o motor de ação abstém com a mensagem estável de dado não encontrado.
+    """
+    from app.services.ativos.identidade import resolver_classe  # import tardio (sem ciclo)
+
+    codigo = ticker.upper().strip()
     user_id = get_or_create_demo_user()
-    tese = Tese(user_id=uuid.UUID(user_id), ticker=ticker.upper().strip(), status="processing")
+    tese = Tese(user_id=uuid.UUID(user_id), ticker=codigo, status="processing")
+    try:
+        classe, _payload = resolver_classe(codigo, session)
+        if classe != "acao":
+            tese.classe_ativo = classe
+    except dados_svc.DadoNaoEncontrado as exc:
+        logger.warning("classe_ativo_nao_resolvida", ticker=codigo, detalhe=str(exc))
     session.add(tese)
     session.commit()
     session.refresh(tese)
