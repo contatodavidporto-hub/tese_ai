@@ -134,6 +134,18 @@ export function exemplosProntos(): PapelB3[] {
   );
 }
 
+// Slot 1..10 fixo pela ordem de EXEMPLOS_PRONTOS — usado SÓ para o nome do
+// shared element CSS da assinatura "Virada de Edição" (motion; ver
+// `.vt-tese-N` em globals.css e DESIGN-BRIEF.md §4.6). Conjunto finito e
+// estático: as classes `.vt-tese-1`…`.vt-tese-10` já existem pré-declaradas
+// no CSS — isto só escolhe qual delas usar, nunca gera CSS em runtime nem
+// `style=` inline. Ticker fora da lista (gerado sob demanda) devolve `null`
+// e não recebe shared element — cai só no véu geral da página.
+export function slotVirada(ticker: string): number | null {
+  const i = (EXEMPLOS_PRONTOS as readonly string[]).indexOf(ticker);
+  return i === -1 ? null : i + 1;
+}
+
 // Normaliza para busca: caixa alta e sem diacríticos (digitar "ITAÚ" ou "SÃO"
 // precisa achar os nomes de pregão da B3, que vêm sem acento).
 function chaveBusca(s: string): string {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Reveal } from "@/components/motion/Reveal";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { exemplosProntos } from "@/lib/tickers";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Histórico",
+  description:
+    "Extrato de auditoria das teses geradas neste navegador — guardado só localmente, nunca sai do dispositivo.",
 };
 
 export default function HistoricoPage() {
@@ -20,41 +23,49 @@ export default function HistoricoPage() {
       <Header />
       <main
         id="conteudo"
-        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10 sm:px-6"
+        className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-12 px-4 py-14 sm:px-6"
       >
-        <div className="flex max-w-2xl flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
-            Histórico
-          </h1>
-          <p className="text-sm leading-relaxed text-tinta-2">
-            Teses geradas neste navegador. Reabrir não gera nada de novo: a tese
-            é lida do registro original, com as mesmas citações e fontes.
-          </p>
+        <div className="flex flex-col gap-3">
+          <Reveal>
+            <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
+              Histórico
+            </h1>
+          </Reveal>
+          <Reveal className="i-1">
+            <p className="max-w-2xl font-sans text-ui leading-relaxed text-ink-2">
+              Teses geradas neste navegador. Reabrir não gera nada de novo: a
+              tese é lida do registro original, com as mesmas citações e
+              fontes.
+            </p>
+          </Reveal>
         </div>
 
-        <HistoricoClient />
+        <section aria-labelledby="extrato-titulo" className="flex flex-col gap-4">
+          <h2 id="extrato-titulo" className="sr-only">
+            Extrato de auditoria
+          </h2>
+          <HistoricoClient />
+        </section>
 
-        <section aria-labelledby="exemplos-titulo" className="flex flex-col gap-3">
+        <section aria-labelledby="exemplos-titulo" className="flex flex-col gap-3 border-t border-line pt-8">
           <h2
             id="exemplos-titulo"
-            className="font-display text-xl font-semibold tracking-tight text-tinta"
+            className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
           >
             Teses de exemplo
           </h2>
-          <p className="max-w-2xl text-sm text-tinta-2">
+          <p className="max-w-2xl font-sans text-ui text-ink-2">
             Pré-geradas para os maiores pesos do Ibovespa — abrem na hora.
           </p>
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block. */}
+          <ul className="flex flex-wrap gap-x-6 gap-y-2">
             {exemplos.map((papel) => (
               <li key={papel.ticker}>
                 <Link
                   href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
-                  className="flex flex-col gap-0.5 rounded-xl border border-linha bg-cartao px-4 py-3 transition-colors hover:border-selo-texto"
+                  className="sublinhado-brasa inline-block py-1.5 font-mono text-ui text-ink-2 hover:text-ink"
                 >
-                  <span className="font-mono text-sm font-semibold text-tinta">
-                    {papel.ticker}
-                  </span>
-                  <span className="truncate text-xs text-tinta-3">{papel.nome}</span>
+                  {papel.ticker}
                 </Link>
               </li>
             ))}
