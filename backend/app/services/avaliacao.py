@@ -204,6 +204,12 @@ _DY_RESSALVA_NEGADA_RE = re.compile(
     r"(?:anualizad\w*|a\s+(?:preço\s+de\s+)?mercado\b)",
     re.IGNORECASE,
 )
+# 'VP/DY' é vocabulário do PRÓPRIO motor (nome do elo interpretativo de FII,
+# fii.py: 'Selic→VP/DY') — a direção do elo, não um claim de dividend yield.
+# Rendido com a força ('Elo Selic → VP/DY do FII (força 0,50...') acionava o
+# veto de DY (2º falso positivo ao vivo, HGLG11 09/07). Apagado antes do
+# julgamento da regra do DY; 'DY' isolado com número segue vetado.
+_VP_DY_COMPOSTO_RE = re.compile(r"\bVP\s*/\s*DY\b", re.IGNORECASE)
 
 _VETADO_CURVA_DI = "curva DI com número sem rótulo 'proxy'"
 _VETADO_DY = "dividend yield/DY com número sem rótulo 'do informe'/'auto-declarado'"
@@ -322,8 +328,13 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
             # A regra do DY julga a frase SEM as ressalvas negadas — o split de
             # frase por ';' separa o rótulo do informe do número, e a ressalva
             # mandatória sozinha ("NÃO é DY a preço de mercado e não deve ser
-            # anualizado") não pode virar veto.
-            alvo = _DY_RESSALVA_NEGADA_RE.sub(" ", frase) if rotulo is _VETADO_DY else frase
+            # anualizado") não pode virar veto — e SEM o composto 'VP/DY'
+            # (nome do elo interpretativo do motor, não claim de yield).
+            if rotulo is _VETADO_DY:
+                alvo = _DY_RESSALVA_NEGADA_RE.sub(" ", frase)
+                alvo = _VP_DY_COMPOSTO_RE.sub(" ", alvo)
+            else:
+                alvo = frase
             if termo_re.search(alvo) is None or not _tem_numero_de_claim(alvo):
                 continue
             if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(alvo):

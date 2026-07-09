@@ -464,6 +464,23 @@ def test_dy_a_preco_de_mercado_sem_negacao_e_vetado():
     )
 
 
+def test_elo_vp_dy_com_forca_nao_bloqueia():
+    # 2º falso positivo ao vivo (HGLG11): 'VP/DY' é o nome do elo interpretativo
+    # do MOTOR (fii.py 'Selic→VP/DY') — direção do elo com a força numérica não
+    # é claim de dividend yield.
+    md = (
+        "## 3. Camada geopolítica e correlações\n"
+        "- **Elo Selic → VP/DY do FII (força 0,50; interpretativo):** a taxa "
+        "básica comprime o prêmio exigido."
+    )
+    assert termos_vetados_com_numero(md, "fii") == []
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+    # 'DY' ISOLADO com número (sem rótulo do informe) segue vetado.
+    assert termos_vetados_com_numero("O DY projetado do fundo é 0,50.", "fii")
+
+
 def test_numero_em_linha_seguinte_de_bullet_quebrado_bloqueia_m4c():
     # M4c: quebra de linha SIMPLES dentro do mesmo bullet é o MESMO período.
     md = "## Juros\n- A curva DI precifica\n  12,5% no vencimento 2027."
