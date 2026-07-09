@@ -514,6 +514,85 @@ def test_redteam_vp_dy_so_descontado_em_contexto_de_elo():
     assert termos_vetados_com_numero("Pelo VP/DY, o retorno anualizado projetado é 11,2%.", "fii")
 
 
+def test_redteam_v21_rotulo_posterior_nao_isenta():
+    # Red-team v2.1: rótulo do informe em frase POSTERIOR ao claim não pode
+    # isentar um DY nu com número (a isenção olha o período só ATÉ o fim da
+    # frase do claim).
+    assert termos_vetados_com_numero(
+        "O DY é 14%, muito atrativo. Segundo o informe mensal, a vacância caiu.", "fii"
+    )
+    # LIMITAÇÃO documentada (paridade com o gate original): rótulo na MESMA
+    # frase do claim isenta — inclusive quando é prosa incidental ligada por
+    # vírgulas. Fechar isso exigiria proximidade semântica rótulo↔número
+    # (backlog de hardening; mitigação a jusante: Citations + faithfulness).
+    assert (
+        termos_vetados_com_numero(
+            "O DY é 14% ao ano,\nbem acima dos pares,\nconforme consta do informe "
+            "mensal do fundo.",
+            "fii",
+        )
+        == []
+    )
+
+
+def test_redteam_v21_quebras_ampliadas_vetam():
+    # Red-team v2.1: flexões de anualização sem 'd' e variantes de 'a mercado'
+    # escapavam da quebra-isenção mesmo com rótulo presente.
+    assert termos_vetados_com_numero("DY do informe: anualização resulta em 9,2%.", "fii")
+    assert termos_vetados_com_numero("DY do informe: ao anualizar chega a 9,2%.", "fii")
+    assert termos_vetados_com_numero("Segundo o informe mensal, o DY anualiza para 9%.", "fii")
+    assert termos_vetados_com_numero("DY do informe ao preço de mercado: 12%.", "fii")
+    assert termos_vetados_com_numero("DY do informe a preços de mercado: 12%.", "fii")
+    assert termos_vetados_com_numero("DY do informe a valor de mercado: 12%.", "fii")
+    assert termos_vetados_com_numero("DY do informe a preco de mercado: 12%.", "fii")
+
+
+def test_redteam_v21_continuacao_com_numero_negativo_e_mesmo_periodo():
+    # Red-team v2.1: linha de continuação iniciando com número NEGATIVO era
+    # lida como bullet novo e o número escapava do período (buraco M4c).
+    assert termos_vetados_com_numero("O DY do fundo chega a\n-12,5% ao ano", "fii")
+
+
+def test_fp_latentes_ressalvas_parafraseadas_nao_bloqueiam():
+    # Red-team v2.1 (falsos positivos latentes): paráfrases fiéis do template
+    # com 'nem'/'pode' protegem; par DY×Selic e 'valor patrimonial/DY' do
+    # destino_label do elo são vocabulário do motor.
+    assert (
+        termos_vetados_com_numero(
+            "- Dividend yield mensal do informe: 0,85% (auto-declarado; não é DY a "
+            "preço de mercado nem deve ser anualizado).",
+            "fii",
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "- Dividend yield mensal do informe: 0,85% (auto-declarado; não pode ser anualizado).",
+            "fii",
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "- DY do informe (auto-declarado) — não é a mercado: 0,85%.", "fii"
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "O co-movimento DY×Selic tem força 0,62 (Pearson, não-causal).", "fii"
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "Elo Selic → valor patrimonial/DY do fundo (força 0,50): interpretação com hedge.",
+            "fii",
+        )
+        == []
+    )
+
+
 def test_elo_vp_dy_com_forca_nao_bloqueia():
     # 2º falso positivo ao vivo (HGLG11): 'VP/DY' é o nome do elo interpretativo
     # do MOTOR (fii.py 'Selic→VP/DY') — direção do elo com a força numérica não

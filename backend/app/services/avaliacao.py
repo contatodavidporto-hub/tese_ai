@@ -183,16 +183,22 @@ _FRASE_SPLIT_RE = re.compile(r"(?<=[.;!?])\s+|\n")
 # bullet/parágrafo ("- A curva DI precifica\n  12,5%...") não pode encerrar o
 # período do check de termos vetados — o número na linha seguinte escapava.
 # A quebra vira espaço, EXCETO quando a próxima linha inicia novo bloco
-# (bullet -/*/+, heading #, citação >, item numerado "1. ") ou é linha em
-# branco/fim do texto (parágrafo novo). SÓ o check de termos vetados usa esta
+# (bullet "- "/*/+ — o traço de bullet exige espaço: linha começando em número
+# NEGATIVO '-12,5%' é CONTINUAÇÃO, não bullet (red-team v2.1: reabria o buraco
+# M4c) —, heading #, citação >, item numerado "1. ") ou é linha em branco/fim
+# do texto (parágrafo novo). SÓ o check de termos vetados usa esta
 # normalização; os demais checks preservam o split legado por linha.
-_QUEBRA_CONTINUACAO_RE = re.compile(r"\n(?![ \t]*(?:[-*+#>]|\d+[.)]\s|\n|$))")
+_QUEBRA_CONTINUACAO_RE = re.compile(r"\n(?![ \t]*(?:-\s|[*+#>]|\d+[.)]\s|\n|$))")
 _PROXY_RE = re.compile(r"\bproxy\b", re.IGNORECASE)
 _DY_ROTULO_INFORME_RE = re.compile(
     r"\bdo\s+informe|\bauto[\s-]?declarad|\binforme\s+mensal", re.IGNORECASE
 )
+# Quebra-isenção: anualização (qualquer flexão — anualizado/anualizar/
+# anualização/anualiza) e 'a/ao/aos preço(s)/valor de mercado' (red-team v2.1:
+# 'ao preço', plural, 'a valor de mercado' e ç sem cedilha escapavam).
 _DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
-    r"anualizad|\ba\s+(?:preço\s+de\s+)?mercado\b", re.IGNORECASE
+    r"anualiza|\ba[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b",
+    re.IGNORECASE,
 )
 # Ressalvas PROTETORAS mandatórias do rótulo do informe (fii._ROTULOS_INDICADOR:
 # "NÃO é DY a preço de mercado e NUNCA deve ser anualizado") — cautela, não
@@ -200,22 +206,28 @@ _DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
 # que está DENTRO delas (red-team do fix v1: deleção por janela de negação
 # engolia o próprio claim — "Não é exagero dizer que o DY anualizado chega a
 # 12%" passava; agora nada é deletado e só a ressalva literal protege).
+# Forma: negação + cadeia VERBO-PRIMEIRO de conectores + termo-quebra
+# ('não/nem é|representa|deve|pode ser [lido como] DY/yield/valor a preço de
+# mercado', 'nem deve ser anualizado') OU negação + particípio direto ('nunca
+# anualizado'). Verbo-primeiro impede 'nem o DY anualizado de 12%' de se
+# proteger; 'não raro supera...' e 'não por acaso...' seguem desprotegidos.
 _DY_CAVEAT_PROTEGIDO_RE = re.compile(
-    # negação + verbo copular IMEDIATO + métrica opcional + 'a preço de mercado'
-    # (paráfrases reais do Opus: 'não representa DY/yield a preço de mercado');
-    # 'não por acaso reflete...' NÃO protege (verbo não-imediato/fora da lista).
-    r"n[ãa]o\s+(?:[ée]|representa(?:m)?|constitui|equivale(?:\s+a)?|corresponde(?:\s+a)?)\s+"
-    r"(?:o\s+|um\s+)?(?:dy\s+|dividend\s+yield\s+|yield\s+|rendimento\s+)?"
-    r"a\s+pre[çc]o\s+de\s+mercado"
-    r"|(?:n[ãa]o|nunca|jamais)\s+(?:deve(?:ria|m)?\s+)?(?:ser\s+)?anualizad\w*",
+    r"(?:n[ãa]o|nunca|jamais|nem)\s+"
+    r"(?:[ée]|ser[áã]?|sido|deve(?:ria|m|r[áã])?|pode(?:m|r[áã])?|representa(?:m)?"
+    r"|constitui|equivale|corresponde|reflete(?:m)?|foi|seja|est[áa])\s+"
+    r"(?:(?:ser|sido|lid[oa]|como|o|a|um|uma|dy|dividend|yield|rendimento|valor|de)\s+){0,4}"
+    r"(?:anualiza\w*|a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b)"
+    r"|(?:n[ãa]o|nunca|jamais|nem)\s+anualiza\w*",
     re.IGNORECASE,
 )
-# 'VP/DY' é vocabulário do PRÓPRIO motor (nome do elo interpretativo de FII,
-# fii.py: 'Selic→VP/DY') — a direção do elo, não um claim de dividend yield
-# ('Elo Selic → VP/DY do FII (força 0,50...', 2º falso positivo ao vivo).
-# Ignorado SÓ quando o período tem vocabulário de elo (red-team: 'O VP/DY
+# 'VP/DY' (e as formas do motor: 'valor patrimonial/dividend yield' do
+# destino_label do elo em fii.py e a notação de par 'DY×Selic' do co-movimento)
+# é vocabulário do PRÓPRIO motor — direção do elo/par, não claim de dividend
+# yield ('Elo Selic → VP/DY do FII (força 0,50...', 2º falso positivo ao vivo).
+# Descontado SÓ quando o período tem vocabulário de elo (red-team: 'O VP/DY
 # implica yield de 8,5%' sem contexto de elo segue vetado).
-_VP_SLASH_PREFIXO_RE = re.compile(r"vp\s*/\s*$", re.IGNORECASE)
+_VP_SLASH_PREFIXO_RE = re.compile(r"(?:vp|valor\s+patrimonial)\s*/\s*$", re.IGNORECASE)
+_PAR_SUFIXO_RE = re.compile(r"^\s*[×x]\s*\w")
 _ELO_CONTEXTO_RE = re.compile(r"\belos?\b|\bfor[çc]a\b|co-?movimento|interpretativ", re.IGNORECASE)
 
 _VETADO_CURVA_DI = "curva DI com número sem rótulo 'proxy'"
@@ -306,34 +318,52 @@ def _tem_numero_de_claim(frase: str) -> bool:
 def _dy_termo_presente(termo_re: re.Pattern[str], frase: str, periodo: str) -> bool:
     """Há 'dividend yield'/'DY' de CLAIM na frase?
 
-    O composto 'VP/DY' (nome do elo interpretativo do motor, fii.py) só é
-    descontado quando o período carrega vocabulário de elo — fora dele,
+    Os compostos do MOTOR — 'VP/DY' e 'valor patrimonial/dividend yield' (elo
+    interpretativo, fii.py) e a notação de par 'DY×Selic' (co-movimento) — só
+    são descontados quando o período carrega vocabulário de elo; fora dele,
     'O VP/DY implica yield de 8,5%' segue contando (red-team do fix v1).
     """
     matches = list(termo_re.finditer(frase))
     if matches and _ELO_CONTEXTO_RE.search(periodo):
-        matches = [m for m in matches if not _VP_SLASH_PREFIXO_RE.search(frase[: m.start()])]
+        matches = [
+            m
+            for m in matches
+            if not _VP_SLASH_PREFIXO_RE.search(frase[: m.start()])
+            and not _PAR_SUFIXO_RE.search(frase[m.end() :])
+        ]
     return bool(matches)
 
 
-def _dy_isento_no_periodo(periodo: str) -> bool:
-    """Isenção do DY avaliada no PERÍODO inteiro (a linha do bullet).
+def _dy_isento_no_periodo(periodo: str, fim_frase_claim: int) -> bool:
+    """Isenção do DY: rótulo ANTES do fim da frase do claim + quebras no período.
 
     O rótulo mandatório do informe contém ';' — o split de frase separa
     'do informe (auto-declarado' do número (1º falso positivo ao vivo) — então
-    rótulo e termos-quebra são julgados na linha completa: rótulo presente E
-    nenhum 'anualizad*'/'a (preço de) mercado' fora do span de uma ressalva
-    protetora quase-verbatim ("NÃO é DY a preço de mercado", "não/nunca deve
-    ser anualizado"). Nada é deletado: um quebra-isenção fora de ressalva
-    ("DY do informe anualizado: 8%") derruba a isenção e o veto fica.
+    o rótulo é buscado no período ATÉ O FIM DA FRASE DO CLAIM (red-team v2.1:
+    rótulo em frase POSTERIOR não pode isentar 'O DY é 14%, muito atrativo.
+    Segundo o informe mensal...'). Termos-quebra são julgados no período
+    INTEIRO (direção estrita): nenhum 'anualiza*'/'a (preço de) mercado' fora
+    do span de uma ressalva protetora quase-verbatim ("NÃO é DY a preço de
+    mercado", "nem/não/nunca deve ser anualizado"). Nada é deletado: um
+    quebra-isenção fora de ressalva ("DY do informe anualizado: 8%") derruba
+    a isenção e o veto fica.
     """
-    if _DY_ROTULO_INFORME_RE.search(periodo) is None:
+    if _DY_ROTULO_INFORME_RE.search(periodo[:fim_frase_claim]) is None:
         return False
     protegidos = [m.span() for m in _DY_CAVEAT_PROTEGIDO_RE.finditer(periodo)]
     for quebra in _DY_ANUALIZADO_OU_MERCADO_RE.finditer(periodo):
         if not any(ini <= quebra.start() and quebra.end() <= fim for ini, fim in protegidos):
             return False
     return True
+
+
+def _frases_com_fim(periodo: str):
+    """Frases do período com a posição de FIM de cada uma (p/ rótulo-antes)."""
+    inicio = 0
+    for corte in _FRASE_SPLIT_RE.finditer(periodo):
+        yield periodo[inicio : corte.start()], corte.start()
+        inicio = corte.end()
+    yield periodo[inicio:], len(periodo)
 
 
 def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
@@ -345,21 +375,28 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
     'índice de Basileia' (não está na DFP) e — só para FII — 'P/VP' e
     'dividend yield' (preço B3 licenciado). O DY MENSAL do informe CVM é
     permitido quando o PERÍODO (linha do bullet) traz o rótulo ('do informe'/
-    'auto-declarado') e nenhum 'anualizado'/'a (preço de) mercado' fora das
-    ressalvas protetoras quase-verbatim — ver `_dy_isento_no_periodo` (1º/2º
-    falsos positivos ao vivo, HGLG11 09/07) e `_dy_termo_presente` (VP/DY).
+    'auto-declarado') ANTES do fim da frase do claim e nenhum 'anualiza*'/'a
+    (preço de) mercado' fora das ressalvas protetoras quase-verbatim — ver
+    `_dy_isento_no_periodo` (1º/2º falsos positivos ao vivo, HGLG11 09/07) e
+    `_dy_termo_presente` (VP/DY, valor patrimonial/DY, par DY×Selic).
 
     Red-team fase 2 (M4): o número conta em qualquer posição da frase (M4b),
     ano/data não conta como número (M4a) e quebra de linha simples de bullet
-    quebrado é o MESMO período (M4c) — ver `_tem_numero_de_claim` e
-    `_QUEBRA_CONTINUACAO_RE`. Red-team do fix v1: detecção NUNCA roda sobre
-    texto deletado — só a isenção considera as ressalvas, por span.
+    quebrado é o MESMO período (M4c; linha iniciando em número NEGATIVO é
+    continuação) — ver `_tem_numero_de_claim` e `_QUEBRA_CONTINUACAO_RE`.
+    Red-team do fix v1: detecção NUNCA roda sobre texto deletado — só a
+    isenção considera as ressalvas, por span. LIMITAÇÕES CONHECIDAS
+    (documentadas no follow-up de hardening; mitigação a jusante = Citations +
+    faithfulness + system prompt + revisão): sinônimos semânticos de
+    anualização ('ao ano', 'a.a.', 'em base anual') não são quebra-isenção —
+    colidem com a Selic/CDI legitimamente citados '% a.a.' no mesmo período —
+    e 'yield'/'rendimento' isolados estão fora do escopo do termo.
     """
     classe = _normalizar_classe(classe)
     achados: list[str] = []
     texto_continuo = _QUEBRA_CONTINUACAO_RE.sub(" ", texto or "")
     for periodo in texto_continuo.split("\n"):
-        for frase in _FRASE_SPLIT_RE.split(periodo):
+        for frase, fim_frase in _frases_com_fim(periodo):
             if not frase.strip():
                 continue
             for rotulo, termo_re, classes in _REGRAS_VETADAS:
@@ -374,7 +411,7 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                     continue
                 if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
-                if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo):
+                if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo, fim_frase):
                     continue  # DY mensal do informe, auto-declarado e rotulado
                 achados.append(f"{rotulo}: '{frase.strip()[:120]}'")
     return achados
