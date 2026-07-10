@@ -6,16 +6,31 @@
 // indices-amplos/ibovespa-composicao-da-carteira.htm. `nome` é o nome de pregão
 // da B3; `participacaoPct` é a participação % na carteira teórica nessa data.
 // É um RETRATO datado (a carteira rebalanceia a cada quadrimestre) — atualizar
-// junto com o warm-cache do backend (app/scripts/warm_cache.py usa a mesma fonte).
+// junto com o warm-cache do backend (app/scripts/warm_cache.py usa a mesma fonte
+// para os 10 tickers padrão de TICKERS_IBOV_TOP; os exemplos multiativo abaixo
+// — ATIVOS_MULTIATIVO — não têm "participação de índice" e exigem warm manual,
+// `python -m app.scripts.warm_cache --force HGLG11 TD-IPCA-2035`, para abrir
+// como cache hit em vez de gerar tese nova na hora).
 //
 // O autocomplete é conveniência, não autoridade: o backend resolve QUALQUER
-// companhia aberta via cadastro CVM. Ticker fora desta lista segue permitido,
-// desde que passe no formato B3 (mesma regex do backend, app/schemas/tese.py).
+// companhia aberta, FII ou título público via cadastro CVM/STN. Ticker fora
+// desta lista segue permitido, desde que passe no formato B3 ou no código do
+// Tesouro Direto (união `TICKER_RE`, mesma validação do backend,
+// app/schemas/tese.py).
+
+// 'acao' | 'fii' | 'renda_fixa' — espelha app/services/ativos/base.py
+// (`codigo` de cada ClasseAtivo no backend). Fonte única da união: reusada em
+// app/tese/types.ts (`TeseOut.classe_ativo`).
+export type ClasseAtivo = "acao" | "fii" | "renda_fixa";
 
 export type PapelB3 = {
   ticker: string;
   nome: string;
   participacaoPct: number;
+  // Ausente/`undefined` == "acao": todo CARTEIRA_IBOV é ação e não precisa
+  // repetir o campo em 81 entradas — só ATIVOS_MULTIATIVO (abaixo) declara
+  // "fii"/"renda_fixa" explicitamente.
+  classe?: ClasseAtivo;
 };
 
 export const DATA_CARTEIRA_IBOV = "2026-07-08";
@@ -101,9 +116,30 @@ export const CARTEIRA_IBOV: PapelB3[] = [
   { ticker: "VAMO3", nome: "VAMOS", participacaoPct: 0.054 },
 ];
 
-// Tickers pré-gerados pelo warm-cache do backend (top 10 pesos do IBOV) — teses
-// `ready` no banco; o POST /teses devolve cache hit (custo US$ 0, abre na hora).
-// Manter em sincronia com backend/app/scripts/warm_cache.py (TICKERS_IBOV_TOP).
+// Exemplos multiativo (Fase 2, D7) FORA da carteira teórica do Ibovespa — sem
+// "peso de índice" (por isso participacaoPct = 0, mesma convenção que já
+// esconde "% do IBOV" na UI para participacaoPct <= 0). Prova viva de que o
+// motor cobre as 3 classes: FII (fundo imobiliário, cadastro CVM) e Tesouro
+// Direto (título público, STN/Tesouro Transparente).
+export const ATIVOS_MULTIATIVO: PapelB3[] = [
+  { ticker: "HGLG11", nome: "Pátria Log (FII)", participacaoPct: 0, classe: "fii" },
+  {
+    ticker: "TD-IPCA-2035",
+    nome: "Tesouro IPCA+ 2035",
+    participacaoPct: 0,
+    classe: "renda_fixa",
+  },
+];
+
+// Tickers exibidos como "exemplos prontos" (galeria/teaser/auto-início). Os 10
+// primeiros vêm do warm-cache diário do backend (top 10 pesos do IBOV,
+// TICKERS_IBOV_TOP em backend/app/scripts/warm_cache.py) — cache hit
+// garantido, custo US$ 0. Os 2 últimos (HGLG11, TD-IPCA-2035) são a prova viva
+// multiativo (Fase 2): NÃO fazem parte do warm-cache automático do scheduler
+// (app/services/scheduler.py só agenda TICKERS_IBOV_TOP) — abrem como cache
+// hit só depois de um warm manual (`python -m app.scripts.warm_cache --force
+// HGLG11 TD-IPCA-2035`); sem esse warm, o auto-início gera tese nova (custo
+// real de LLM). Manter em sincronia com backend/app/scripts/warm_cache.py.
 export const EXEMPLOS_PRONTOS = [
   "VALE3",
   "ITUB4",
@@ -115,14 +151,37 @@ export const EXEMPLOS_PRONTOS = [
   "ITSA4",
   "B3SA3",
   "WEGE3",
+  "HGLG11",
+  "TD-IPCA-2035",
 ] as const;
 
 // Formato de código de negociação B3 — espelho da validação do backend
 // (app/schemas/tese.py): raiz de 4 alfanuméricos iniciada por letra + 1-2
-// dígitos + sufixo "B" opcional (balcão organizado).
+// dígitos + sufixo "B" opcional (balcão organizado). Cobre ações, units e
+// cotas de FII (PETR4, SANB11, HGLG11). Mantida exportada por
+// compatibilidade — para validar entrada de usuário, use a união `TICKER_RE`.
 export const TICKER_B3_RE = /^[A-Z][A-Z0-9]{3}[0-9]{1,2}B?$/;
 
-const porTicker = new Map(CARTEIRA_IBOV.map((p) => [p.ticker, p]));
+// Formato do código do Tesouro Direto — espelho EXATO da gramática do backend
+// (app/services/ativos/renda_fixa.py `TD_CODIGO_RE`): TD-<SIGLA>-<ANO>, sigla
+// de uma família de título oficial + ano de vencimento de 4 dígitos (19xx/20xx).
+export const TD_RE =
+  /^TD-(?:PRE|PREJ|SELIC|IPCA|IPCAJ|IGPMJ|RENDA|EDUCA)-(?:19|20)\d{2}$/;
+
+// União B3 ∪ Tesouro Direto (Fase 2 multiativo, D4) — espelho de
+// app/schemas/tese.py (`TeseCreateIn._normalizar_e_validar`). Usar esta para
+// QUALQUER validação nova de ticker digitado pelo usuário (autocomplete,
+// formulário, gate do route handler); `TICKER_B3_RE` segue só por compat.
+export const TICKER_RE =
+  /^(?:[A-Z][A-Z0-9]{3}[0-9]{1,2}B?|TD-(?:PRE|PREJ|SELIC|IPCA|IPCAJ|IGPMJ|RENDA|EDUCA)-(?:19|20)\d{2})$/;
+
+// Catálogo completo para lookup/busca — carteira IBOV + exemplos multiativo.
+// CARTEIRA_IBOV segue exportada sozinha porque é especificamente a carteira
+// teórica DATADA (usada em textos que citam "os N maiores pesos do IBOV");
+// esta união é só para lookup/busca (autocomplete, badge de nome).
+const TODOS_PAPEIS: PapelB3[] = [...CARTEIRA_IBOV, ...ATIVOS_MULTIATIVO];
+
+const porTicker = new Map(TODOS_PAPEIS.map((p) => [p.ticker, p]));
 
 export function papelPorTicker(ticker: string): PapelB3 | undefined {
   return porTicker.get(ticker.trim().toUpperCase());
@@ -134,10 +193,10 @@ export function exemplosProntos(): PapelB3[] {
   );
 }
 
-// Slot 1..10 fixo pela ordem de EXEMPLOS_PRONTOS — usado SÓ para o nome do
+// Slot 1..12 fixo pela ordem de EXEMPLOS_PRONTOS — usado SÓ para o nome do
 // shared element CSS da assinatura "Virada de Edição" (motion; ver
 // `.vt-tese-N` em globals.css e DESIGN-BRIEF.md §4.6). Conjunto finito e
-// estático: as classes `.vt-tese-1`…`.vt-tese-10` já existem pré-declaradas
+// estático: as classes `.vt-tese-1`…`.vt-tese-12` já existem pré-declaradas
 // no CSS — isto só escolhe qual delas usar, nunca gera CSS em runtime nem
 // `style=` inline. Ticker fora da lista (gerado sob demanda) devolve `null`
 // e não recebe shared element — cai só no véu geral da página.
@@ -156,13 +215,15 @@ function chaveBusca(s: string): string {
 }
 
 // Busca para o autocomplete: prefixo de ticker primeiro, depois nome de pregão;
-// dentro de cada grupo, maior participação primeiro (ordem da carteira).
+// dentro de cada grupo, maior participação primeiro (ordem da carteira),
+// exemplos multiativo (ATIVOS_MULTIATIVO) ao final. Busca em TODOS_PAPEIS, não
+// só CARTEIRA_IBOV, para HGLG11/TD-IPCA-2035 aparecerem no combobox.
 export function buscarPapeis(consulta: string, limite = 8): PapelB3[] {
   const q = chaveBusca(consulta.trim());
   if (!q) return [];
   const porPrefixo: PapelB3[] = [];
   const porNome: PapelB3[] = [];
-  for (const papel of CARTEIRA_IBOV) {
+  for (const papel of TODOS_PAPEIS) {
     if (papel.ticker.startsWith(q)) porPrefixo.push(papel);
     else if (chaveBusca(papel.nome).includes(q)) porNome.push(papel);
   }
