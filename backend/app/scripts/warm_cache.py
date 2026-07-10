@@ -28,7 +28,7 @@ servida (GET /teses ordena por criado_em desc) e a antiga vira trilha de
 auditoria. Sem `--force` o comportamento é idêntico ao da fase 1.
 
 Uso:
-    python -m app.scripts.warm_cache            # todos os 10
+    python -m app.scripts.warm_cache            # lote default: top 10 IBOV + exemplos multiativo
     python -m app.scripts.warm_cache VALE3 WEGE3  # subconjunto
     python -m app.scripts.warm_cache --force ITUB4 BBDC4 ITSA4 B3SA3
     python -m app.scripts.warm_cache --force HGLG11 TD-IPCA-2035
@@ -62,12 +62,27 @@ TICKERS_IBOV_TOP: list[tuple[str, float]] = [
     ("WEGE3", 2.871),
 ]
 
+# Exemplos públicos multiativo da galeria (FII e renda fixa) — aquecidos junto
+# com o top 10 IBOV para o público ver resposta instantânea nas outras classes.
+# Manter em sincronia com frontend/src/lib/tickers.ts EXEMPLOS_PRONTOS.
+EXEMPLOS_MULTIATIVO: list[str] = ["HGLG11", "TD-IPCA-2035"]
+
+
+def lote_default() -> list[str]:
+    """Lote default do aquecimento — top 10 IBOV + exemplos multiativo.
+
+    Compartilhado entre o CLI (sem args) e o job `warm_cache` do scheduler:
+    paridade por construção, não por convenção.
+    """
+    return [t for t, _ in TICKERS_IBOV_TOP] + list(EXEMPLOS_MULTIATIVO)
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Argumentos do CLI. Códigos multiclasse, SEM validação contra a lista IBOV."""
     parser = argparse.ArgumentParser(
         prog="warm_cache",
-        description="Pré-gera teses (warm cache). Sem códigos: top 10 do IBOV.",
+        description="Pré-gera teses (warm cache). Sem códigos: top 10 do IBOV "
+        "+ exemplos multiativo (HGLG11, TD-IPCA-2035).",
     )
     parser.add_argument(
         "codigos",
@@ -186,5 +201,5 @@ def main(tickers: list[str], force: bool = False) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     args = _parse_args()
-    alvos = args.codigos or [t for t, _ in TICKERS_IBOV_TOP]
+    alvos = args.codigos or lote_default()
     raise SystemExit(main(alvos, force=args.force))

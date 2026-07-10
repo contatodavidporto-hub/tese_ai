@@ -53,6 +53,33 @@ def test_warm_cache_roda_por_ultimo_no_tick() -> None:
     assert nomes[-1] == "warm_cache"
 
 
+def test_job_warm_cache_aquece_lote_default_ibov_mais_multiativo(monkeypatch) -> None:
+    # O job do scheduler aquece o MESMO lote do CLI sem args (lote_default):
+    # top 10 IBOV + exemplos multiativo (HGLG11, TD-IPCA-2035).
+    from app.scripts import warm_cache as wc
+
+    recebido: dict = {}
+
+    def _aquecer(tickers):
+        recebido["tickers"] = list(tickers)
+        return {"prontas": 12, "total": 12, "custo_usd": 0.0, "falhas": []}
+
+    monkeypatch.setattr(wc, "aquecer", _aquecer)
+    detalhe = sch._job_warm_cache()
+
+    assert recebido["tickers"] == wc.lote_default()
+    assert recebido["tickers"][-2:] == ["HGLG11", "TD-IPCA-2035"]
+    assert "12/12 ready" in str(detalhe)
+
+
+def test_warm_cache_timeout_dimensionado_para_12_geracoes() -> None:
+    # Lote default cresceu para 12 gerações (top 10 IBOV + 2 multiativo):
+    # timeout do job acompanha (2400s), senão o tick mata o lote frio no fim.
+    jobs = sch.jobs_configurados(_settings())
+    warm = next(j for j in jobs if j.nome == "warm_cache")
+    assert warm.timeout_s == 2400
+
+
 def test_intervalo_zero_desliga_o_job() -> None:
     jobs = sch.jobs_configurados(
         _settings(
