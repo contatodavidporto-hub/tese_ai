@@ -14,20 +14,31 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class TeseCreateIn(BaseModel):
-    # Formato de ticker B3: raiz de 4 alfanuméricos iniciada por letra + 1-2 dígitos
-    # + sufixo 'B' opcional (balcão). Validar o FORMATO reduz a superfície de entrada
-    # (defesa em profundidade — o resolvedor de cadastro é a autoridade final).
-    ticker: str = Field(..., min_length=4, max_length=7, examples=["PETR4"])
+    # União de formatos aceitos (D4 — Fase 2 multiativo):
+    # - ticker B3: raiz de 4 alfanuméricos iniciada por letra + 1-2 dígitos + sufixo
+    #   'B' opcional (balcão) — cobre ações, units e cotas de FII (PETR4, SANB11,
+    #   HGLG11);
+    # - código do Tesouro Direto: gramática TD-<SIGLA>-<ANO> (ex.: TD-IPCA-2035).
+    # Validar o FORMATO reduz a superfície de entrada (defesa em profundidade —
+    # a autoridade final é o resolvedor por classe: ativos.identidade + cadastros).
+    ticker: str = Field(..., min_length=4, max_length=16, examples=["PETR4", "TD-IPCA-2035"])
 
     @field_validator("ticker")
     @classmethod
     def _normalizar_e_validar(cls, v: str) -> str:
         import re
 
+        # Import local: fonte ÚNICA da gramática TD (sem acoplar o módulo de
+        # schemas ao pacote de serviços no import-time).
+        from app.services.ativos.renda_fixa import TD_CODIGO_RE
+
         alvo = (v or "").strip().upper()
-        if not re.fullmatch(r"[A-Z][A-Z0-9]{3}[0-9]{1,2}B?", alvo):
-            raise ValueError("ticker inválido (formato B3 esperado, ex.: PETR4)")
-        return alvo
+        if re.fullmatch(r"[A-Z][A-Z0-9]{3}[0-9]{1,2}B?", alvo) or TD_CODIGO_RE.fullmatch(alvo):
+            return alvo
+        raise ValueError(
+            "ticker inválido (esperado formato B3, ex.: PETR4, ou código do "
+            "Tesouro Direto, ex.: TD-IPCA-2035)"
+        )
 
 
 class TeseCreateOut(BaseModel):
@@ -69,6 +80,9 @@ class TeseOut(BaseModel):
     id: uuid.UUID
     ticker: str
     status: str
+    # Classe do ativo ('acao'|'fii'|'renda_fixa'); None = ação (legado — NULL no
+    # banco significa 'acao', migração 0005) ou tese anterior à Fase 2. Aditivo.
+    classe_ativo: str | None = None
     criado_em: dt.datetime | None = None
     # Disclaimer regulatório fixo — nunca é recomendação de compra/venda.
     aviso: str = (

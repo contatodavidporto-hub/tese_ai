@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { backendUrl } from "@/lib/backend";
+import { TICKER_RE } from "@/lib/tickers";
 
 // Proxy SERVER-SIDE para o backend FastAPI.
 // O CSP do app (src/proxy.ts) tem `connect-src 'self'`, então o NAVEGADOR só pode
@@ -13,8 +14,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const apiUrl = backendUrl();
   if (!apiUrl) {
+    console.error("api/teses: API_URL ausente no ambiente do servidor");
     return NextResponse.json(
-      { detail: "Backend não configurado (defina API_URL no ambiente do servidor)." },
+      { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
       { status: 502 },
     );
   }
@@ -41,6 +43,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Espelho da validação do backend (app/schemas/tese.py): corta lixo aqui e
+  // não amplifica abuso até o FastAPI (defesa em profundidade, mesma união
+  // B3 ∪ Tesouro Direto — TICKER_RE de lib/tickers.ts, fonte única do front).
+  // min_length=4/max_length=16 espelham o `Field` do Pydantic no backend.
+  const normalizado = ticker.trim().toUpperCase();
+  if (
+    normalizado.length < 4 ||
+    normalizado.length > 16 ||
+    !TICKER_RE.test(normalizado)
+  ) {
+    return NextResponse.json(
+      {
+        detail:
+          "Ticker fora do formato aceito (ex.: PETR4, HGLG11, ou código do Tesouro Direto como TD-IPCA-2035).",
+      },
+      { status: 400 },
+    );
+  }
+
   // Repassa o x-forwarded-for (a Vercel injeta o IP real do cliente) para fins
   // de log/auditoria no backend. A CHAVE do rate-limit usa o hop confiável (IP
   // de egress deste proxy) até existir login — ver app/core/ratelimit.py.
@@ -53,7 +74,7 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
         ...(xff ? { "x-forwarded-for": xff } : {}),
       },
-      body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
+      body: JSON.stringify({ ticker: normalizado }),
       cache: "no-store",
       // Sem timeout a função serverless ficaria pendurada até o maxDuration.
       signal: AbortSignal.timeout(10_000),

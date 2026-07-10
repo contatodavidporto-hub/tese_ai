@@ -12,6 +12,10 @@ plano de contas não tem esses CD_CONTA, as métricas abstêm naturalmente (acha
 
 from __future__ import annotations
 
+# Chave da linha de Depreciação/Amortização vinda dos ajustes da DFC (o CD_CONTA
+# dela varia entre empresas; o ingestor a localiza por descrição e a expõe aqui).
+CHAVE_DA = "D&A (DFC)"
+
 # Componentes (CD_CONTA da CVM) de cada métrica derivada. Documentados para a
 # fonte composta e para o teste.
 COMPONENTES: dict[str, list[str]] = {
@@ -19,6 +23,9 @@ COMPONENTES: dict[str, list[str]] = {
     "Caixa e aplicações": ["1.01.01", "1.01.02"],
     # Dívida líquida = dívida bruta − caixa e aplicações (componentes das duas acima).
     "Dívida líquida": ["2.01.04", "2.02.01", "1.01.01", "1.01.02"],
+    # EBITDA = EBIT (3.05) + D&A (linha real dos ajustes da DFC). Sem a linha de
+    # D&A (ou com match ambíguo), abstém — cobre a lacuna "EBITDA" SÓ com fonte.
+    "EBITDA": ["3.05", CHAVE_DA],
 }
 
 
@@ -51,12 +58,25 @@ def divida_liquida(contas: dict[str, float]) -> tuple[float | None, list[str]]:
     return db - cx, codigos
 
 
-# Registro (nome -> função) para o ingestor iterar. EBITDA e FCF livre NÃO entram
-# aqui de propósito: EBITDA exige depreciação/amortização (não disponível de forma
-# confiável nas demonstrações padronizadas) e FCF livre exige CapEx (sub-linha
-# instável de investimento). Sem esses componentes, permanecem como LACUNA explícita
-# — nunca estimados. EBIT (3.05) e FCO (6.01) entram como contas factuais diretas.
+def ebitda(contas: dict[str, float]) -> tuple[float | None, list[str]]:
+    """EBIT + D&A da DFC (valor absoluto: na DFC o ajuste soma de volta ao lucro).
+
+    Abstém se o EBIT ou a linha de D&A faltar (ou se a D&A foi ambígua na fonte).
+    """
+    codigos = COMPONENTES["EBITDA"]
+    ebit = contas.get("3.05")
+    da = contas.get(CHAVE_DA)
+    if ebit is None or da is None:
+        return None, codigos
+    return float(ebit) + abs(float(da)), codigos
+
+
+# Registro (nome -> função) para o ingestor iterar. EBITDA entra SÓ quando a linha
+# de D&A existe (inequívoca) nos ajustes da DFC — senão permanece LACUNA explícita.
+# FCF livre segue fora (CapEx é sub-linha instável de investimento). EBIT (3.05) e
+# FCO (6.01) entram como contas factuais diretas.
 DERIVADAS = {
     "Dívida bruta (derivado)": divida_bruta,
     "Dívida líquida (derivado)": divida_liquida,
+    "EBITDA (derivado)": ebitda,
 }

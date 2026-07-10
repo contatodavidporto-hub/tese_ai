@@ -79,6 +79,60 @@ def test_synthesize_mapeia_citacoes_para_fontes():
     assert documents[-1]["cache_control"] == {"type": "ephemeral"}
 
 
+class _FakeLangfuseGen:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _FakeLangfuse:
+    """Captura o que o motor manda pro Langfuse (traço de custo/tokens)."""
+
+    def __init__(self):
+        self.updates: list[dict] = []
+
+    def start_as_current_observation(self, **kwargs):
+        self.started = kwargs
+        return _FakeLangfuseGen()
+
+    def update_current_generation(self, **kwargs):
+        self.updates.append(kwargs)
+
+
+def test_synthesize_traca_custo_e_tokens_no_langfuse(monkeypatch):
+    """Com LANGFUSE_* presente, cada geração traça tokens completos + custo USD."""
+    lf = _FakeLangfuse()
+    monkeypatch.setattr(tese_svc, "get_langfuse", lambda: lf)
+
+    f = _fonte("https://x/y", "fonte")
+    documents, index_to_fonte = tese_svc._build_documents([(f, "texto")])
+    block = SimpleNamespace(type="text", text="Texto.", citations=[])
+    usage = SimpleNamespace(
+        input_tokens=1000,
+        output_tokens=500,
+        cache_read_input_tokens=200,
+        cache_creation_input_tokens=100,
+    )
+    client = _FakeClient(SimpleNamespace(content=[block], usage=usage))
+
+    tese_svc._synthesize(client, "claude-opus-4-8", documents, index_to_fonte, "PETR4", "Petrobras")
+
+    assert lf.started["as_type"] == "generation"
+    assert len(lf.updates) == 1
+    upd = lf.updates[0]
+    assert upd["model"] == "claude-opus-4-8"
+    assert upd["usage_details"] == {
+        "input": 1000,
+        "output": 500,
+        "cache_read_input_tokens": 200,
+        "cache_creation_input_tokens": 100,
+    }
+    # Custo estimado em USD acompanha o traço (não depende do catálogo do Langfuse).
+    assert upd["cost_details"]["total"] > 0
+
+
 def test_synthesize_sem_citacoes_ainda_gera_markdown():
     f = _fonte("https://x/y", "fonte")
     documents, index_to_fonte = tese_svc._build_documents([(f, "texto")])

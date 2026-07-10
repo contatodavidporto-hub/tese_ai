@@ -1,5 +1,7 @@
 // Tipos do contrato da API de teses (FastAPI). Mantidos próximos da UI que os consome.
 
+import type { ClasseAtivo } from "@/lib/tickers";
+
 export type TeseStatus = "processing" | "ready" | "error";
 
 export type Fonte = {
@@ -28,6 +30,10 @@ export type TeseOut = {
   id: string;
   ticker: string;
   status: TeseStatus;
+  // 'acao' | 'fii' | 'renda_fixa'; `null`/ausente = ação (legado — NULL no
+  // banco antes da Fase 2 multiativo, ver backend/app/schemas/tese.py). Campo
+  // aditivo: teses antigas seguem válidas sem ele.
+  classe_ativo?: ClasseAtivo | null;
   criado_em: string | null;
   aviso: string;
   markdown: string | null;
