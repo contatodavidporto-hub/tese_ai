@@ -155,25 +155,28 @@ export const EXEMPLOS_PRONTOS = [
   "TD-IPCA-2035",
 ] as const;
 
-// Formato de código de negociação B3 — espelho da validação do backend
-// (app/schemas/tese.py): raiz de 4 alfanuméricos iniciada por letra + 1-2
-// dígitos + sufixo "B" opcional (balcão organizado). Cobre ações, units e
-// cotas de FII (PETR4, SANB11, HGLG11). Mantida exportada por
-// compatibilidade — para validar entrada de usuário, use a união `TICKER_RE`.
-export const TICKER_B3_RE = /^[A-Z][A-Z0-9]{3}[0-9]{1,2}B?$/;
+// Gramáticas-fonte dos códigos aceitos — UMA definição por classe, compostas
+// abaixo (nunca regex duplicada no arquivo):
+// - B3: espelho da validação do backend (app/schemas/tese.py): raiz de 4
+//   alfanuméricos iniciada por letra + 1-2 dígitos + sufixo "B" opcional
+//   (balcão organizado). Cobre ações, units e cotas de FII (PETR4, SANB11,
+//   HGLG11).
+// - Tesouro Direto: espelho EXATO da gramática do backend
+//   (app/services/ativos/renda_fixa.py `TD_CODIGO_RE`): TD-<SIGLA>-<ANO>,
+//   sigla de uma família de título oficial + ano de vencimento de 4 dígitos
+//   (19xx/20xx).
+const B3_GRAMATICA = "[A-Z][A-Z0-9]{3}[0-9]{1,2}B?";
+const TD_GRAMATICA = "TD-(?:PRE|PREJ|SELIC|IPCA|IPCAJ|IGPMJ|RENDA|EDUCA)-(?:19|20)\\d{2}";
 
-// Formato do código do Tesouro Direto — espelho EXATO da gramática do backend
-// (app/services/ativos/renda_fixa.py `TD_CODIGO_RE`): TD-<SIGLA>-<ANO>, sigla
-// de uma família de título oficial + ano de vencimento de 4 dígitos (19xx/20xx).
-export const TD_RE =
-  /^TD-(?:PRE|PREJ|SELIC|IPCA|IPCAJ|IGPMJ|RENDA|EDUCA)-(?:19|20)\d{2}$/;
+// Formato de código de negociação B3 sozinho. Mantida exportada por
+// compatibilidade — para validar entrada de usuário, use a união `TICKER_RE`.
+export const TICKER_B3_RE = new RegExp(`^${B3_GRAMATICA}$`);
 
 // União B3 ∪ Tesouro Direto (Fase 2 multiativo, D4) — espelho de
 // app/schemas/tese.py (`TeseCreateIn._normalizar_e_validar`). Usar esta para
 // QUALQUER validação nova de ticker digitado pelo usuário (autocomplete,
 // formulário, gate do route handler); `TICKER_B3_RE` segue só por compat.
-export const TICKER_RE =
-  /^(?:[A-Z][A-Z0-9]{3}[0-9]{1,2}B?|TD-(?:PRE|PREJ|SELIC|IPCA|IPCAJ|IGPMJ|RENDA|EDUCA)-(?:19|20)\d{2})$/;
+export const TICKER_RE = new RegExp(`^(?:${B3_GRAMATICA}|${TD_GRAMATICA})$`);
 
 // Catálogo completo para lookup/busca — carteira IBOV + exemplos multiativo.
 // CARTEIRA_IBOV segue exportada sozinha porque é especificamente a carteira
