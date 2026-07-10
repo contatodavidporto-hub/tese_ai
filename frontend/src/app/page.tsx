@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Tese AI — a tese inteira, com a fonte de cada número",
   description:
-    "Gere teses de investimento estruturadas para ações da B3 cruzando fundamentos, macro e geopolítica — cada número com fonte e data, cada lacuna declarada. Não é recomendação de compra ou venda.",
+    "Gere teses de investimento estruturadas para ações da B3, FIIs e Tesouro Direto cruzando fundamentos, macro e geopolítica — cada número com fonte e data, cada lacuna declarada. Não é recomendação de compra ou venda.",
 };
 
 function formatDataIso(iso: string): string {
@@ -94,6 +94,9 @@ export default function Home() {
   // (fonte B3, mesma data em todo o produto) — nenhum número aqui é inventado.
   const provaViva = exemplos.slice(0, 3);
   const dataCarteira = formatDataIso(DATA_CARTEIRA_IBOV);
+  // Contagem derivada do catálogo (nunca hardcoded, ver app/teses/page.tsx).
+  const acoesExemplo = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
+  const multiativoExemplo = exemplos.length - acoesExemplo;
 
   return (
     <>
@@ -214,8 +217,9 @@ export default function Home() {
                   Teses de exemplo — abrem na hora
                 </h2>
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                  Pré-geradas pelo motor para os 10 maiores pesos da carteira teórica do
-                  Ibovespa (B3, {dataCarteira}) e mantidas em cache. Clique e leia a tese
+                  Pré-geradas pelo motor: os {acoesExemplo} maiores pesos da carteira teórica
+                  do Ibovespa (B3, {dataCarteira}) e {multiativoExemplo} exemplos multiativo — um
+                  FII, um título do Tesouro Direto — mantidos em cache. Clique e leia a tese
                   completa, com citações e fontes — se o cache tiver expirado, ela é regenerada
                   na hora.
                 </p>
