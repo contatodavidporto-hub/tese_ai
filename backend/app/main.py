@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -18,6 +19,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.ratelimit import limiter
 from app.observability.langfuse_client import get_langfuse
 from app.routers import teses as teses_router
+from app.services.scheduler import scheduler_loop
 
 settings = get_settings()
 configure_logging(settings.app_env)
@@ -123,7 +125,15 @@ async def _receive_vazio() -> Message:
 async def lifespan(app: FastAPI):
     logger.info("app_startup", app_env=settings.app_env)
     get_langfuse()  # inicializa observabilidade (no-op se não configurada)
+    # Scheduler in-app (jobs de manutenção; ver app/services/scheduler.py).
+    # Kill-switch por env; falha de job nunca afeta /health (task separada).
+    scheduler_task: asyncio.Task | None = None
+    if settings.scheduler_enabled:
+        scheduler_task = asyncio.create_task(scheduler_loop(settings))
     yield
+    if scheduler_task is not None:
+        scheduler_task.cancel()
+        await asyncio.gather(scheduler_task, return_exceptions=True)
     logger.info("app_shutdown")
 
 

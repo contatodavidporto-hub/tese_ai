@@ -20,6 +20,8 @@ from app.core.ratelimit import limiter
 from app.db.session import SessionLocal, get_session
 from app.models.models import Tese, TeseVersao
 from app.schemas.tese import TeseCreateIn, TeseCreateOut, TeseOut
+from app.services.ativos.identidade import resolver_classe
+from app.services.dados import DadoNaoEncontrado
 from app.services.tese import buscar_tese_cache, criar_tese, gerar_tese, reaper_teses_orfas
 
 logger = get_logger(__name__)
@@ -67,9 +69,24 @@ def post_tese(
         logger.info("tese_cache_hit", tese_id=str(cache.id), ticker=cache.ticker)
         return TeseCreateOut(id=cache.id, ticker=cache.ticker, status=cache.status)
 
+    # Identidade do ativo (D4/etapa 6): TD-* -> renda_fixa; sufixo 11-13 consulta
+    # cvm_cadastro (units vencem) e depois fii_cadastro; demais sufixos -> ação.
+    # Abstenção (DadoNaoEncontrado) NÃO muda o contrato do POST: o job de geração
+    # abstém como sempre ("dado não encontrado") — comportamento legado intacto.
+    classe: str | None = None
+    try:
+        classe, _payload = resolver_classe(body.ticker, session)
+    except DadoNaoEncontrado as exc:
+        logger.warning("classe_ativo_nao_resolvida", ticker=body.ticker, detalhe=str(exc))
+
     tese = criar_tese(session, body.ticker)
+    if classe is not None and classe != "acao":
+        # Grava só as classes NOVAS: NULL = 'acao' (migração 0005) mantém o
+        # caminho legado da ação byte-idêntico (sem escrita/commit extra).
+        tese.classe_ativo = classe
+        session.commit()
     background.add_task(_run_generation, tese.id)
-    logger.info("tese_enfileirada", tese_id=str(tese.id), ticker=tese.ticker)
+    logger.info("tese_enfileirada", tese_id=str(tese.id), ticker=tese.ticker, classe_ativo=classe)
     return TeseCreateOut(id=tese.id, ticker=tese.ticker, status=tese.status)
 
 
@@ -86,7 +103,14 @@ def get_tese(tese_id: uuid.UUID, session: Annotated[Session, Depends(get_session
         .limit(1)
     ).scalar_one_or_none()
 
-    out = TeseOut(id=tese.id, ticker=tese.ticker, status=tese.status, criado_em=tese.criado_em)
+    out = TeseOut(
+        id=tese.id,
+        ticker=tese.ticker,
+        status=tese.status,
+        # getattr: robusto a teses fake/legadas sem o atributo (aditivo, D4).
+        classe_ativo=getattr(tese, "classe_ativo", None),
+        criado_em=tese.criado_em,
+    )
     if versao is None or not versao.conteudo:
         return out
 

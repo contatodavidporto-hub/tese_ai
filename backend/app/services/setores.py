@@ -10,11 +10,31 @@ Achado A3 do red-team: mapear setor B3 -> pares globais é um JULGAMENTO. Por is
 
 from __future__ import annotations
 
-CRITERIO_VERSAO = "v1 (2026-06-30)"
+# Versão do critério de seleção (D9): v2 adiciona 'bancos' (SIC 6021) com a
+# ressalva US-GAAP × IFRS explícita no rótulo do critério.
+CRITERIO_VERSAO = "v2 (2026-07-08)"
+
+# Fonte do CRITÉRIO (não dos dados): a classificação setorial vem do código SIC
+# atribuído pela SEC a cada registrante (EDGAR company facts/submissions,
+# https://www.sec.gov/cgi-bin/browse-edgar) — a lista de pares por SIC é uma
+# CURADORIA interna versionada, não um índice oficial.
+CRITERIO_FONTE = "classificação SIC da SEC (EDGAR) + curadoria interna versionada"
 
 # setor B3 (substring, minúsculo) -> {sic, pares: [(ticker_ext, nome_ext)]}.
 # Pares = grandes comparáveis globais do setor (US-GAAP 10-K ou IFRS 20-F na SEC).
 PARES_POR_SETOR: dict[str, dict] = {
+    # D9 — bancos (SIC 6021, National Commercial Banks): os 4 grandes bancos
+    # comerciais dos EUA, via SEC companyfacts (já integrado). Comparação sempre
+    # com ressalva US-GAAP × IFRS (bancos BR reportam em IFRS/BRGAAP-BCB).
+    "banco": {
+        "sic": "6021",
+        "pares": [
+            ("JPM", "JPMorgan Chase & Co."),
+            ("BAC", "Bank of America Corporation"),
+            ("C", "Citigroup Inc."),
+            ("WFC", "Wells Fargo & Company"),
+        ],
+    },
     "petróleo": {
         "sic": "1311",
         "pares": [
@@ -81,8 +101,15 @@ def selecionar_pares(setor: str | None) -> tuple[dict | None, str | None]:
 
 
 def criterio_selecao(sic: str) -> str:
-    """Rótulo que marca o par como SELEÇÃO interpretativa (não par oficial)."""
+    """Rótulo que marca o par como SELEÇÃO interpretativa (não par oficial).
+
+    Gravado em `pares.criterio_selecao` e na `Fonte` do critério: inclui a
+    versão datada, a fonte do critério (D9) e a ressalva US-GAAP × IFRS — a
+    comparação nunca é apresentada como equivalência contábil.
+    """
     return (
         f"Comparável setorial SELECIONADO (interpretação) — "
-        f"critério interno {CRITERIO_VERSAO}, SIC {sic}"
+        f"critério interno {CRITERIO_VERSAO}, SIC {sic}; "
+        f"fonte do critério: {CRITERIO_FONTE}; "
+        f"ressalva: padrão contábil US-GAAP × IFRS e moeda podem diferir"
     )
