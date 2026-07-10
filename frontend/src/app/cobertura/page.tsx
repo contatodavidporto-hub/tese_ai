@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Cobertura",
   description:
-    "O que o Tese AI cobre hoje: teses completas para qualquer papel da B3, exemplos pré-gerados que abrem na hora, e o roadmap honesto para FIIs e renda fixa.",
+    "O que o Tese AI cobre hoje: teses completas para ações da B3, FIIs e títulos do Tesouro Direto, com exemplos pré-gerados que abrem na hora.",
 };
 
 function formatDataIso(iso: string): string {
@@ -27,6 +27,9 @@ type ClasseInvestimento = {
   titulo: string;
   descricao: string;
   disponivel: boolean;
+  // Exemplo pronto (cache aquecido) desta classe — cada classe leva a um
+  // ticker distinto em vez do genérico "/tese" (Fase 2 multiativo).
+  href: string;
 };
 
 const CLASSES: ClasseInvestimento[] = [
@@ -36,20 +39,23 @@ const CLASSES: ClasseInvestimento[] = [
     descricao:
       "Qualquer companhia aberta com cadastro na CVM. A tese cruza fundamentos, pares globais, macro e geopolítica em cinco dimensões, fechada com síntese e contra-tese.",
     disponivel: true,
+    href: "/tese",
   },
   {
     numero: "02",
     titulo: "FIIs",
     descricao:
-      "Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e citação das ações, adaptada aos indicadores do setor.",
-    disponivel: false,
+      "Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e citação das ações, com o informe mensal da CVM como eixo próprio de fundamentos.",
+    disponivel: true,
+    href: "/tese?ticker=HGLG11",
   },
   {
     numero: "03",
     titulo: "Renda fixa / Tesouro",
     descricao:
-      "Títulos públicos e privados de renda fixa, com curva de juros e risco de crédito como eixos próprios de análise.",
-    disponivel: false,
+      "Títulos públicos do Tesouro Direto — taxas e preços com Data Base, marcação a mercado e cenário de juros e inflação, sempre separados de qualquer sugestão de compra ou carrego.",
+    disponivel: true,
+    href: "/tese?ticker=TD-IPCA-2035",
   },
 ];
 
@@ -97,14 +103,14 @@ export default function Cobertura() {
             </Reveal>
             <Reveal className="i-2">
               <h1 className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink">
-                O que está impresso nesta edição — e o que ainda está no prelo.
+                O que está impresso nesta edição.
               </h1>
             </Reveal>
             <Reveal className="i-3">
               <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                Ações da B3 têm cobertura completa hoje. FIIs e renda fixa
-                estão no roadmap, anunciados com a mesma dignidade — sem data
-                prometida, porque não temos uma para dar.
+                Ações da B3, FIIs e títulos do Tesouro Direto têm cobertura
+                completa hoje — a mesma disciplina de fonte e citação em
+                qualquer classe, sem exceção.
               </p>
             </Reveal>
           </div>
@@ -128,8 +134,10 @@ export default function Cobertura() {
             </h2>
             {/* D6 (hierarquia de banca): Ações é a capa-lead (largura/proeminência
                 maior); FIIs + Renda fixa formam o par secundário abaixo — mesma
-                estrutura completa (selo "Em breve" preservado, gaveta presente
-                mas trancada, nunca meio-tom apagado). */}
+                estrutura completa. As 3 classes estão `disponivel: true` hoje
+                (Fase 2 multiativo); o selo "Em breve" abaixo fica dormente,
+                pronto para uma futura classe ainda não coberta, sem precisar
+                reescrever o layout quando isso acontecer. */}
             <div className="stagger flex flex-col gap-4">
               <Reveal
                 variant="reveal-ticker"
@@ -150,7 +158,7 @@ export default function Cobertura() {
                   </p>
                   {CLASSE_LEAD.disponivel && (
                     <Link
-                      href="/tese"
+                      href={CLASSE_LEAD.href}
                       className="mt-1 inline-flex w-fit items-center bg-brasa px-6 py-3 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                     >
                       Gerar tese →
@@ -189,7 +197,7 @@ export default function Cobertura() {
                       </div>
                       {classe.disponivel ? (
                         <Link
-                          href="/tese"
+                          href={classe.href}
                           className="mt-2 inline-flex w-fit items-center bg-brasa px-4 py-2 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                         >
                           Gerar tese →
@@ -246,8 +254,9 @@ export default function Cobertura() {
               ))}
             </ul>
             <p className="font-mono text-meta text-ink-3">
-              {EXEMPLOS_PRONTOS.length} exemplos em cache · carteira teórica do
-              Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}) ·{" "}
+              {EXEMPLOS_PRONTOS.length} exemplos em cache · maiores pesos da
+              carteira teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}
+              ) + 1 FII + 1 Tesouro Direto ·{" "}
               <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
                 ver a galeria completa
               </Link>
