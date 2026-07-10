@@ -208,16 +208,24 @@ _DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
 # 12%" passava; agora nada é deletado e só a ressalva literal protege).
 # Forma: negação + cadeia VERBO-PRIMEIRO de conectores + termo-quebra
 # ('não/nem é|representa|deve|pode ser [lido como] DY/yield/valor a preço de
-# mercado', 'nem deve ser anualizado') OU negação + particípio direto ('nunca
-# anualizado'). Verbo-primeiro impede 'nem o DY anualizado de 12%' de se
-# proteger; 'não raro supera...' e 'não por acaso...' seguem desprotegidos.
+# mercado', 'nem deve ser anualizado') OU negação/'sem' + particípio direto
+# ('nunca anualizado', 'sem anualizar'). Verbo-primeiro impede 'nem o DY
+# anualizado de 12%' de se proteger; 'não raro supera...' e 'não por acaso...'
+# seguem desprotegidos. Falso positivo de PRODUÇÃO (HGLG11, 2026-07-10)
+# ampliou o reconhecimento com 3 formas reais da ressalva, cada uma justificada
+# por frase verbatim do banco: gerúndios 'sendo'/'devendo' no ramo verbo-
+# primeiro ('não sendo DY a preço de mercado', 'não devendo ser anualizado' —
+# o conector 'ser' já existente completa o segundo) e a preposição 'sem' no
+# ramo do particípio direto ('sem anualizar', 'sem ser anualizado'). O span
+# protegido continua cobrindo SÓ a ressalva: 'Sem anualizar seria conservador
+# demais; o DY anualizado atinge 9,5%' segue vetado (o claim fica fora).
 _DY_CAVEAT_PROTEGIDO_RE = re.compile(
     r"(?:n[ãa]o|nunca|jamais|nem)\s+"
-    r"(?:[ée]|ser[áã]?|sido|deve(?:ria|m|r[áã])?|pode(?:m|r[áã])?|representa(?:m)?"
+    r"(?:[ée]|ser[áã]?|sendo|sido|deve(?:ria|m|r[áã]|ndo)?|pode(?:m|r[áã])?|representa(?:m)?"
     r"|constitui|equivale|corresponde|reflete(?:m)?|foi|seja|est[áa])\s+"
     r"(?:(?:ser|sido|lid[oa]|como|o|a|um|uma|dy|dividend|yield|rendimento|valor|de)\s+){0,4}"
     r"(?:anualiza\w*|a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b)"
-    r"|(?:n[ãa]o|nunca|jamais|nem)\s+anualiza\w*",
+    r"|(?:n[ãa]o|nunca|jamais|nem|sem)\s+(?:ser\s+|sido\s+)?anualiza\w*",
     re.IGNORECASE,
 )
 # 'VP/DY' (e as formas do motor: 'valor patrimonial/dividend yield' do
@@ -413,7 +421,10 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
                 if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo, fim_frase):
                     continue  # DY mensal do informe, auto-declarado e rotulado
-                achados.append(f"{rotulo}: '{frase.strip()[:120]}'")
+                # 240 chars: o corte em 120 truncava a frase ANTES do trecho
+                # que causou o veto (diagnóstico do FP de produção 10/07 exigiu
+                # reconstruir o texto no banco) — laudo precisa mostrar o gatilho.
+                achados.append(f"{rotulo}: '{frase.strip()[:240]}'")
     return achados
 
 
