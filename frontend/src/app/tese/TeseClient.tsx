@@ -16,7 +16,7 @@ import {
   atualizarStatusHistorico,
   registrarNoHistorico,
 } from "@/lib/historico";
-import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
+import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseView } from "./TeseView";
 import { TickerCombobox } from "./TickerCombobox";
 import type { CriarTeseResposta, TeseOut } from "./types";
@@ -168,9 +168,9 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   const iniciarPorTicker = useCallback(
     async (tickerBruto: string) => {
       const normalizado = tickerBruto.trim().toUpperCase();
-      if (!TICKER_B3_RE.test(normalizado)) {
+      if (!TICKER_RE.test(normalizado)) {
         setErroLocal(
-          "Ticker fora do formato da B3 (ex.: PETR4, VALE3, TAEE11). Confira o código e tente de novo — nenhuma chamada foi feita.",
+          "Ticker fora do formato aceito — ex.: PETR4, HGLG11, TD-IPCA-2035. Confira o código e tente de novo — nenhuma chamada foi feita.",
         );
         return;
       }

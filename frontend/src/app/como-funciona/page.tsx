@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Como funciona",
   description:
-    "Como o motor do Tese AI monta uma tese: as cinco dimensões de dados com suas fontes oficiais, a síntese com citações verificáveis e a tese auditável que sai no fim — sem recomendação de compra ou venda.",
+    "Como o motor do Tese AI monta uma tese: as dimensões de dados com suas fontes oficiais — cinco para ações da B3; subconjunto próprio para FIIs e Tesouro Direto —, a síntese com citações verificáveis e a tese auditável que sai no fim — sem recomendação de compra ou venda.",
 };
 
 // Etapas do pipeline (ARQUITETURA.md, contrato TeseOut + orquestracao.py do
@@ -23,11 +23,12 @@ export const metadata = {
 const ETAPAS = [
   {
     rotulo: "Ticker",
-    texto: "Código B3 validado no formato oficial de negociação.",
+    texto:
+      "Código validado no formato oficial — negociação B3 (ação ou FII) ou título do Tesouro Direto.",
   },
   {
     rotulo: "Ingestão",
-    texto: "As cinco dimensões abaixo, cada uma buscada na sua fonte oficial.",
+    texto: "Até cinco dimensões, conforme a classe do ativo — cada uma buscada na sua fonte oficial.",
   },
   {
     rotulo: "Síntese com citações",
@@ -256,7 +257,11 @@ export default function ComoFuncionaPage() {
                   </h2>
                   <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                     Cada cláusula abaixo é buscada e citada na fonte oficial correspondente; a
-                    síntese final separa sempre o que é fato do que é interpretação.
+                    síntese final separa sempre o que é fato do que é interpretação. O quadro
+                    completo vale para as ações da B3 — FIIs e títulos do Tesouro Direto usam um
+                    subconjunto próprio, sem pares globais (02) nem macro global dedicada (04):
+                    FIIs cruzam o informe mensal CVM com juros e elos; o Tesouro, taxas e preços
+                    da STN com juros, inflação e elos.
                   </p>
                 </Reveal>
 

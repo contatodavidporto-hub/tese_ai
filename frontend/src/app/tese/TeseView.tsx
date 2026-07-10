@@ -5,7 +5,7 @@
 
 import { classesReveal, Reveal, useReveal } from "@/components/motion/Reveal";
 import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
-import { papelPorTicker, slotVirada } from "@/lib/tickers";
+import { papelPorTicker, slotVirada, type ClasseAtivo } from "@/lib/tickers";
 import {
   Blocos,
   construirRefs,
@@ -94,6 +94,34 @@ function FonteLink({ fonte }: { fonte: Fonte }) {
 
 function ehSecaoLacunas(secao: Secao): boolean {
   return /lacunas/i.test(secao.titulo);
+}
+
+const ROTULO_POR_CLASSE: Record<ClasseAtivo, string> = {
+  acao: "Ação",
+  fii: "FII",
+  renda_fixa: "Renda fixa",
+};
+
+// Rótulo curto da classe do ativo (Fase 2 multiativo) para o selo do
+// masthead — FAIL-CLOSED (selo errado é pior que selo nenhum):
+// 1) resposta com `classe_ativo` conhecida -> usa (backend é a autoridade);
+// 2) resposta sem classe (NULL legado da migração 0005 / backend pré-Fase 2)
+//    -> infere do catálogo local (TODOS_PAPEIS; ausência de `classe` no
+//    catálogo == ação, convenção de lib/tickers.ts) — evita rotular HGLG11/
+//    TD-* de "Ação" quando o backend ainda não envia o campo;
+// 3) valor futuro desconhecido do backend, ou ticker fora do catálogo ->
+//    `null` (nenhum selo; omitir > errar).
+function rotuloClasse(tese: TeseOut): string | null {
+  // Alarga para string: o contrato tipa a união, mas em runtime o backend
+  // pode evoluir antes do front — string futura NUNCA pode virar "Ação".
+  const classe: string | null | undefined = tese.classe_ativo;
+  if (classe != null) {
+    return Object.hasOwn(ROTULO_POR_CLASSE, classe)
+      ? ROTULO_POR_CLASSE[classe as ClasseAtivo]
+      : null;
+  }
+  const papel = papelPorTicker(tese.ticker);
+  return papel ? ROTULO_POR_CLASSE[papel.classe ?? "acao"] : null;
 }
 
 // A seção "4. Camada geopolítica e correlações" é a D5 do ARQUITETURA.md — a
@@ -247,10 +275,12 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   const secaoLacunas = documento?.secoes.find(ehSecaoLacunas);
   const temEstrutura = (documento?.secoes.length ?? 0) > 0;
   // Virada de Edição (motion): mesmo slot estático da galeria/teaser — só
-  // os 10 tickers pré-gerados recebem shared element (view-transition-name
+  // os 12 tickers pré-gerados recebem shared element (view-transition-name
   // via classe pré-declarada); os demais seguem sem nome, cobertos só pelo
   // véu de `.virada-edicao` (tese/page.tsx).
   const slotEdicao = slotVirada(tese.ticker);
+  // `null` = classe indeterminável -> nenhum selo (fail-closed, ver acima).
+  const seloClasse = rotuloClasse(tese);
 
   return (
     <article className="flex w-full flex-col gap-10">
@@ -265,8 +295,17 @@ export function TeseView({ tese }: { tese: TeseOut }) {
       <Reveal className="flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="flex flex-col gap-1">
-            <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+            <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
               Research report
+              {/* Selo discreto da classe do ativo (Fase 2 multiativo) — mesma
+                  hierarquia tipográfica do eyebrow, só com borda para separar
+                  visualmente sem introduzir uma cor nova (tokens BRASA).
+                  Só renderiza quando a classe é determinável (fail-closed). */}
+              {seloClasse && (
+                <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
+                  {seloClasse}
+                </span>
+              )}
             </p>
             <h2
               className={`font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}

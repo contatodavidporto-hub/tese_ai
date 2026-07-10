@@ -139,7 +139,7 @@ export default function Sobre() {
                 id="metodo-titulo"
                 className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
               >
-                Método — cinco dimensões
+                Método — até cinco dimensões
               </h2>
               <ol className="flex flex-col gap-3 border-t border-line">
                 {METODO.map((dimensao) => (
@@ -157,6 +157,10 @@ export default function Sobre() {
                   </li>
                 ))}
               </ol>
+              <p className="font-mono text-meta text-ink-3">
+                O quadro completo vale para as ações da B3; FIIs e títulos do Tesouro Direto usam
+                um subconjunto próprio de dimensões, cada uma com sua fonte.
+              </p>
             </div>
 
             <div className="flex flex-col gap-4">

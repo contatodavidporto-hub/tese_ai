@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
-import { DATA_CARTEIRA_IBOV, EXEMPLOS_PRONTOS } from "@/lib/tickers";
+import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Cobertura",
   description:
-    "O que o Tese AI cobre hoje: teses completas para qualquer papel da B3, exemplos pré-gerados que abrem na hora, e o roadmap honesto para FIIs e renda fixa.",
+    "O que o Tese AI cobre hoje: teses completas para ações da B3, FIIs e títulos do Tesouro Direto, com exemplos pré-gerados que abrem na hora.",
 };
 
 function formatDataIso(iso: string): string {
@@ -27,6 +27,9 @@ type ClasseInvestimento = {
   titulo: string;
   descricao: string;
   disponivel: boolean;
+  // Exemplo pronto (cache aquecido) desta classe — cada classe leva a um
+  // ticker distinto em vez do genérico "/tese" (Fase 2 multiativo).
+  href: string;
 };
 
 const CLASSES: ClasseInvestimento[] = [
@@ -36,20 +39,23 @@ const CLASSES: ClasseInvestimento[] = [
     descricao:
       "Qualquer companhia aberta com cadastro na CVM. A tese cruza fundamentos, pares globais, macro e geopolítica em cinco dimensões, fechada com síntese e contra-tese.",
     disponivel: true,
+    href: "/tese",
   },
   {
     numero: "02",
     titulo: "FIIs",
     descricao:
-      "Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e citação das ações, adaptada aos indicadores do setor.",
-    disponivel: false,
+      "Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e citação das ações, com o informe mensal da CVM como eixo próprio de fundamentos.",
+    disponivel: true,
+    href: "/tese?ticker=HGLG11",
   },
   {
     numero: "03",
     titulo: "Renda fixa / Tesouro",
     descricao:
-      "Títulos públicos e privados de renda fixa, com curva de juros e risco de crédito como eixos próprios de análise.",
-    disponivel: false,
+      "Títulos públicos do Tesouro Direto — taxas e preços com Data Base, marcação a mercado e cenário de juros e inflação, sempre separados de qualquer sugestão de compra ou carrego.",
+    disponivel: true,
+    href: "/tese?ticker=TD-IPCA-2035",
   },
 ];
 
@@ -69,17 +75,25 @@ const TIPOS: TipoDeTese[] = [
     numero: "01",
     titulo: "Tese completa sob demanda",
     descricao:
-      "As cinco dimensões processadas na hora para qualquer ticker válido da B3 — fundamentos, pares globais, macro Brasil, macro global e elos causais, cada um com sua fonte.",
+      "Processada na hora para qualquer código válido — ação da B3, FII ou título do Tesouro Direto. As dimensões variam por classe: ações cruzam cinco (fundamentos, pares globais, macro Brasil, macro global e elos causais); FIIs, três (informe mensal CVM, macro de juros e elos); Tesouro, três (taxas e preços da STN, juros e inflação e elos) — cada uma com sua fonte.",
   },
   {
     numero: "02",
     titulo: "Exemplos pré-gerados",
     descricao:
-      "Um lote fixo de papéis mantido em cache pelo motor e renovado a cada ciclo diário: abrem instantaneamente, sem custo de geração, com a mesma trilha de citações.",
+      "Um lote fixo de ativos mantido em cache pelo motor e renovado a cada ciclo diário: abrem instantaneamente, sem custo de geração, com a mesma trilha de citações.",
   },
 ];
 
 export default function Cobertura() {
+  // Contagem derivada do catálogo (nunca hardcoded — mesma convenção de
+  // app/teses/page.tsx): a copy não diverge do conjunto real quando um
+  // exemplo entra/sai de EXEMPLOS_PRONTOS.
+  const exemplos = exemplosProntos();
+  const acoes = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
+  const fiis = exemplos.filter((p) => p.classe === "fii").length;
+  const rendaFixa = exemplos.filter((p) => p.classe === "renda_fixa").length;
+
   return (
     <>
       <Header />
@@ -97,14 +111,15 @@ export default function Cobertura() {
             </Reveal>
             <Reveal className="i-2">
               <h1 className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink">
-                O que está impresso nesta edição — e o que ainda está no prelo.
+                O que está impresso nesta edição.
               </h1>
             </Reveal>
             <Reveal className="i-3">
               <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                Ações da B3 têm cobertura completa hoje. FIIs e renda fixa
-                estão no roadmap, anunciados com a mesma dignidade — sem data
-                prometida, porque não temos uma para dar.
+                Cobertura completa para as ações da B3; FIIs pelo informe
+                mensal da CVM; em renda fixa, os títulos públicos do Tesouro
+                Direto — a mesma disciplina de fonte e citação nas três
+                classes.
               </p>
             </Reveal>
           </div>
@@ -128,8 +143,10 @@ export default function Cobertura() {
             </h2>
             {/* D6 (hierarquia de banca): Ações é a capa-lead (largura/proeminência
                 maior); FIIs + Renda fixa formam o par secundário abaixo — mesma
-                estrutura completa (selo "Em breve" preservado, gaveta presente
-                mas trancada, nunca meio-tom apagado). */}
+                estrutura completa. As 3 classes estão `disponivel: true` hoje
+                (Fase 2 multiativo); o selo "Em breve" abaixo fica dormente,
+                pronto para uma futura classe ainda não coberta, sem precisar
+                reescrever o layout quando isso acontecer. */}
             <div className="stagger flex flex-col gap-4">
               <Reveal
                 variant="reveal-ticker"
@@ -150,8 +167,8 @@ export default function Cobertura() {
                   </p>
                   {CLASSE_LEAD.disponivel && (
                     <Link
-                      href="/tese"
-                      className="mt-1 inline-flex w-fit items-center bg-brasa px-6 py-3 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+                      href={CLASSE_LEAD.href}
+                      className="mt-1 inline-flex min-h-11 w-fit items-center bg-brasa px-6 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                     >
                       Gerar tese →
                     </Link>
@@ -189,8 +206,8 @@ export default function Cobertura() {
                       </div>
                       {classe.disponivel ? (
                         <Link
-                          href="/tese"
-                          className="mt-2 inline-flex w-fit items-center bg-brasa px-4 py-2 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+                          href={classe.href}
+                          className="mt-2 inline-flex min-h-11 w-fit items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                         >
                           Gerar tese →
                         </Link>
@@ -246,8 +263,9 @@ export default function Cobertura() {
               ))}
             </ul>
             <p className="font-mono text-meta text-ink-3">
-              {EXEMPLOS_PRONTOS.length} exemplos em cache · carteira teórica do
-              Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}) ·{" "}
+              {exemplos.length} exemplos em cache · os {acoes} maiores pesos da
+              carteira teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}
+              ) + {fiis} FII + {rendaFixa} Tesouro Direto ·{" "}
               <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
                 ver a galeria completa
               </Link>

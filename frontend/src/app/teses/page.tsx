@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Teses",
   description:
-    "As 10 teses pré-geradas pelo motor do Tese AI para os maiores pesos da carteira teórica do Ibovespa, atualizadas diariamente pelo warm-cache — cada número com fonte e data.",
+    "Teses pré-geradas pelo motor do Tese AI: os maiores pesos da carteira teórica do Ibovespa, mais um FII e um título do Tesouro Direto — prova viva do motor multiativo, cada número com fonte e data.",
 };
 
 function formatDataIso(iso: string): string {
@@ -24,6 +24,11 @@ function formatDataIso(iso: string): string {
 
 export default function TesesPage() {
   const exemplos = exemplosProntos();
+  // Contagem derivada do catálogo (nunca hardcoded): evita a copy divergir do
+  // conjunto real quando um novo exemplo entra/sai (Fase 2 multiativo).
+  const acoes = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
+  const fiis = exemplos.filter((p) => p.classe === "fii").length;
+  const rendaFixa = exemplos.filter((p) => p.classe === "renda_fixa").length;
 
   return (
     <>
@@ -45,21 +50,22 @@ export default function TesesPage() {
                 id="teses-titulo"
                 className="max-w-3xl font-display text-h1 font-semibold tracking-tight text-ink"
               >
-                As 10 teses da carteira teórica do Ibovespa
+                {exemplos.length} teses de exemplo — ações, FII e Tesouro Direto
               </h1>
             </Reveal>
             <Reveal className="i-2">
               <p className="max-w-2xl font-sans text-ui leading-relaxed text-ink-2">
-                Pré-geradas pelo motor para os 10 maiores pesos da carteira
-                teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}).
-                Abrem na hora — se o cache tiver expirado, a tese é
-                regenerada automaticamente.
+                Pré-geradas pelo motor: os {acoes} maiores pesos da carteira
+                teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}),
+                mais {fiis} FII e {rendaFixa} título do Tesouro Direto — prova
+                viva do motor multiativo. Abrem na hora — se o cache tiver
+                expirado, a tese é regenerada automaticamente.
               </p>
             </Reveal>
             <Reveal className="i-3">
               <p className="font-mono text-meta text-ink-3">
-                10 teses · pré-geradas e atualizadas diariamente pelo motor de
-                warm-cache
+                {exemplos.length} teses no warm-cache diário · {acoes} ações do
+                Ibovespa + {fiis} FII + {rendaFixa} Tesouro Direto
               </p>
             </Reveal>
           </div>
@@ -98,9 +104,9 @@ export default function TesesPage() {
                   Não achou o ticker que procura?
                 </h2>
                 <p className="max-w-xl font-sans text-ui text-ink-2">
-                  O motor gera a tese completa de qualquer companhia aberta com
-                  cadastro na CVM, sob demanda — as mesmas 5 dimensões e
-                  citações, sem cache prévio.
+                  O motor gera a tese completa de qualquer companhia aberta,
+                  FII ou título do Tesouro Direto, sob demanda — as mesmas
+                  dimensões e citações da classe, sem cache prévio.
                 </p>
               </div>
               <Link

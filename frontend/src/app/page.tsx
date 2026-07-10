@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Tese AI — a tese inteira, com a fonte de cada número",
   description:
-    "Gere teses de investimento estruturadas para ações da B3 cruzando fundamentos, macro e geopolítica — cada número com fonte e data, cada lacuna declarada. Não é recomendação de compra ou venda.",
+    "Gere teses de investimento estruturadas para ações da B3, FIIs e Tesouro Direto cruzando fundamentos, macro e geopolítica — cada número com fonte e data, cada lacuna declarada. Não é recomendação de compra ou venda.",
 };
 
 function formatDataIso(iso: string): string {
@@ -94,6 +94,9 @@ export default function Home() {
   // (fonte B3, mesma data em todo o produto) — nenhum número aqui é inventado.
   const provaViva = exemplos.slice(0, 3);
   const dataCarteira = formatDataIso(DATA_CARTEIRA_IBOV);
+  // Contagem derivada do catálogo (nunca hardcoded, ver app/teses/page.tsx).
+  const acoesExemplo = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
+  const multiativoExemplo = exemplos.length - acoesExemplo;
 
   return (
     <>
@@ -110,7 +113,7 @@ export default function Home() {
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
             <div className="entrada-hero i-1">
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-                Teses de investimento · B3
+                Teses de investimento · B3 e Tesouro Direto
               </p>
             </div>
             <div className="entrada-hero i-2">
@@ -214,8 +217,9 @@ export default function Home() {
                   Teses de exemplo — abrem na hora
                 </h2>
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                  Pré-geradas pelo motor para os 10 maiores pesos da carteira teórica do
-                  Ibovespa (B3, {dataCarteira}) e mantidas em cache. Clique e leia a tese
+                  Pré-geradas pelo motor: os {acoesExemplo} maiores pesos da carteira teórica
+                  do Ibovespa (B3, {dataCarteira}) e {multiativoExemplo} exemplos multiativo — um
+                  FII, um título do Tesouro Direto — mantidos em cache. Clique e leia a tese
                   completa, com citações e fontes — se o cache tiver expirado, ela é regenerada
                   na hora.
                 </p>
@@ -256,7 +260,9 @@ export default function Home() {
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                   O motor monta a tese por camadas e fecha com síntese e contra-tese (bull ×
                   bear). Fato e interpretação vêm sempre separados no texto — cada camada com a
-                  fonte oficial que a sustenta.
+                  fonte oficial que a sustenta. O quadro completo vale para as ações; FIIs e
+                  títulos do Tesouro Direto usam um subconjunto próprio de dimensões — sem
+                  pares globais nem macro global dedicada.
                 </p>
               </div>
             </Reveal>
@@ -348,8 +354,8 @@ export default function Home() {
             <Reveal>
               <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
                 <p className="flex-1 text-ui text-ink-2">
-                  Pronto para ver como fica? Gere a tese de um ticker da B3 ou abra um exemplo
-                  pronto.
+                  Pronto para ver como fica? Gere a tese de uma ação da B3, de um FII ou de um
+                  título do Tesouro Direto — ou abra um exemplo pronto.
                 </p>
                 <Link
                   href="/tese"

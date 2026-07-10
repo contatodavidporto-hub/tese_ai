@@ -2,7 +2,7 @@ import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
 import { newsreaderItalico } from "@/lib/fontes";
-import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
+import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
 // Renderização dinâmica: o CSP com nonce por requisição (src/proxy.ts) precisa que
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Gerar tese",
   description:
-    "Gere a tese estruturada de uma companhia aberta da B3: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
+    "Gere a tese estruturada de uma companhia aberta da B3, um FII ou um título do Tesouro Direto: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,7 +27,7 @@ export default async function TesePage({
   const sp = await searchParams;
 
   const brutoTicker = typeof sp.ticker === "string" ? sp.ticker.trim().toUpperCase() : "";
-  const ticker = TICKER_B3_RE.test(brutoTicker) ? brutoTicker : undefined;
+  const ticker = TICKER_RE.test(brutoTicker) ? brutoTicker : undefined;
   const brutoId = typeof sp.id === "string" ? sp.id.trim() : "";
   const id = UUID_RE.test(brutoId) ? brutoId : undefined;
 
@@ -54,10 +54,11 @@ export default async function TesePage({
             Gerar tese
           </h1>
           <p className="text-body text-ink-2">
-            Informe o ticker de uma companhia aberta da B3. A tese sai estruturada
-            em dimensões — fundamentos, macro, pares globais e geopolítica — com
-            cada afirmação factual ligada à sua fonte, e sem recomendação de
-            compra ou venda.
+            Informe o ticker de uma companhia aberta da B3, um FII ou um código
+            do Tesouro Direto. A tese sai estruturada em dimensões —
+            fundamentos, macro, pares globais e geopolítica — com cada
+            afirmação factual ligada à sua fonte, e sem recomendação de compra
+            ou venda.
           </p>
         </Reveal>
 
