@@ -227,6 +227,14 @@ def ingest_macro(session: Session) -> list[MacroSerie]:
         except httpx.HTTPError as exc:
             logger.warning("bcb_falhou", serie=nome, codigo=codigo, erro=type(exc).__name__)
             continue
+        if not isinstance(pontos, list):
+            # BCB SGS às vezes responde 200 com corpo dict (erro/manutenção):
+            # `pontos[-1]` estourava KeyError(-1) e derrubava as 5 séries do
+            # passo. Corpo inesperado = falha SÓ desta série (log + continue).
+            logger.warning(
+                "bcb_corpo_inesperado", serie=nome, codigo=codigo, tipo=type(pontos).__name__
+            )
+            continue
         if not pontos:
             continue
         ponto = pontos[-1]
