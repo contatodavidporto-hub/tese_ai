@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { backendUrl } from "@/lib/backend";
+import { TICKER_RE } from "@/lib/tickers";
 
 // Proxy SERVER-SIDE para o backend FastAPI.
 // O CSP do app (src/proxy.ts) tem `connect-src 'self'`, então o NAVEGADOR só pode
@@ -42,11 +43,20 @@ export async function POST(request: NextRequest) {
   }
 
   // Espelho da validação do backend (app/schemas/tese.py): corta lixo aqui e
-  // não amplifica abuso até o FastAPI (defesa em profundidade, mesma regex).
+  // não amplifica abuso até o FastAPI (defesa em profundidade, mesma união
+  // B3 ∪ Tesouro Direto — TICKER_RE de lib/tickers.ts, fonte única do front).
+  // min_length=4/max_length=16 espelham o `Field` do Pydantic no backend.
   const normalizado = ticker.trim().toUpperCase();
-  if (!/^[A-Z][A-Z0-9]{3}[0-9]{1,2}B?$/.test(normalizado)) {
+  if (
+    normalizado.length < 4 ||
+    normalizado.length > 16 ||
+    !TICKER_RE.test(normalizado)
+  ) {
     return NextResponse.json(
-      { detail: "Ticker fora do formato da B3 (ex.: PETR4, VALE3, TAEE11)." },
+      {
+        detail:
+          "Ticker fora do formato aceito (ex.: PETR4, HGLG11, ou código do Tesouro Direto como TD-IPCA-2035).",
+      },
       { status: 400 },
     );
   }
