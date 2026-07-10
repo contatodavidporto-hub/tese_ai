@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
-import { DATA_CARTEIRA_IBOV, EXEMPLOS_PRONTOS } from "@/lib/tickers";
+import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
@@ -75,17 +75,25 @@ const TIPOS: TipoDeTese[] = [
     numero: "01",
     titulo: "Tese completa sob demanda",
     descricao:
-      "As cinco dimensões processadas na hora para qualquer ticker válido da B3 — fundamentos, pares globais, macro Brasil, macro global e elos causais, cada um com sua fonte.",
+      "Processada na hora para qualquer código válido — ação da B3, FII ou título do Tesouro Direto. As dimensões variam por classe: ações cruzam cinco (fundamentos, pares globais, macro Brasil, macro global e elos causais); FIIs, três (informe mensal CVM, macro de juros e elos); Tesouro, três (taxas e preços da STN, juros e inflação e elos) — cada uma com sua fonte.",
   },
   {
     numero: "02",
     titulo: "Exemplos pré-gerados",
     descricao:
-      "Um lote fixo de papéis mantido em cache pelo motor e renovado a cada ciclo diário: abrem instantaneamente, sem custo de geração, com a mesma trilha de citações.",
+      "Um lote fixo de ativos mantido em cache pelo motor e renovado a cada ciclo diário: abrem instantaneamente, sem custo de geração, com a mesma trilha de citações.",
   },
 ];
 
 export default function Cobertura() {
+  // Contagem derivada do catálogo (nunca hardcoded — mesma convenção de
+  // app/teses/page.tsx): a copy não diverge do conjunto real quando um
+  // exemplo entra/sai de EXEMPLOS_PRONTOS.
+  const exemplos = exemplosProntos();
+  const acoes = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
+  const fiis = exemplos.filter((p) => p.classe === "fii").length;
+  const rendaFixa = exemplos.filter((p) => p.classe === "renda_fixa").length;
+
   return (
     <>
       <Header />
@@ -108,9 +116,10 @@ export default function Cobertura() {
             </Reveal>
             <Reveal className="i-3">
               <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                Ações da B3, FIIs e títulos do Tesouro Direto têm cobertura
-                completa hoje — a mesma disciplina de fonte e citação em
-                qualquer classe, sem exceção.
+                Cobertura completa para as ações da B3; FIIs pelo informe
+                mensal da CVM; em renda fixa, os títulos públicos do Tesouro
+                Direto — a mesma disciplina de fonte e citação nas três
+                classes.
               </p>
             </Reveal>
           </div>
@@ -254,9 +263,9 @@ export default function Cobertura() {
               ))}
             </ul>
             <p className="font-mono text-meta text-ink-3">
-              {EXEMPLOS_PRONTOS.length} exemplos em cache · maiores pesos da
+              {exemplos.length} exemplos em cache · os {acoes} maiores pesos da
               carteira teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}
-              ) + 1 FII + 1 Tesouro Direto ·{" "}
+              ) + {fiis} FII + {rendaFixa} Tesouro Direto ·{" "}
               <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
                 ver a galeria completa
               </Link>

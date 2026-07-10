@@ -113,7 +113,7 @@ export default function Home() {
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
             <div className="entrada-hero i-1">
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-                Teses de investimento · B3
+                Teses de investimento · B3 e Tesouro Direto
               </p>
             </div>
             <div className="entrada-hero i-2">
@@ -260,7 +260,9 @@ export default function Home() {
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                   O motor monta a tese por camadas e fecha com síntese e contra-tese (bull ×
                   bear). Fato e interpretação vêm sempre separados no texto — cada camada com a
-                  fonte oficial que a sustenta.
+                  fonte oficial que a sustenta. O quadro completo vale para as ações; FIIs e
+                  títulos do Tesouro Direto usam um subconjunto próprio de dimensões — sem
+                  pares globais nem macro global dedicada.
                 </p>
               </div>
             </Reveal>
@@ -352,8 +354,8 @@ export default function Home() {
             <Reveal>
               <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
                 <p className="flex-1 text-ui text-ink-2">
-                  Pronto para ver como fica? Gere a tese de um ticker da B3 ou abra um exemplo
-                  pronto.
+                  Pronto para ver como fica? Gere a tese de uma ação da B3, de um FII ou de um
+                  título do Tesouro Direto — ou abra um exemplo pronto.
                 </p>
                 <Link
                   href="/tese"

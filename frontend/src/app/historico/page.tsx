@@ -55,7 +55,8 @@ export default function HistoricoPage() {
             Teses de exemplo
           </h2>
           <p className="max-w-2xl font-sans text-ui text-ink-2">
-            Pré-geradas para os maiores pesos do Ibovespa — abrem na hora.
+            Pré-geradas para os maiores pesos do Ibovespa e para os exemplos
+            multiativo — um FII e um título do Tesouro Direto. Abrem na hora.
           </p>
           {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block. */}
           <ul className="flex flex-wrap gap-x-6 gap-y-2">
