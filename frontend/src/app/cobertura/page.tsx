@@ -168,7 +168,7 @@ export default function Cobertura() {
                   {CLASSE_LEAD.disponivel && (
                     <Link
                       href={CLASSE_LEAD.href}
-                      className="mt-1 inline-flex w-fit items-center bg-brasa px-6 py-3 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+                      className="mt-1 inline-flex min-h-11 w-fit items-center bg-brasa px-6 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                     >
                       Gerar tese →
                     </Link>
@@ -207,7 +207,7 @@ export default function Cobertura() {
                       {classe.disponivel ? (
                         <Link
                           href={classe.href}
-                          className="mt-2 inline-flex w-fit items-center bg-brasa px-4 py-2 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+                          className="mt-2 inline-flex min-h-11 w-fit items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                         >
                           Gerar tese →
                         </Link>
