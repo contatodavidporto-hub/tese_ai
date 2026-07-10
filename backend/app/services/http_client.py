@@ -46,6 +46,13 @@ _HOSTS_PERMITIDOS = frozenset(
         "api.eia.gov",  # EIA (behind-config)
         "www.tesourotransparente.gov.br",  # Tesouro Direto/STN (CSV de preços e taxas)
         "olinda.bcb.gov.br",  # BCB Olinda — OData Focus/expectativas de mercado
+        # Fase "Tese Profunda" (F0, 2026-07-10) — adicionados deliberadamente, sem
+        # curinga (plano §2.12): COTAHIST, IF.data, ANEEL SIGET e ANBIMA ETTJ.
+        "bvmf.bmfbovespa.com.br",  # B3 — COTAHIST (preços diários históricos)
+        "sistemaswebb3-listados.b3.com.br",  # B3 — proventos (cashDividends)
+        "www3.bcb.gov.br",  # BCB — IF.data (indicadores prudenciais de banco)
+        "dadosabertos.aneel.gov.br",  # ANEEL — CKAN/SIGET (RAP homologada)
+        "www.anbima.com.br",  # ANBIMA — ETTJ snapshot do dia (CZ-down.asp, POST)
     }
 )
 
@@ -125,6 +132,51 @@ def get_keyless(
                 event_hooks=hooks,
             ) as client:
                 return client.get(url, headers=hdrs)
+        except httpx.RequestError as exc:  # conexão/timeout — reentar
+            ultimo_erro = exc
+            if tentativa < retries:
+                time.sleep(_BACKOFF_BASE * (2**tentativa))
+    if ultimo_erro is None:  # inalcançável: o range garante ao menos uma tentativa
+        raise RuntimeError("nenhuma tentativa registrou erro ao esgotar as retentativas")
+    raise ultimo_erro
+
+
+def post_keyless(
+    url: str,
+    *,
+    data: dict[str, str] | None = None,
+    timeout: float = 30.0,
+    headers: dict[str, str] | None = None,
+    follow_redirects: bool = True,
+    transport: httpx.BaseTransport | None = None,
+    retries: int = 2,
+) -> httpx.Response:
+    """POST keyless form-encoded com UA padrão e retry em erro de REDE (correção A4).
+
+    Mesma defesa anti-SSRF do `get_keyless`: allowlist + IP público validados
+    ANTES da conexão, com o MESMO event hook revalidando cada request —
+    incluindo alvos de redirect — para que um 302 não escape a checagem
+    inicial. `data` vai form-encoded (`application/x-www-form-urlencoded`,
+    comportamento padrão do `httpx` quando `data` é um dict). Usado pelo
+    conector ANBIMA (`CZ-down.asp`, POST); nenhum conector deve abrir `httpx`
+    diretamente — sempre via `get_keyless`/`post_keyless`. `transport` permite
+    `httpx.MockTransport` nos testes (sem rede real).
+    """
+    hooks: dict = {}
+    if transport is None:
+        _validar_url(url)
+        hooks = {"request": [lambda req: _validar_url(str(req.url))]}
+    hdrs = {**_HEADERS, **(headers or {})}
+    ultimo_erro: httpx.RequestError | None = None
+    for tentativa in range(retries + 1):
+        try:
+            with httpx.Client(
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+                transport=transport,
+                event_hooks=hooks,
+            ) as client:
+                return client.post(url, data=data, headers=hdrs)
         except httpx.RequestError as exc:  # conexão/timeout — reentar
             ultimo_erro = exc
             if tentativa < retries:

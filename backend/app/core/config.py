@@ -78,7 +78,10 @@ class Settings(BaseSettings):
     tese_max_concorrencia: int = 2
     # Teto de custo de LLM por dia (USD, por processo — defesa, não contabilidade
     # global). Excedido => a geração abstém em vez de gastar. 0 desliga o teto.
-    tese_teto_custo_usd_dia: float = 10.0
+    # 10 -> 25 na Fase "Tese Profunda" (plano §4/§2.12): síntese com max_tokens
+    # maior (~16k) + consenso (Haiku+web_search) sobem o custo/tese a
+    # ~US$0,60-0,70 (correção A14); 25 cobre o warm-cache frio (12 ativos) com folga.
+    tese_teto_custo_usd_dia: float = 25.0
     # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
     max_request_bytes: int = 64 * 1024
 
@@ -117,6 +120,36 @@ class Settings(BaseSettings):
     # 2026-07-08 (gasto automático de LLM exige autorização — LLM06).
     # 0 desliga o job.
     scheduler_warm_cache_horas: int = 24
+
+    # --- Tese Profunda (F0 — fundação): consenso, novos jobs de ingest --------
+    # Kill-switch do estágio de consenso (Haiku + web_search server tool). Gasto
+    # automático de LLM exige autorização expressa (LLM06, mesmo desenho do
+    # warm-cache) — desligado por padrão; liga por env em produção (runbook A10).
+    consenso_enabled: bool = False
+    # Teto de chamadas de busca web por tese na etapa de consenso (custo/latência).
+    consenso_web_search_max_uses: int = 4
+    # Idade máxima (dias) de uma página aceita como fonte de consenso — item mais
+    # velho que isso é descartado (staleness; correção A11).
+    consenso_max_page_age_dias: int = 180
+    # Domínios curados permitidos na busca de consenso (separados por vírgula) —
+    # allowlist do `web_search` server tool (equivalente ao anti-SSRF do
+    # `http_client`, mas do lado da API Anthropic, que não passa pelo `http_client`).
+    consenso_allowed_domains: str = (
+        "infomoney.com.br,seudinheiro.com,suno.com.br,moneytimes.com.br,"
+        "exame.com,valor.globo.com,conteudos.xpi.com.br"
+    )
+
+    # Cadência (horas) dos jobs de ingest novos da Fase "Tese Profunda" (ledger
+    # `job_runs`, mesmo desenho dos jobs macro/cadastro/warm_cache). 0 desliga o
+    # job individual.
+    scheduler_cotahist_horas: int = 24  # COTAHIST B3 — tolera feriado/404
+    scheduler_anbima_horas: int = 24  # ANBIMA ETTJ — snapshot do dia (D-1)
+    scheduler_ifdata_horas: int = 720  # IF.data BCB — mensal (staleness ~100d)
+    scheduler_aneel_horas: int = 720  # ANEEL RAP — ciclo anual/homologação
+
+    @property
+    def consenso_allowed_domains_list(self) -> list[str]:
+        return [d.strip() for d in self.consenso_allowed_domains.split(",") if d.strip()]
 
     @field_validator("database_url")
     @classmethod
