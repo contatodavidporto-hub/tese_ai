@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const apiUrl = backendUrl();
   if (!apiUrl) {
+    console.error("api/teses: API_URL ausente no ambiente do servidor");
     return NextResponse.json(
-      { detail: "Backend não configurado (defina API_URL no ambiente do servidor)." },
+      { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
       { status: 502 },
     );
   }
