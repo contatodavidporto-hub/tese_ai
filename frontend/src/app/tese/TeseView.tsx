@@ -96,6 +96,20 @@ function ehSecaoLacunas(secao: Secao): boolean {
   return /lacunas/i.test(secao.titulo);
 }
 
+// Rótulo curto da classe do ativo (Fase 2 multiativo) para o selo do
+// masthead. `null`/ausente = ação — mesma convenção de `TeseOut.classe_ativo`
+// (backend/app/schemas/tese.py: NULL no banco significa "acao", migração 0005).
+function rotuloClasse(classe: TeseOut["classe_ativo"]): string {
+  switch (classe) {
+    case "fii":
+      return "FII";
+    case "renda_fixa":
+      return "Renda fixa";
+    default:
+      return "Ação";
+  }
+}
+
 // A seção "4. Camada geopolítica e correlações" é a D5 do ARQUITETURA.md — a
 // única voz narrada em itálico Newsreader 500 (DESIGN-BRIEF.md §3 e §5).
 function ehSecaoNarrada(secao: Secao): boolean {
@@ -247,7 +261,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   const secaoLacunas = documento?.secoes.find(ehSecaoLacunas);
   const temEstrutura = (documento?.secoes.length ?? 0) > 0;
   // Virada de Edição (motion): mesmo slot estático da galeria/teaser — só
-  // os 10 tickers pré-gerados recebem shared element (view-transition-name
+  // os 12 tickers pré-gerados recebem shared element (view-transition-name
   // via classe pré-declarada); os demais seguem sem nome, cobertos só pelo
   // véu de `.virada-edicao` (tese/page.tsx).
   const slotEdicao = slotVirada(tese.ticker);
@@ -265,8 +279,14 @@ export function TeseView({ tese }: { tese: TeseOut }) {
       <Reveal className="flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="flex flex-col gap-1">
-            <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+            <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
               Research report
+              {/* Selo discreto da classe do ativo (Fase 2 multiativo) — mesma
+                  hierarquia tipográfica do eyebrow, só com borda para separar
+                  visualmente sem introduzir uma cor nova (tokens BRASA). */}
+              <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
+                {rotuloClasse(tese.classe_ativo)}
+              </span>
             </p>
             <h2
               className={`font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}

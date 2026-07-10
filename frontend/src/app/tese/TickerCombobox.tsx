@@ -1,9 +1,10 @@
 "use client";
 
 // Combobox de ticker com sugestões da lista embutida (src/lib/tickers.ts —
-// carteira IBOV, fonte B3 datada). Padrão ARIA combobox/listbox com navegação
-// por teclado. A lista é conveniência: ticker fora dela segue permitido, desde
-// que passe no formato B3 (validação espelhada do backend).
+// carteira IBOV, fonte B3 datada, + exemplos multiativo HGLG11/TD-IPCA-2035).
+// Padrão ARIA combobox/listbox com navegação por teclado. A lista é
+// conveniência: ticker fora dela segue permitido, desde que passe no formato
+// B3 ou do Tesouro Direto (união TICKER_RE, validação espelhada do backend).
 
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -128,13 +129,19 @@ export function TickerCombobox({ value, onChange, disabled, inputId, erroId }: P
       />
       <span id={`${inputId}-hint`} className="mt-1.5 block text-label text-ink-3">
         {exato ? (
-          <>
-            {exato.nome} ·{" "}
-            <span className="font-mono text-ink-3">{formatPct(exato.participacaoPct)}%</span> da
-            carteira IBOV ({formatDataIso(DATA_CARTEIRA_IBOV)})
-          </>
+          exato.participacaoPct > 0 ? (
+            <>
+              {exato.nome} ·{" "}
+              <span className="font-mono text-ink-3">{formatPct(exato.participacaoPct)}%</span> da
+              carteira IBOV ({formatDataIso(DATA_CARTEIRA_IBOV)})
+            </>
+          ) : (
+            // Exemplo multiativo (FII/Tesouro Direto): não tem "peso de índice"
+            // — mostrar 0,0% "da carteira IBOV" seria enganoso.
+            exato.nome
+          )
         ) : (
-          "Código de negociação da B3 — ex.: PETR4, VALE3, ITUB4."
+          "Código B3 ou Tesouro Direto (ex.: HGLG11, TD-IPCA-2035)."
         )}
       </span>
 
@@ -168,8 +175,12 @@ export function TickerCombobox({ value, onChange, disabled, inputId, erroId }: P
               <span className="font-mono font-semibold text-ink">{papel.ticker}</span>
               <span className="min-w-0 flex-1 truncate text-right text-ink-2">{papel.nome}</span>
               {/* A4 (contraste 1.4.3): text-ink-3 reprovava por 0,011 no fundo
-                  anterior — text-ink-2 verifica 7.11:1. */}
-              <span className="font-mono text-meta text-ink-2">{formatPct(papel.participacaoPct)}%</span>
+                  anterior — text-ink-2 verifica 7.11:1. Exemplo multiativo
+                  (FII/Tesouro Direto) não tem participação de índice — sem
+                  span de %, em vez de exibir "0,0%" enganoso. */}
+              {papel.participacaoPct > 0 && (
+                <span className="font-mono text-meta text-ink-2">{formatPct(papel.participacaoPct)}%</span>
+              )}
             </li>
           ))}
         </ul>
