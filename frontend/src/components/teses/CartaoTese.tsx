@@ -11,17 +11,23 @@ import { slotVirada, type ClasseAtivo, type PapelB3 } from "@/lib/tickers";
 // Brasil (BCB) · D4 macro global (World Bank) · D5 elos causais
 // (interpretação, fonte nas duas pontas — sem sigla de fonte única).
 //
-// A régua VARIA por classe de ativo (Fase 2 multiativo) — cada classe só
-// declara as dimensões que o motor de fato monta para ela (D2/D4 não existem
-// para FII/renda fixa: sem pares globais SEC nem macro global World Bank
-// dedicados nesses perfis, ver docstrings de renda_fixa.py/fii.py). Ação
-// segue com as 5 dimensões, como sempre.
+// A régua VARIA por classe de ativo (Fase 2 multiativo) — cada classe declara
+// EXATAMENTE as dimensões que o motor monta para ela, nem a mais, nem a menos
+// (D2/D4 não existem para FII/renda fixa: sem pares globais SEC nem macro
+// global World Bank dedicados nesses perfis, ver docstrings de
+// renda_fixa.py/fii.py). Ação segue com as 5 dimensões, como sempre.
+// - FII (_SYSTEM_FII): D1 fundamentos do fundo (informe mensal CVM) · D3
+//   contexto macro e juros (BCB/Focus) · D5 elos/camada geopolítica.
+// - Renda fixa (_SYSTEM_RF): D1 fundamentos do TÍTULO — características,
+//   taxas/PUs com Data Base e derivadas de marcação/carrego, fonte
+//   STN/Tesouro Transparente · D3 cenário de juros e inflação (BCB/Focus) ·
+//   D5 elos/camada geopolítica.
 const REGUA_POR_CLASSE: Record<ClasseAtivo, { regua: string; sublabel?: string }> = {
   acao: { regua: "D1 CVM · D2 SEC · D3 BCB · D4 WB · D5 ELOS" },
   fii: { regua: "D1 CVM · D3 BCB · D5 ELOS", sublabel: "Informe mensal CVM" },
   renda_fixa: {
-    regua: "D3 BCB · D5 ELOS",
-    sublabel: "Tesouro Transparente/STN + Focus",
+    regua: "D1 STN · D3 BCB · D5 ELOS",
+    sublabel: "Tesouro Transparente + Focus",
   },
 };
 
