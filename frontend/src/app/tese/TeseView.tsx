@@ -5,7 +5,7 @@
 
 import { classesReveal, Reveal, useReveal } from "@/components/motion/Reveal";
 import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
-import { papelPorTicker, slotVirada } from "@/lib/tickers";
+import { papelPorTicker, slotVirada, type ClasseAtivo } from "@/lib/tickers";
 import {
   Blocos,
   construirRefs,
@@ -96,18 +96,32 @@ function ehSecaoLacunas(secao: Secao): boolean {
   return /lacunas/i.test(secao.titulo);
 }
 
+const ROTULO_POR_CLASSE: Record<ClasseAtivo, string> = {
+  acao: "Ação",
+  fii: "FII",
+  renda_fixa: "Renda fixa",
+};
+
 // Rótulo curto da classe do ativo (Fase 2 multiativo) para o selo do
-// masthead. `null`/ausente = ação — mesma convenção de `TeseOut.classe_ativo`
-// (backend/app/schemas/tese.py: NULL no banco significa "acao", migração 0005).
-function rotuloClasse(classe: TeseOut["classe_ativo"]): string {
-  switch (classe) {
-    case "fii":
-      return "FII";
-    case "renda_fixa":
-      return "Renda fixa";
-    default:
-      return "Ação";
+// masthead — FAIL-CLOSED (selo errado é pior que selo nenhum):
+// 1) resposta com `classe_ativo` conhecida -> usa (backend é a autoridade);
+// 2) resposta sem classe (NULL legado da migração 0005 / backend pré-Fase 2)
+//    -> infere do catálogo local (TODOS_PAPEIS; ausência de `classe` no
+//    catálogo == ação, convenção de lib/tickers.ts) — evita rotular HGLG11/
+//    TD-* de "Ação" quando o backend ainda não envia o campo;
+// 3) valor futuro desconhecido do backend, ou ticker fora do catálogo ->
+//    `null` (nenhum selo; omitir > errar).
+function rotuloClasse(tese: TeseOut): string | null {
+  // Alarga para string: o contrato tipa a união, mas em runtime o backend
+  // pode evoluir antes do front — string futura NUNCA pode virar "Ação".
+  const classe: string | null | undefined = tese.classe_ativo;
+  if (classe != null) {
+    return Object.hasOwn(ROTULO_POR_CLASSE, classe)
+      ? ROTULO_POR_CLASSE[classe as ClasseAtivo]
+      : null;
   }
+  const papel = papelPorTicker(tese.ticker);
+  return papel ? ROTULO_POR_CLASSE[papel.classe ?? "acao"] : null;
 }
 
 // A seção "4. Camada geopolítica e correlações" é a D5 do ARQUITETURA.md — a
@@ -265,6 +279,8 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   // via classe pré-declarada); os demais seguem sem nome, cobertos só pelo
   // véu de `.virada-edicao` (tese/page.tsx).
   const slotEdicao = slotVirada(tese.ticker);
+  // `null` = classe indeterminável -> nenhum selo (fail-closed, ver acima).
+  const seloClasse = rotuloClasse(tese);
 
   return (
     <article className="flex w-full flex-col gap-10">
@@ -283,10 +299,13 @@ export function TeseView({ tese }: { tese: TeseOut }) {
               Research report
               {/* Selo discreto da classe do ativo (Fase 2 multiativo) — mesma
                   hierarquia tipográfica do eyebrow, só com borda para separar
-                  visualmente sem introduzir uma cor nova (tokens BRASA). */}
-              <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
-                {rotuloClasse(tese.classe_ativo)}
-              </span>
+                  visualmente sem introduzir uma cor nova (tokens BRASA).
+                  Só renderiza quando a classe é determinável (fail-closed). */}
+              {seloClasse && (
+                <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
+                  {seloClasse}
+                </span>
+              )}
             </p>
             <h2
               className={`font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
