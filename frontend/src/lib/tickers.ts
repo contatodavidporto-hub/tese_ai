@@ -7,10 +7,9 @@
 // da B3; `participacaoPct` é a participação % na carteira teórica nessa data.
 // É um RETRATO datado (a carteira rebalanceia a cada quadrimestre) — atualizar
 // junto com o warm-cache do backend (app/scripts/warm_cache.py usa a mesma fonte
-// para os 10 tickers padrão de TICKERS_IBOV_TOP; os exemplos multiativo abaixo
-// — ATIVOS_MULTIATIVO — não têm "participação de índice" e exigem warm manual,
-// `python -m app.scripts.warm_cache --force HGLG11 TD-IPCA-2035`, para abrir
-// como cache hit em vez de gerar tese nova na hora).
+// para os 10 tickers de TICKERS_IBOV_TOP; os exemplos multiativo abaixo
+// — ATIVOS_MULTIATIVO — não têm "participação de índice" e entram no mesmo
+// aquecimento diário via lote_default() = TICKERS_IBOV_TOP + EXEMPLOS_MULTIATIVO).
 //
 // O autocomplete é conveniência, não autoridade: o backend resolve QUALQUER
 // companhia aberta, FII ou título público via cadastro CVM/STN. Ticker fora
@@ -132,14 +131,11 @@ export const ATIVOS_MULTIATIVO: PapelB3[] = [
 ];
 
 // Tickers exibidos como "exemplos prontos" (galeria/teaser/auto-início). Os 10
-// primeiros vêm do warm-cache diário do backend (top 10 pesos do IBOV,
-// TICKERS_IBOV_TOP em backend/app/scripts/warm_cache.py) — cache hit
-// garantido, custo US$ 0. Os 2 últimos (HGLG11, TD-IPCA-2035) são a prova viva
-// multiativo (Fase 2): NÃO fazem parte do warm-cache automático do scheduler
-// (app/services/scheduler.py só agenda TICKERS_IBOV_TOP) — abrem como cache
-// hit só depois de um warm manual (`python -m app.scripts.warm_cache --force
-// HGLG11 TD-IPCA-2035`); sem esse warm, o auto-início gera tese nova (custo
-// real de LLM). Manter em sincronia com backend/app/scripts/warm_cache.py.
+// primeiros são o top 10 de pesos do IBOV (TICKERS_IBOV_TOP) e os 2 últimos
+// (HGLG11, TD-IPCA-2035) são a prova viva multiativo (EXEMPLOS_MULTIATIVO).
+// Todos os 12 entram no warm-cache diário do scheduler via lote_default()
+// (backend/app/scripts/warm_cache.py + app/services/scheduler.py) — cache hit
+// garantido, custo US$ 0 no clique. Manter em sincronia com o backend.
 export const EXEMPLOS_PRONTOS = [
   "VALE3",
   "ITUB4",

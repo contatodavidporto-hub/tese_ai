@@ -64,8 +64,8 @@ export default function TesesPage() {
             </Reveal>
             <Reveal className="i-3">
               <p className="font-mono text-meta text-ink-3">
-                {exemplos.length} teses em cache · {acoes} do warm-cache
-                diário + {fiis + rendaFixa} exemplos multiativo (Fase 2)
+                {exemplos.length} teses no warm-cache diário · {acoes} ações do
+                Ibovespa + {fiis} FII + {rendaFixa} Tesouro Direto
               </p>
             </Reveal>
           </div>
