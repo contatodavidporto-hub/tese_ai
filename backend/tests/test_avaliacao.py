@@ -593,6 +593,97 @@ def test_fp_latentes_ressalvas_parafraseadas_nao_bloqueiam():
     )
 
 
+# --- Falso positivo de PRODUÇÃO (HGLG11, 2026-07-10): a ressalva protetora não
+# reconhecia 'sem anualizar' (preposição) nem os gerúndios 'não sendo DY a
+# preço de mercado' / 'não devendo ser anualizado' — tese FII válida reprovada.
+# F1-F4 são frases REAIS extraídas do banco de produção (verbatim). ------------
+
+_F1_PROD_NAO_DEVENDO = (
+    "**Dividend yield mensal do informe (auto-declarado).** O dividend yield "
+    "mensal do informe — auto-declarado pelo administrador, segundo a "
+    "metodologia do informe mensal CVM, não sendo DY a preço de mercado e não "
+    "devendo ser anualizado — é de 0,66% (competência 2026-05-01)."
+)
+_F2_PROD_SEM_ANUALIZAR_ELO = (
+    "**Elo [selic→vp_dy_fii] (interpretação com hedge; força 0,50).** Cenário: "
+    "um patamar de juros elevado — Meta Selic em 14,25% a.a. e CDI em 14,15% "
+    "a.a. — tende, em tese, a pressionar o valor presente dos fluxos de "
+    "aluguéis e a atratividade relativa do rendimento distribuído frente à "
+    "renda fixa. Confrontando ordens de grandeza sem anualizar o indicador do "
+    "informe: o dividend yield mensal auto-declarado do fundo é de 0,66% "
+    "(metodologia do informe mensal CVM), enquanto o CDI diário está em "
+    "0,052531% a.d. — bases temporais distintas que não são diretamente "
+    "comparáveis. [HEDGE: relação condicional; a sensibilidade real depende de "
+    "segmento, prazo e indexação dos contratos do fundo, que **não** são "
+    "quantificáveis com os dados do informe.]"
+)
+_F3_PROD_FATO_SEM_ANUALIZAR = (
+    "- **Renda declarada (fato, sem anualizar):** DY mensal do informe de "
+    "0,66% e rentabilidade efetiva mensal auto-declarada de 0,37%."
+)
+_F4_PROD_CDI_ANUALIZADO = (
+    "**CDI (fato).** O CDI anualizado é de 14,15% a.a. (referência 2026-07-08). "
+    "No recorte diário, o CDI diário é de 0,052531% a.d. (referência "
+    "2026-07-08). (Observação metodológica: a taxa diária e a anual não devem "
+    "ser confundidas.)"
+)
+
+
+def test_dy_nao_devendo_ser_anualizado_nao_bloqueia():
+    # F1: gerúndios da ressalva mandatória ('não sendo DY a preço de mercado',
+    # 'não devendo ser anualizado') protegem os DOIS termos-quebra por span.
+    assert termos_vetados_com_numero(_F1_PROD_NAO_DEVENDO, "fii") == []
+    md = "## 1. Fundamentos do fundo\n- " + _F1_PROD_NAO_DEVENDO
+    laudo = avaliar_tese(_envelope(md), classe="fii")
+    assert laudo["termos_vetados"] == []
+    assert laudo["bloqueante"] is False
+
+
+def test_dy_sem_anualizar_rotulado_nao_bloqueia():
+    # F2/F3: 'sem anualizar' é ressalva protetora (preposição, não negação) —
+    # o DY rotulado do informe no MESMO período não pode vetar.
+    assert termos_vetados_com_numero(_F2_PROD_SEM_ANUALIZAR_ELO, "fii") == []
+    assert termos_vetados_com_numero(_F3_PROD_FATO_SEM_ANUALIZAR, "fii") == []
+
+
+def test_cdi_anualizado_sem_dy_nao_vira_veto():
+    # F4: 'CDI anualizado' não é DY nem termo vetado — não pode virar veto.
+    assert termos_vetados_com_numero(_F4_PROD_CDI_ANUALIZADO, "fii") == []
+
+
+def test_sem_anualizar_nao_protege_dy_a_mercado():
+    # C5: o span de 'sem anualizar' cobre SÓ o particípio — 'a preço de
+    # mercado' segue termo-quebra desprotegido e o veto fica.
+    assert termos_vetados_com_numero(
+        "Sem anualizar o indicador, o DY a preço de mercado é de 8,2%.", "fii"
+    )
+
+
+def test_controles_dy_seguem_vetando_apos_caveat_sem_anualizar():
+    # C1-C4/C6: nenhuma alternativa nova pode blindar violação verdadeira.
+    assert termos_vetados_com_numero("O FII negocia com dividend yield de 9,5% ao ano.", "fii")
+    assert termos_vetados_com_numero("P/VP de 0,92 indica desconto.", "fii")
+    assert termos_vetados_com_numero(
+        "Sem anualizar seria conservador demais; o DY anualizado atinge 9,5%.", "fii"
+    )
+    assert termos_vetados_com_numero("Não é exagero dizer que o DY anualizado chega a 12%.", "fii")
+    # C6: rótulo do informe presente mas ANUALIZADO de fato — veta.
+    assert termos_vetados_com_numero(
+        "O dividend yield do informe, anualizado, chega a 8,1%.", "fii"
+    )
+
+
+def test_gerundio_retorico_nao_blinda_claim():
+    # Red-team das alternativas novas: gerúndio SEM a ressalva verbatim não
+    # protege — 'não sendo o caso...' e 'devendo' afirmativo seguem vetando.
+    assert termos_vetados_com_numero(
+        "Não sendo o caso de cautela, o DY do informe a preço de mercado é 9,1%.", "fii"
+    )
+    assert termos_vetados_com_numero(
+        "O DY do informe, devendo ser anualizado, chega a 8,3%.", "fii"
+    )
+
+
 def test_elo_vp_dy_com_forca_nao_bloqueia():
     # 2º falso positivo ao vivo (HGLG11): 'VP/DY' é o nome do elo interpretativo
     # do MOTOR (fii.py 'Selic→VP/DY') — direção do elo com a força numérica não
@@ -608,6 +699,79 @@ def test_elo_vp_dy_com_forca_nao_bloqueia():
     assert laudo["bloqueante"] is False
     # 'DY' ISOLADO com número (sem rótulo do informe) segue vetado.
     assert termos_vetados_com_numero("O DY projetado do fundo é 0,50.", "fii")
+
+
+# --- Red-team v2.2 (PR #24): bypass do subjuntivo (B1), anualização de OUTRO
+# indicador (FP1), elipse de mercado na ressalva (FP2) e abreviação (B2). ------
+
+
+def test_subjuntivo_terminado_em_sem_nao_cria_ressalva_espuria_b1():
+    # B1: 'fossem/pudessem/quisessem' terminam em 'sem' — sem \b a alternativa
+    # 'sem' casava o FIM do verbo e o span espúrio mascarava anualização real.
+    assert termos_vetados_com_numero(
+        "Se os 0,66% do informe fossem anualizados, o DY alcançaria 8,2%.", "fii"
+    )
+    assert termos_vetados_com_numero(
+        "Se os rendimentos pudessem ser anualizados, o DY do informe atingiria 8,2%.", "fii"
+    )
+    assert termos_vetados_com_numero(
+        "Se quisessem anualizar o indicador, o DY do informe passaria de 8%.", "fii"
+    )
+
+
+def test_cdi_anualizado_no_periodo_nao_derruba_isencao_do_dy_fp1():
+    # FP1: 'CDI anualizado' é anualização de OUTRO indicador — não pode
+    # derrubar a isenção do DY mensal rotulado no mesmo período.
+    assert (
+        termos_vetados_com_numero(
+            "O dividend yield mensal do informe (auto-declarado) é de 0,66%, "
+            "enquanto o CDI anualizado está em 14,15% a.a. (referência 2026-07-08).",
+            "fii",
+        )
+        == []
+    )
+
+
+def test_elipse_de_mercado_na_ressalva_nao_bloqueia_fp2():
+    # FP2: elipses legítimas da ressalva mandatória — 'nem a preço de
+    # mercado' e 'sem ser a preço de mercado' — protegem por span.
+    assert (
+        termos_vetados_com_numero(
+            "- **DY mensal do informe (auto-declarado):** 0,66% — nem anualizado, "
+            "nem a preço de mercado.",
+            "fii",
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "O DY do informe, sem ser a preço de mercado, é de 0,66% (competência 2026-05-01).",
+            "fii",
+        )
+        == []
+    )
+
+
+def test_vendessem_a_mercado_segue_quebrando_isencao():
+    # Controle do FP2+B1: 'vendessem a mercado' NÃO é ressalva ('sem' dentro
+    # do verbo) — com e sem rótulo do informe, o veto fica.
+    assert termos_vetados_com_numero("Caso vendessem a mercado, o DY seria de 8%.", "fii")
+    assert termos_vetados_com_numero(
+        "Segundo o informe mensal, caso vendessem a mercado, o DY seria de 8%.", "fii"
+    )
+
+
+def test_abreviacao_e_acento_espurio_de_anualizado_b2():
+    # B2: radical 'anualiz' — 'anualiz.' e 'anualizádo' são quebra-isenção;
+    # 'sem anualiz.' segue ressalva protetora (mesmo radical nos dois lados).
+    assert termos_vetados_com_numero("DY do informe (anualiz.): 8,2% no período.", "fii")
+    assert termos_vetados_com_numero("O DY do informe anualizádo chega a 8,1%.", "fii")
+    assert (
+        termos_vetados_com_numero(
+            "- **DY mensal do informe (auto-declarado, sem anualiz.):** 0,66%.", "fii"
+        )
+        == []
+    )
 
 
 def test_numero_em_linha_seguinte_de_bullet_quebrado_bloqueia_m4c():

@@ -194,10 +194,13 @@ _DY_ROTULO_INFORME_RE = re.compile(
     r"\bdo\s+informe|\bauto[\s-]?declarad|\binforme\s+mensal", re.IGNORECASE
 )
 # Quebra-isenção: anualização (qualquer flexão — anualizado/anualizar/
-# anualização/anualiza) e 'a/ao/aos preço(s)/valor de mercado' (red-team v2.1:
-# 'ao preço', plural, 'a valor de mercado' e ç sem cedilha escapavam).
+# anualização/anualiza; red-team v2.2/B2: o radical 'anualiz' cobre também a
+# abreviação 'anualiz.' e acento espúrio PÓS-radical, 'anualizádo' — acento
+# DENTRO do radical, 'anuálizado', segue fora: exigiria normalizar o texto e
+# os spans protetores juntos) e 'a/ao/aos preço(s)/valor de mercado' (red-team
+# v2.1: 'ao preço', plural, 'a valor de mercado' e ç sem cedilha escapavam).
 _DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
-    r"anualiza|\ba[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b",
+    r"anualiz|\ba[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b",
     re.IGNORECASE,
 )
 # Ressalvas PROTETORAS mandatórias do rótulo do informe (fii._ROTULOS_INDICADOR:
@@ -208,16 +211,40 @@ _DY_ANUALIZADO_OU_MERCADO_RE = re.compile(
 # 12%" passava; agora nada é deletado e só a ressalva literal protege).
 # Forma: negação + cadeia VERBO-PRIMEIRO de conectores + termo-quebra
 # ('não/nem é|representa|deve|pode ser [lido como] DY/yield/valor a preço de
-# mercado', 'nem deve ser anualizado') OU negação + particípio direto ('nunca
-# anualizado'). Verbo-primeiro impede 'nem o DY anualizado de 12%' de se
-# proteger; 'não raro supera...' e 'não por acaso...' seguem desprotegidos.
+# mercado', 'nem deve ser anualizado') OU negação/'sem' + particípio direto
+# ('nunca anualizado', 'sem anualizar'). Verbo-primeiro impede 'nem o DY
+# anualizado de 12%' de se proteger; 'não raro supera...' e 'não por acaso...'
+# seguem desprotegidos. Falso positivo de PRODUÇÃO (HGLG11, 2026-07-10)
+# ampliou o reconhecimento com 3 formas reais da ressalva, cada uma justificada
+# por frase verbatim do banco: gerúndios 'sendo'/'devendo' no ramo verbo-
+# primeiro ('não sendo DY a preço de mercado', 'não devendo ser anualizado' —
+# o conector 'ser' já existente completa o segundo) e a preposição 'sem' no
+# ramo do particípio direto ('sem anualizar', 'sem ser anualizado'). O span
+# protegido continua cobrindo SÓ a ressalva: 'Sem anualizar seria conservador
+# demais; o DY anualizado atinge 9,5%' segue vetado (o claim fica fora).
+# Red-team v2.2 (PR #24):
+# (B1) '\b' antes das DUAS listas de negação — 'fossem/pudessem/quisessem'
+#   terminam em 'sem' e a alternativa sem borda casava o FIM do verbo no
+#   subjuntivo, criando span protetor espúrio que mascarava anualização real
+#   ('Se os 0,66% do informe fossem anualizados...').
+# (FP2) o ramo direto cobre também a ELIPSE de mercado da ressalva ('nem a
+#   preço de mercado', 'sem ser a preço de mercado'). A alternação casa UM
+#   termo-quebra por span: 'sem anualizar' NÃO cobre um 'a preço de mercado'
+#   posterior (C5 segue vetando) e 'vendessem a mercado' segue quebra (B1).
+# (FP1) 'CDI/Selic/IPCA/taxa DI anualizado' é anualização de OUTRO indicador,
+#   não do DY — protege por span SÓ o par indicador+anualizad*; um
+#   'anualizado' do próprio DY fora desse par segue derrubando a isenção.
+# (B2) radical 'anualiz\w*' casa a abreviação 'anualiz.' e acento espúrio
+#   pós-radical — pareado com o MESMO radical na quebra-isenção acima.
 _DY_CAVEAT_PROTEGIDO_RE = re.compile(
-    r"(?:n[ãa]o|nunca|jamais|nem)\s+"
-    r"(?:[ée]|ser[áã]?|sido|deve(?:ria|m|r[áã])?|pode(?:m|r[áã])?|representa(?:m)?"
+    r"\b(?:n[ãa]o|nunca|jamais|nem)\s+"
+    r"(?:[ée]|ser[áã]?|sendo|sido|deve(?:ria|m|r[áã]|ndo)?|pode(?:m|r[áã])?|representa(?:m)?"
     r"|constitui|equivale|corresponde|reflete(?:m)?|foi|seja|est[áa])\s+"
     r"(?:(?:ser|sido|lid[oa]|como|o|a|um|uma|dy|dividend|yield|rendimento|valor|de)\s+){0,4}"
-    r"(?:anualiza\w*|a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b)"
-    r"|(?:n[ãa]o|nunca|jamais|nem)\s+anualiza\w*",
+    r"(?:anualiz\w*|a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b)"
+    r"|\b(?:n[ãa]o|nunca|jamais|nem|sem)\s+(?:ser\s+|sido\s+)?"
+    r"(?:anualiz\w*|a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado\b)"
+    r"|\b(?:cdi|selic|ipca|taxa\s+di)\s+anualiz\w*",
     re.IGNORECASE,
 )
 # 'VP/DY' (e as formas do motor: 'valor patrimonial/dividend yield' do
@@ -369,6 +396,11 @@ def _frases_com_fim(periodo: str):
 def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
     """Termos VETADOS com número no mesmo período (bloqueante, D6c).
 
+    RISCO RESIDUAL ACEITO (red-team v2.2, PR #24): anualização por SINÔNIMO —
+    'equivale a X% no ano', 'em base anual', '12x o mensal' — NÃO é quebra-
+    isenção (colide com Selic/CDI legítimos em '% a.a.' no mesmo período);
+    mitigação a jusante: faithfulness + Citations + system prompt + revisão.
+
     Função PURA e determinística. Fecha o convite à alucinação nas lacunas de
     cada classe: 'curva DI' (sem fonte keyless — só o PROXY nomeado via Tesouro
     prefixado é citável), 'inflação implícita' (vencimentos não coincidem),
@@ -413,7 +445,10 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
                 if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo, fim_frase):
                     continue  # DY mensal do informe, auto-declarado e rotulado
-                achados.append(f"{rotulo}: '{frase.strip()[:120]}'")
+                # 240 chars: o corte em 120 truncava a frase ANTES do trecho
+                # que causou o veto (diagnóstico do FP de produção 10/07 exigiu
+                # reconstruir o texto no banco) — laudo precisa mostrar o gatilho.
+                achados.append(f"{rotulo}: '{frase.strip()[:240]}'")
     return achados
 
 

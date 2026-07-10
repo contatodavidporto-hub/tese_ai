@@ -156,6 +156,15 @@ def test_parse_args_default_sem_force_e_sem_codigos() -> None:
     assert args.codigos == []
 
 
+def test_lote_default_e_ibov_top_mais_exemplos_multiativo() -> None:
+    # Paridade CLI/scheduler: ambos aquecem o MESMO lote default — top 10 IBOV
+    # + exemplos públicos multiativo da galeria (FII e renda fixa).
+    lote = wc.lote_default()
+    assert lote == [t for t, _ in wc.TICKERS_IBOV_TOP] + wc.EXEMPLOS_MULTIATIVO
+    assert lote[-2:] == ["HGLG11", "TD-IPCA-2035"]
+    assert len(lote) == len(set(lote)) == 12
+
+
 def test_main_repassa_force_para_o_nucleo(monkeypatch) -> None:
     recebido: dict = {}
 

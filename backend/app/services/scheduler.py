@@ -81,12 +81,13 @@ def _job_bootstrap_cadastro() -> object:
 
 
 def _job_warm_cache() -> object:
-    """Aquece o cache das teses da galeria (top-10 IBOV). GASTA LLM — ver a
-    config `scheduler_warm_cache_horas` (teto de custo diário aplica; cache
-    hit não gasta nada)."""
-    from app.scripts.warm_cache import TICKERS_IBOV_TOP, aquecer
+    """Aquece o cache das teses da galeria (top-10 IBOV + exemplos multiativo
+    HGLG11/TD-IPCA-2035 — `lote_default`, o MESMO lote do CLI sem args).
+    GASTA LLM — ver a config `scheduler_warm_cache_horas` (teto de custo
+    diário aplica; cache hit não gasta nada)."""
+    from app.scripts.warm_cache import aquecer, lote_default
 
-    resumo = aquecer([t for t, _ in TICKERS_IBOV_TOP])
+    resumo = aquecer(lote_default())
     return (
         f"{resumo['prontas']}/{resumo['total']} ready; "
         f"custo=US${resumo['custo_usd']}; falhas={resumo['falhas'] or '-'}"
@@ -131,8 +132,9 @@ def jobs_configurados(settings: Settings) -> list[Job]:
             Job(
                 nome="warm_cache",
                 intervalo=dt.timedelta(hours=settings.scheduler_warm_cache_horas),
-                # Lote frio = até 10 gerações sequenciais (~1-2 min cada).
-                timeout_s=1800,
+                # Lote frio = até 12 gerações sequenciais (~1-2 min cada):
+                # top 10 IBOV + exemplos multiativo (HGLG11, TD-IPCA-2035).
+                timeout_s=2400,
                 func=_job_warm_cache,
             )
         )
