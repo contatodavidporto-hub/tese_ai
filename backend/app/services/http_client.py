@@ -31,7 +31,8 @@ _BACKOFF_BASE = 0.5  # segundos; só dorme entre tentativas que falharam por red
 # as URLs dos conectores são constantes e o input do usuário não as compõe, mas a
 # allowlist garante que NENHUMA URL futura/injetada saia para um host não previsto
 # (ex.: metadata 169.254.169.254, rede interna). Verificado contra os conectores
-# reais em 2026-07-02 (CVM/BCB/SEC/World Bank/FRED/Treasury).
+# reais em 2026-07-02 (CVM/BCB/SEC/World Bank/FRED/Treasury); hosts da Fase 2
+# multiativo (STN/Olinda) adicionados em 2026-07-08 — sem curinga *.gov.br.
 _HOSTS_PERMITIDOS = frozenset(
     {
         "dados.cvm.gov.br",
@@ -43,6 +44,8 @@ _HOSTS_PERMITIDOS = frozenset(
         "home.treasury.gov",
         "api.stlouisfed.org",  # FRED oficial (behind-config)
         "api.eia.gov",  # EIA (behind-config)
+        "www.tesourotransparente.gov.br",  # Tesouro Direto/STN (CSV de preços e taxas)
+        "olinda.bcb.gov.br",  # BCB Olinda — OData Focus/expectativas de mercado
     }
 )
 

@@ -49,8 +49,25 @@ def test_divida_liquida_pode_ser_negativa_caixa_liquido() -> None:
     assert valor == -70.0
 
 
-def test_registro_derivadas_nao_inclui_ebitda_nem_fcf_livre() -> None:
-    # EBITDA (precisa D&A) e FCF livre (precisa CapEx) permanecem LACUNA explícita.
+def test_registro_derivadas_tem_ebitda_mas_nao_fcf_livre() -> None:
+    # EBITDA entrou (fase 3): calculado SÓ quando a linha real de D&A da DFC
+    # existe. FCF livre segue fora (CapEx é sub-linha instável) — lacuna explícita.
     nomes = " ".join(DERIVADAS).lower()
-    assert "ebitda" not in nomes
+    assert "ebitda" in nomes
     assert "fcf" not in nomes and "livre" not in nomes
+
+
+def test_ebitda_soma_ebit_com_da_absoluta() -> None:
+    from app.services.derivadas import CHAVE_DA, ebitda
+
+    # Na DFC o ajuste de D&A soma de volta ao lucro; usamos o valor ABSOLUTO.
+    valor, codigos = ebitda({"3.05": 100.0, CHAVE_DA: -30.0})
+    assert valor == 130.0
+    assert codigos == ["3.05", CHAVE_DA]
+
+
+def test_ebitda_abstem_sem_da() -> None:
+    from app.services.derivadas import ebitda
+
+    valor, _ = ebitda({"3.05": 100.0})
+    assert valor is None  # sem a linha de D&A -> lacuna, nunca estimativa

@@ -45,7 +45,7 @@ from app.models.models import (
     TeseVersao,
 )
 from app.observability.langfuse_client import get_langfuse
-from app.services import correlacao, rotulos
+from app.services import correlacao, planos_contas, rotulos, sec
 from app.services import dados as dados_svc
 from app.services.avaliacao import avaliar_tese
 from app.services.demo_user import get_or_create_demo_user
@@ -110,6 +110,35 @@ def _fmt_reais(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _fmt_percentual(fracao: float) -> str:
+    """Fração decimal -> percentual pt-BR (0.2132 -> '21,32%'). Nunca 'R$'."""
+    return f"{fracao * 100:.2f}".replace(".", ",") + "%"
+
+
+def _fmt_inteiro(valor: float) -> str:
+    """Inteiro pt-BR com separador de milhar (525069 -> '525.069'). Sem 'R$'."""
+    return f"{valor:,.0f}".replace(",", ".")
+
+
+def _fmt_fundamento(valor: float, unidade: str | None) -> str:
+    """Formata um Fundamento pela sua UNIDADE (achado B2 do conselho).
+
+    NULL/'BRL' -> reais (legado byte-idêntico); 'RAZAO' e 'PCT' -> percentual a
+    partir da fração decimal (ROE 0.2132 -> '21,32%' — nunca 'R$ 0,21'); 'UN' ->
+    inteiro pt-BR; 'BRL_POR_COTA' -> reais por cota. Unidade desconhecida ->
+    valor cru rotulado com a unidade (jamais 'R$' por engano).
+    """
+    if unidade is None or unidade == "BRL":
+        return _fmt_reais(valor)
+    if unidade in ("RAZAO", "PCT"):
+        return _fmt_percentual(valor)
+    if unidade == "UN":
+        return _fmt_inteiro(valor)
+    if unidade == "BRL_POR_COTA":
+        return f"{_fmt_reais(valor)} por cota"
+    return f"{valor} ({unidade})"
+
+
 def _sanitizar_instrucao(texto: str, *, limite: int = 120) -> str:
     """Neutraliza o canal de instrução: colapsa quebras/controle e trunca.
 
@@ -142,7 +171,7 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
             continue
         texto = (
             f"Fundamento de {empresa.nome} ({empresa.ticker}): "
-            f"{f.conta} = {_fmt_reais(float(f.valor))} "
+            f"{f.conta} = {_fmt_fundamento(float(f.valor), f.unidade)} "
             f"(exercício/ref. {f.dt_refer})."
         )
         itens.append((fonte, texto))
@@ -172,16 +201,28 @@ def _coletar(session: Session, empresa: Empresa) -> list[tuple[Fonte, str]]:
 
     # D2 — fundamentos de pares globais do setor (SEC EDGAR), com padrão contábil
     # rotulado. É comparação interpretativa (pares = seleção), sempre citada à SEC.
-    pares_fund = session.execute(
+    # Defesa em profundidade: além do corte na ingestão, linhas velhas (ou sem data
+    # verificável) que sobraram no banco não entram na tese; duplicatas colapsam
+    # ficando a mais recente por (par, conceito).
+    stmt_pares = (
         select(ParFundamento, Par)
         .join(Par, Par.id == ParFundamento.par_id)
         .where(Par.empresa_id == empresa.id)
-        .order_by(Par.ticker_ext, ParFundamento.conceito)
-    ).all()
+        .order_by(Par.ticker_ext, ParFundamento.conceito, ParFundamento.dt_refer.desc())
+    )
+    corte_pares = sec.data_corte_pares()
+    if corte_pares is not None:
+        stmt_pares = stmt_pares.where(ParFundamento.dt_refer >= corte_pares)
+    pares_fund = session.execute(stmt_pares).all()
+    pares_vistos: set[tuple[str | None, str]] = set()
     for pf, par in pares_fund:
         fonte = session.get(Fonte, pf.fonte_id) if pf.fonte_id else None
         if fonte is None or pf.valor is None:
             continue
+        chave_par = (par.ticker_ext, pf.conceito)
+        if chave_par in pares_vistos:
+            continue
+        pares_vistos.add(chave_par)
         texto = (
             f"Par global do setor — {par.nome_ext} ({par.ticker_ext}): "
             f"{pf.conceito} = {float(pf.valor):,.0f} {pf.moeda or ''} "
@@ -249,12 +290,18 @@ def _synthesize(
     ticker: str,
     nome: str,
     elos_texto: str = "",
+    *,
+    system: str = _SYSTEM,
 ) -> tuple[str, list[dict], object, str]:
     """Chamada Opus com Citations (streaming).
 
     Devolve (markdown, citações, usage, prompt_hash). O `prompt_hash` cobre
     system + documentos + instrução + modelo + parâmetros de geração, para que a
     trilha de auditoria identifique unicamente a configuração que gerou a tese.
+    `system` é o TEMPLATE DA CLASSE (etapa 11): default = `_SYSTEM` legado da
+    ação (byte-idêntico — hash pinado em teste); FII/RF/variante financeira
+    passam o template do perfil. O caminho Opus/Citations/prompt_hash é o MESMO
+    para toda classe.
     """
     bloco_elos = (
         "\n\nELOS DE CORRELAÇÃO cross-dimensão (INTERPRETAÇÃO com hedge; cada elo já é "
@@ -265,7 +312,7 @@ def _synthesize(
     )
     instrucao = (
         f"Com base EXCLUSIVAMENTE nos documentos-fonte acima, monte a tese para "
-        f"{_sanitizar_instrucao(ticker, limite=10)} ({_sanitizar_instrucao(nome)}). "
+        f"{_sanitizar_instrucao(ticker, limite=16)} ({_sanitizar_instrucao(nome)}). "
         f"Cite cada número à sua fonte. Onde faltar um dado, "
         f"escreva 'dado não encontrado'. Nunca recomende comprar ou vender."
         f"{bloco_elos}"
@@ -274,7 +321,7 @@ def _synthesize(
     prompt_hash = hashlib.sha256(
         json.dumps(
             {
-                "system": _SYSTEM,
+                "system": system,
                 "model": model,
                 "instrucao": instrucao,
                 "documents": [d.get("source") for d in documents],
@@ -309,7 +356,7 @@ def _synthesize(
         with client.messages.stream(
             model=model,
             max_tokens=8000,
-            system=[{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": content}],
             thinking={"type": "adaptive"},
             output_config={"effort": "high"},
@@ -320,6 +367,11 @@ def _synthesize(
                 u = final.usage
                 upd = getattr(lf, "update_current_generation", None)
                 if upd is not None:
+                    # Tokens completos (inclui cache write) + custo estimado em USD:
+                    # o Langfuse mostra custo/tokens POR GERAÇÃO sem depender do
+                    # modelo constar no catálogo de preços deles.
+                    custo = _estimar_custo(model, u)
+                    extras = {"cost_details": {"total": custo}} if custo is not None else {}
                     upd(
                         model=model,
                         usage_details={
@@ -327,7 +379,12 @@ def _synthesize(
                             "output": getattr(u, "output_tokens", 0) or 0,
                             "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0)
                             or 0,
+                            "cache_creation_input_tokens": getattr(
+                                u, "cache_creation_input_tokens", 0
+                            )
+                            or 0,
                         },
+                        **extras,
                     )
             except Exception as exc:  # pragma: no cover - tracing best-effort
                 logger.debug("langfuse_usage_falhou", error_type=type(exc).__name__)
@@ -430,6 +487,14 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
 
     Robusto a ausência de chave/dados: nunca lança para o caller; grava o estado
     (`ready`/`error`) na própria tese. Service_role ignora RLS para gravar.
+
+    Multiativo (etapa 11): o fluxo é DESPACHADO pelo perfil da classe
+    (`teses.classe_ativo`; NULL = 'acao', caminho legado byte-idêntico —
+    mesmo ensure/ingest/coleta/_SYSTEM/8 elos): ensure_ativo -> ingest
+    (isolado por passo) -> coletar -> template da classe -> sintetizar (MESMO
+    caminho Opus/Citations/prompt_hash) -> elos da classe -> gate por classe.
+    Cache/reaper/custos/limites são idênticos para toda classe;
+    `DadoNaoEncontrado` segue sendo abstenção total.
     """
     settings = get_settings()
     tese = session.get(Tese, tese_id)
@@ -437,6 +502,7 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         logger.warning("tese_inexistente", tese_id=str(tese_id))
         return
     ticker = tese.ticker
+    classe = getattr(tese, "classe_ativo", None) or "acao"
 
     try:
         if not settings.anthropic_api_key:
@@ -448,17 +514,17 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         # Cap de concorrência: falha rápido (o caller grava status=error) se todas as
         # vagas de geração estão ocupadas — protege pool de conexões e custo.
         with GENERATION_SLOTS:
-            empresa = dados_svc.ensure_empresa(session, ticker)
-            # Garante dados reais; ingere as 5 dimensões sob demanda (falha isolada
-            # por fonte) se a empresa ainda não tem fundamentos. Import tardio evita ciclo.
-            if not session.execute(
-                select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
-            ).first():
-                from app.services import orquestracao
+            # Import tardio (evita ciclo: os perfis importam helpers deste módulo).
+            from app.services.ativos import registro
 
-                orquestracao.ingest_completo(session, empresa)
+            perfil = registro.perfil_da_classe(classe)
+            ativo = perfil.ensure_ativo(session, ticker)
+            # Garante dados reais sob demanda (falha isolada por passo, padrão
+            # orquestração) — para 'acao', exatamente o gatilho e o fluxo legados.
+            if perfil.precisa_ingest(session, ativo):
+                perfil.ingest(session, ativo)
 
-            itens = _coletar(session, empresa)
+            itens = perfil.coletar(session, ativo)
             if not itens:
                 raise dados_svc.DadoNaoEncontrado(
                     f"sem dados reais para {ticker} — abster (dado não encontrado)"
@@ -467,9 +533,9 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             documents, index_to_fonte = _build_documents(itens)
             client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
-            # D5 — grafo de correlação cross-dimensão (só elos validados: fonte nas
-            # duas pontas + hedge). Alimenta a síntese como fio condutor auditável.
-            elos = correlacao.construir_grafo(session, empresa)
+            # D5/D8 — elos do PERFIL da classe (só validados: fonte nas duas
+            # pontas + hedge; Pearson não-causal). Fio condutor auditável.
+            elos = perfil.montar_elos(session, ativo)
             elos_texto = "\n".join(correlacao.elos_para_llm(elos))
 
             markdown, citacoes, usage, prompt_hash = _synthesize(
@@ -478,8 +544,9 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
                 documents,
                 index_to_fonte,
                 ticker,
-                empresa.nome,
+                perfil.nome_ativo(ativo),
                 elos_texto,
+                system=perfil.system_prompt(ativo),
             )
         # Contabiliza o custo estimado no teto diário (fora do slot: I/O já terminou).
         CUSTO_DIARIO.registrar(_estimar_custo(settings.tese_model_synthesis, usage))
@@ -500,14 +567,26 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             "uso": uso,
             "metadata": metadata,
             "elos": correlacao.elos_para_envelope(elos),
+            # Classe do ativo no envelope (etapa 11): trilha de auditoria e
+            # contrato com o gate/UI ('acao' explícita mesmo no legado NULL).
+            "classe": classe,
             "gerado_em": dt.datetime.now(dt.UTC).isoformat(),
         }
 
-        # Gate de confiança ACOPLADO ao caminho de produção (S12). Bloqueante
-        # (recomendação / evento sem fonte / fonte sem URL) => NÃO serve como pronta:
-        # grava status=error com os motivos. O envelope + laudo ficam persistidos
-        # para a trilha de auditoria.
-        laudo = avaliar_tese(envelope)
+        # Gate de confiança ACOPLADO ao caminho de produção (S12/D6), por
+        # CLASSE. Bloqueante (recomendação / evento sem fonte / fonte sem URL)
+        # => NÃO serve como pronta: grava status=error com os motivos. O
+        # envelope + laudo ficam persistidos para a trilha de auditoria.
+        # Achado M2 do red-team: banco/seguradora são classe 'acao' (D4 —
+        # 'financeira' não é classe), então `classe=classe` nunca acionava os
+        # tokens/piso de 'banco' no gate. Espelha a MESMA condição do template
+        # variante (acao.system_prompt): plano financeiro => classe do gate.
+        classe_gate = classe
+        if classe == "acao":
+            plano = getattr(ativo, "plano_contas", None)
+            if plano in planos_contas.PLANOS_FINANCEIROS:
+                classe_gate = plano
+        laudo = avaliar_tese(envelope, classe=classe_gate)
         envelope["avaliacao"] = laudo
         if laudo["bloqueante"]:
             envelope["erro"] = "Tese reprovada no gate de confiança: " + "; ".join(laudo["motivos"])
@@ -521,13 +600,17 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         )
         session.add(versao)
         session.flush()  # popula versao.id p/ vincular os elos
-        correlacao.persistir_elos(session, empresa.id, elos, versao.id)
+        # Âncora por classe (CHECK ck_elos_ancora): empresa_id para ação;
+        # ativo_codigo (ticker FII / código TD) quando não há empresa.
+        empresa_id, ativo_codigo = perfil.ancora_elos(ativo)
+        correlacao.persistir_elos(session, empresa_id, elos, versao.id, ativo_codigo=ativo_codigo)
         tese.status = "error" if laudo["bloqueante"] else "ready"
         session.commit()
         logger.info(
             "tese_gerada",
             tese_id=str(tese.id),
             ticker=ticker,
+            classe=classe,
             status=tese.status,
             citacoes=len(citacoes),
             lacunas=len(lacunas),
@@ -610,9 +693,24 @@ def reaper_teses_orfas(session: Session, timeout_min: int) -> int:
 
 
 def criar_tese(session: Session, ticker: str) -> Tese:
-    """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda."""
+    """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda.
+
+    Resolve a classe do ativo AQUI (fonte única): scripts que chamam direto
+    (warm_cache, gerar_e_avaliar) geram FII/renda fixa sem depender do router.
+    NULL = 'acao' (legado byte-idêntico); identidade não resolvida deixa NULL e
+    o motor de ação abstém com a mensagem estável de dado não encontrado.
+    """
+    from app.services.ativos.identidade import resolver_classe  # import tardio (sem ciclo)
+
+    codigo = ticker.upper().strip()
     user_id = get_or_create_demo_user()
-    tese = Tese(user_id=uuid.UUID(user_id), ticker=ticker.upper().strip(), status="processing")
+    tese = Tese(user_id=uuid.UUID(user_id), ticker=codigo, status="processing")
+    try:
+        classe, _payload = resolver_classe(codigo, session)
+        if classe != "acao":
+            tese.classe_ativo = classe
+    except dados_svc.DadoNaoEncontrado as exc:
+        logger.warning("classe_ativo_nao_resolvida", ticker=codigo, detalhe=str(exc))
     session.add(tese)
     session.commit()
     session.refresh(tese)
