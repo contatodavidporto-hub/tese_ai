@@ -701,6 +701,79 @@ def test_elo_vp_dy_com_forca_nao_bloqueia():
     assert termos_vetados_com_numero("O DY projetado do fundo é 0,50.", "fii")
 
 
+# --- Red-team v2.2 (PR #24): bypass do subjuntivo (B1), anualização de OUTRO
+# indicador (FP1), elipse de mercado na ressalva (FP2) e abreviação (B2). ------
+
+
+def test_subjuntivo_terminado_em_sem_nao_cria_ressalva_espuria_b1():
+    # B1: 'fossem/pudessem/quisessem' terminam em 'sem' — sem \b a alternativa
+    # 'sem' casava o FIM do verbo e o span espúrio mascarava anualização real.
+    assert termos_vetados_com_numero(
+        "Se os 0,66% do informe fossem anualizados, o DY alcançaria 8,2%.", "fii"
+    )
+    assert termos_vetados_com_numero(
+        "Se os rendimentos pudessem ser anualizados, o DY do informe atingiria 8,2%.", "fii"
+    )
+    assert termos_vetados_com_numero(
+        "Se quisessem anualizar o indicador, o DY do informe passaria de 8%.", "fii"
+    )
+
+
+def test_cdi_anualizado_no_periodo_nao_derruba_isencao_do_dy_fp1():
+    # FP1: 'CDI anualizado' é anualização de OUTRO indicador — não pode
+    # derrubar a isenção do DY mensal rotulado no mesmo período.
+    assert (
+        termos_vetados_com_numero(
+            "O dividend yield mensal do informe (auto-declarado) é de 0,66%, "
+            "enquanto o CDI anualizado está em 14,15% a.a. (referência 2026-07-08).",
+            "fii",
+        )
+        == []
+    )
+
+
+def test_elipse_de_mercado_na_ressalva_nao_bloqueia_fp2():
+    # FP2: elipses legítimas da ressalva mandatória — 'nem a preço de
+    # mercado' e 'sem ser a preço de mercado' — protegem por span.
+    assert (
+        termos_vetados_com_numero(
+            "- **DY mensal do informe (auto-declarado):** 0,66% — nem anualizado, "
+            "nem a preço de mercado.",
+            "fii",
+        )
+        == []
+    )
+    assert (
+        termos_vetados_com_numero(
+            "O DY do informe, sem ser a preço de mercado, é de 0,66% (competência 2026-05-01).",
+            "fii",
+        )
+        == []
+    )
+
+
+def test_vendessem_a_mercado_segue_quebrando_isencao():
+    # Controle do FP2+B1: 'vendessem a mercado' NÃO é ressalva ('sem' dentro
+    # do verbo) — com e sem rótulo do informe, o veto fica.
+    assert termos_vetados_com_numero("Caso vendessem a mercado, o DY seria de 8%.", "fii")
+    assert termos_vetados_com_numero(
+        "Segundo o informe mensal, caso vendessem a mercado, o DY seria de 8%.", "fii"
+    )
+
+
+def test_abreviacao_e_acento_espurio_de_anualizado_b2():
+    # B2: radical 'anualiz' — 'anualiz.' e 'anualizádo' são quebra-isenção;
+    # 'sem anualiz.' segue ressalva protetora (mesmo radical nos dois lados).
+    assert termos_vetados_com_numero("DY do informe (anualiz.): 8,2% no período.", "fii")
+    assert termos_vetados_com_numero("O DY do informe anualizádo chega a 8,1%.", "fii")
+    assert (
+        termos_vetados_com_numero(
+            "- **DY mensal do informe (auto-declarado, sem anualiz.):** 0,66%.", "fii"
+        )
+        == []
+    )
+
+
 def test_numero_em_linha_seguinte_de_bullet_quebrado_bloqueia_m4c():
     # M4c: quebra de linha SIMPLES dentro do mesmo bullet é o MESMO período.
     md = "## Juros\n- A curva DI precifica\n  12,5% no vencimento 2027."
