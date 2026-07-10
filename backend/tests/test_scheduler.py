@@ -21,6 +21,7 @@ def _settings(**overrides) -> SimpleNamespace:
         scheduler_reaper_min=15,
         scheduler_macro_horas=24,
         scheduler_cadastro_horas=168,
+        scheduler_warm_cache_horas=24,
     )
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -29,17 +30,70 @@ def _settings(**overrides) -> SimpleNamespace:
 # ---------------------------------------------------------------------------
 # jobs_configurados — flags por job
 # ---------------------------------------------------------------------------
-def test_jobs_configurados_padrao_tem_os_tres() -> None:
+def test_jobs_configurados_padrao_tem_os_quatro() -> None:
     jobs = sch.jobs_configurados(_settings())
-    assert [j.nome for j in jobs] == ["reaper", "refresh_macro", "bootstrap_cadastro"]
+    assert [j.nome for j in jobs] == [
+        "reaper",
+        "refresh_macro",
+        "bootstrap_cadastro",
+        "warm_cache",
+    ]
     assert jobs[0].intervalo == dt.timedelta(minutes=15)
     assert jobs[1].intervalo == dt.timedelta(hours=24)
     assert jobs[2].intervalo == dt.timedelta(hours=168)
+    assert jobs[3].intervalo == dt.timedelta(hours=24)
+
+
+def test_warm_cache_roda_por_ultimo_no_tick() -> None:
+    # Ordem é contrato: no mesmo tick o refresh_macro roda ANTES do warm_cache,
+    # então as teses re-geradas já saem com as séries macro atualizadas.
+    jobs = sch.jobs_configurados(_settings())
+    nomes = [j.nome for j in jobs]
+    assert nomes.index("refresh_macro") < nomes.index("warm_cache")
+    assert nomes[-1] == "warm_cache"
+
+
+def test_job_warm_cache_aquece_lote_default_ibov_mais_multiativo(monkeypatch) -> None:
+    # O job do scheduler aquece o MESMO lote do CLI sem args (lote_default):
+    # top 10 IBOV + exemplos multiativo (HGLG11, TD-IPCA-2035).
+    from app.scripts import warm_cache as wc
+
+    recebido: dict = {}
+
+    def _aquecer(tickers):
+        recebido["tickers"] = list(tickers)
+        return {"prontas": 12, "total": 12, "custo_usd": 0.0, "falhas": []}
+
+    monkeypatch.setattr(wc, "aquecer", _aquecer)
+    detalhe = sch._job_warm_cache()
+
+    assert recebido["tickers"] == wc.lote_default()
+    assert recebido["tickers"][-2:] == ["HGLG11", "TD-IPCA-2035"]
+    assert "12/12 ready" in str(detalhe)
+
+
+def test_warm_cache_timeout_dimensionado_para_12_geracoes() -> None:
+    # Lote default cresceu para 12 gerações (top 10 IBOV + 2 multiativo):
+    # timeout do job acompanha (2400s), senão o tick mata o lote frio no fim.
+    jobs = sch.jobs_configurados(_settings())
+    warm = next(j for j in jobs if j.nome == "warm_cache")
+    assert warm.timeout_s == 2400
 
 
 def test_intervalo_zero_desliga_o_job() -> None:
-    jobs = sch.jobs_configurados(_settings(scheduler_macro_horas=0, scheduler_cadastro_horas=0))
+    jobs = sch.jobs_configurados(
+        _settings(
+            scheduler_macro_horas=0,
+            scheduler_cadastro_horas=0,
+            scheduler_warm_cache_horas=0,
+        )
+    )
     assert [j.nome for j in jobs] == ["reaper"]
+
+
+def test_warm_cache_zero_desliga_so_ele() -> None:
+    jobs = sch.jobs_configurados(_settings(scheduler_warm_cache_horas=0))
+    assert [j.nome for j in jobs] == ["reaper", "refresh_macro", "bootstrap_cadastro"]
 
 
 # ---------------------------------------------------------------------------

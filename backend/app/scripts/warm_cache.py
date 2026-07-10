@@ -15,22 +15,34 @@ A lista é um RETRATO datado (a carteira muda a cada quadrimestre) — atualizar
 junto com a rebalanceamento da B3.
 
 Empresas financeiras (ITUB4/BBDC4/ITSA4/B3SA3) têm plano de contas próprio: as
-derivadas e os pares SEC abstêm — a tese sai com as dimensões que têm fonte
-(abstenção honesta, nunca inventa).
+derivadas abstêm; pares SEC saem para BANCOS (setores.py v2: SIC 6021 —
+JPM/BAC/C/WFC, com ressalva US-GAAP × IFRS) e abstêm nos demais setores
+financeiros (holding/seguradora/serviços) — a tese sai com as dimensões que
+têm fonte (abstenção honesta, nunca inventa).
+
+Fase 2 multiativo (D7/etapa 14): o argv aceita códigos de QUALQUER classe —
+tickers B3, FIIs (HGLG11) e Tesouro Direto (TD-IPCA-2035) — sem validar contra
+a lista IBOV (a identidade é resolvida pelo motor). `--force` pula o cache
+(`buscar_tese_cache`) e regenera mesmo com HIT: a nova `ready` passa a ser
+servida (GET /teses ordena por criado_em desc) e a antiga vira trilha de
+auditoria. Sem `--force` o comportamento é idêntico ao da fase 1.
 
 Uso:
-    python -m app.scripts.warm_cache            # todos os 10
+    python -m app.scripts.warm_cache            # lote default: top 10 IBOV + exemplos multiativo
     python -m app.scripts.warm_cache VALE3 WEGE3  # subconjunto
+    python -m app.scripts.warm_cache --force ITUB4 BBDC4 ITSA4 B3SA3
+    python -m app.scripts.warm_cache --force HGLG11 TD-IPCA-2035
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
+from collections.abc import Callable, Sequence
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.db.session import SessionLocal
 from app.models.models import TeseVersao
 from app.services.tese import buscar_tese_cache, criar_tese, gerar_tese
 
@@ -50,6 +62,42 @@ TICKERS_IBOV_TOP: list[tuple[str, float]] = [
     ("WEGE3", 2.871),
 ]
 
+# Exemplos públicos multiativo da galeria (FII e renda fixa) — aquecidos junto
+# com o top 10 IBOV para o público ver resposta instantânea nas outras classes.
+# Manter em sincronia com frontend/src/lib/tickers.ts EXEMPLOS_PRONTOS.
+EXEMPLOS_MULTIATIVO: list[str] = ["HGLG11", "TD-IPCA-2035"]
+
+
+def lote_default() -> list[str]:
+    """Lote default do aquecimento — top 10 IBOV + exemplos multiativo.
+
+    Compartilhado entre o CLI (sem args) e o job `warm_cache` do scheduler:
+    paridade por construção, não por convenção.
+    """
+    return [t for t, _ in TICKERS_IBOV_TOP] + list(EXEMPLOS_MULTIATIVO)
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Argumentos do CLI. Códigos multiclasse, SEM validação contra a lista IBOV."""
+    parser = argparse.ArgumentParser(
+        prog="warm_cache",
+        description="Pré-gera teses (warm cache). Sem códigos: top 10 do IBOV "
+        "+ exemplos multiativo (HGLG11, TD-IPCA-2035).",
+    )
+    parser.add_argument(
+        "codigos",
+        nargs="*",
+        metavar="CODIGO",
+        help="Tickers B3, FIIs (HGLG11) ou Tesouro Direto (TD-IPCA-2035); "
+        "sem validação contra a lista IBOV — a identidade é resolvida pelo motor.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenera mesmo com cache HIT (pula buscar_tese_cache).",
+    )
+    return parser.parse_args(argv)
+
 
 def _custo_da_tese(session, tese_id) -> float | None:
     versao = (
@@ -64,48 +112,94 @@ def _custo_da_tese(session, tese_id) -> float | None:
     return uso.get("custo_estimado_usd")
 
 
-def main(tickers: list[str]) -> int:
-    configure_logging("development")
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(errors="replace")
-    if SessionLocal is None:
-        print("ERRO: DATABASE_URL ausente (.env).")
-        return 2
+def aquecer(
+    tickers: Sequence[str],
+    *,
+    force: bool = False,
+    log_fn: Callable[[str], None] | None = None,
+) -> dict[str, object]:
+    """Aquece o cache do lote: gera só as teses sem `ready` vigente (hit = pulado).
 
+    Núcleo compartilhado entre o CLI (main) e o job `warm_cache` do scheduler.
+    Cada geração passa pelo caminho normal (`gerar_tese`): respeita o teto
+    diário de custo (`tese_teto_custo_usd_dia`, abstém ao estourar) e o gate
+    anti-recomendação. Um ticker com problema não derruba o lote.
+
+    `force=True` (etapa 14) pula `buscar_tese_cache` e regenera mesmo com HIT;
+    com o default (False) o comportamento é idêntico ao da fase 1.
+
+    Devolve o resumo {"prontas", "total", "custo_usd", "falhas"}.
+    """
+    from app.db.session import SessionLocal
+
+    if SessionLocal is None:
+        raise RuntimeError("DATABASE_URL ausente")
+
+    log = log_fn or (lambda _msg: None)
     settings = get_settings()
     custo_total = 0.0
     prontas = 0
+    falhas: list[str] = []
     for ticker in tickers:
         session = SessionLocal()
         try:
-            em_cache = buscar_tese_cache(session, ticker, settings.tese_cache_horas)
-            if em_cache is not None:
-                print(f"{ticker}: cache HIT (tese {em_cache.id} de {em_cache.criado_em}) — pulado")
-                prontas += 1
-                continue
+            # --force: pula o cache e regenera mesmo com HIT (a nova `ready`
+            # supera a antiga no GET /teses, que ordena por criado_em desc).
+            if not force:
+                em_cache = buscar_tese_cache(session, ticker, settings.tese_cache_horas)
+                if em_cache is not None:
+                    log(
+                        f"{ticker}: cache HIT (tese {em_cache.id} de {em_cache.criado_em})"
+                        " — pulado"
+                    )
+                    prontas += 1
+                    continue
             tese = criar_tese(session, ticker)
-            print(f"{ticker}: gerando (tese {tese.id})...")
+            log(f"{ticker}: gerando (tese {tese.id})...")
             gerar_tese(session, tese.id)
             session.expire_all()
             session.refresh(tese)
             custo = _custo_da_tese(session, tese.id)
             if custo:
                 custo_total += custo
-            print(f"{ticker}: status={tese.status} custo_estimado=US${custo or 0:.2f}")
+            log(f"{ticker}: status={tese.status} custo_estimado=US${custo or 0:.2f}")
             if tese.status == "ready":
                 prontas += 1
+            else:
+                falhas.append(ticker)
         except Exception as exc:  # um ticker com problema não derruba o lote
-            print(f"{ticker}: FALHOU ({type(exc).__name__})")
+            falhas.append(ticker)
+            log(f"{ticker}: FALHOU ({type(exc).__name__})")
             logger.warning("warm_cache_ticker_falhou", ticker=ticker, erro=type(exc).__name__)
         finally:
             session.close()
 
+    return {
+        "prontas": prontas,
+        "total": len(tickers),
+        "custo_usd": round(custo_total, 2),
+        "falhas": falhas,
+    }
+
+
+def main(tickers: list[str], force: bool = False) -> int:
+    configure_logging("development")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    try:
+        resumo = aquecer(tickers, force=force, log_fn=print)
+    except RuntimeError:
+        print("ERRO: DATABASE_URL ausente (.env).")
+        return 2
+
     print(
-        f"\nwarm_cache: {prontas}/{len(tickers)} ready; custo total estimado US${custo_total:.2f}"
+        f"\nwarm_cache: {resumo['prontas']}/{resumo['total']} ready; "
+        f"custo total estimado US${resumo['custo_usd']:.2f}"
     )
-    return 0 if prontas > 0 else 1
+    return 0 if resumo["prontas"] else 1
 
 
 if __name__ == "__main__":  # pragma: no cover
-    alvos = sys.argv[1:] or [t for t, _ in TICKERS_IBOV_TOP]
-    raise SystemExit(main(alvos))
+    args = _parse_args()
+    alvos = args.codigos or lote_default()
+    raise SystemExit(main(alvos, force=args.force))

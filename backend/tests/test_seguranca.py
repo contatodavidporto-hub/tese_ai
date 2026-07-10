@@ -33,6 +33,21 @@ def test_host_permitido_rejeita_fora_da_allowlist() -> None:
     assert not http_client._host_permitido("sec.gov.evil.com")  # sufixo forjado
 
 
+def test_host_permitido_aceita_hosts_da_fase2_multiativo() -> None:
+    # Fase 2 multiativo: STN (Tesouro Direto) e Olinda (Focus/BCB) entram na lista.
+    assert http_client._host_permitido("www.tesourotransparente.gov.br")
+    assert http_client._host_permitido("olinda.bcb.gov.br")
+
+
+def test_host_permitido_fase2_sem_curinga_gov_br() -> None:
+    # A adição é HOST a HOST (sem curinga *.gov.br): outros gov.br seguem barrados,
+    # e sufixo forjado com os hosts novos também.
+    assert not http_client._host_permitido("qualquer.gov.br")
+    assert not http_client._host_permitido("tesourotransparente.gov.br")  # sem o www da lista
+    assert not http_client._host_permitido("www.tesourotransparente.gov.br.evil.com")
+    assert not http_client._host_permitido("olinda.bcb.gov.br.evil.com")
+
+
 def test_validar_url_rejeita_esquema_perigoso() -> None:
     with pytest.raises(http_client.HostNaoPermitido):
         http_client._validar_url("file:///etc/passwd")

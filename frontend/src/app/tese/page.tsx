@@ -1,6 +1,8 @@
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
-import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
+import { Reveal } from "@/components/motion/Reveal";
+import { newsreaderItalico } from "@/lib/fontes";
+import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
 // Renderização dinâmica: o CSP com nonce por requisição (src/proxy.ts) precisa que
@@ -9,6 +11,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Gerar tese",
+  description:
+    "Gere a tese estruturada de uma companhia aberta da B3, um FII ou um título do Tesouro Direto: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,7 +27,7 @@ export default async function TesePage({
   const sp = await searchParams;
 
   const brutoTicker = typeof sp.ticker === "string" ? sp.ticker.trim().toUpperCase() : "";
-  const ticker = TICKER_B3_RE.test(brutoTicker) ? brutoTicker : undefined;
+  const ticker = TICKER_RE.test(brutoTicker) ? brutoTicker : undefined;
   const brutoId = typeof sp.id === "string" ? sp.id.trim() : "";
   const id = UUID_RE.test(brutoId) ? brutoId : undefined;
 
@@ -37,19 +41,26 @@ export default async function TesePage({
       <Header />
       <main
         id="conteudo"
-        className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 sm:px-6"
+        // `newsreaderItalico.variable` (P1): esta página renderiza itálico de
+        // verdade (voz narrada da D5 e <em> do markdown, via Markdown.tsx) —
+        // liga a família itálica só aqui, não em toda rota do site.
+        className={`virada-edicao ${newsreaderItalico.variable} mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16`}
       >
-        <div className="flex max-w-2xl flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-tinta">
+        <Reveal className="flex max-w-2xl flex-col gap-3 border-b border-line pb-8">
+          <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+            Nova tese
+          </p>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
             Gerar tese
           </h1>
-          <p className="text-sm leading-relaxed text-tinta-2">
-            Informe o ticker de uma companhia aberta da B3. A tese sai estruturada
-            em dimensões — fundamentos, macro, pares globais e geopolítica — com
-            cada afirmação factual ligada à sua fonte, e sem recomendação de
-            compra ou venda.
+          <p className="text-body text-ink-2">
+            Informe o ticker de uma companhia aberta da B3, um FII ou um código
+            do Tesouro Direto. A tese sai estruturada em dimensões —
+            fundamentos, macro, pares globais e geopolítica — com cada
+            afirmação factual ligada à sua fonte, e sem recomendação de compra
+            ou venda.
           </p>
-        </div>
+        </Reveal>
 
         <TeseClient tickerInicial={ticker} autoIniciar={autoIniciar} idInicial={id} />
       </main>

@@ -1,147 +1,718 @@
 @import "tailwindcss";
 
 /*
- * Identidade "relatório institucional": papel + tinta + verde-cédula.
- * Tokens semânticos em CSS vars (trocam no dark) mapeados para utilitários
- * do Tailwind v4 via @theme inline (bg-papel, text-tinta, border-linha...).
- * Contrastes conferidos para WCAG AA (texto normal >= 4.5:1) nos dois temas.
+ * ============================================================
+ * BRASA EDITORIAL — design system do Tese AI
+ * ============================================================
+ * Fonte da verdade: DESIGN-BRIEF.md (identidade) — hexes e ratios provados
+ * (40/40 PASS, WCAG 2.x, luminância relativa) — e ARQUITETURA.md (rails).
+ * Tabela completa de uso: `frontend/DESIGN-TOKENS.md`.
+ *
+ * Arquitetura de 3 camadas (não pular etapa):
+ *   1. Primitivos  — valores brutos, nome neutro (--bg-page, --ink-primary...).
+ *      Nunca usados direto em componente.
+ *   2. Semânticos  — intenção (@theme inline abaixo: --color-page, --color-ink...).
+ *      É esta camada que muda no dark mode (aponta para o primitivo certo).
+ *   3. Componente  — variações locais pontuais (ex.: .sombra-elevada,
+ *      .citacao-pin) quando o semântico sozinho não basta.
+ *
+ * Regra de ouro: componente consome semântico; semântico consome primitivo.
+ * `text-blue-600`, `bg-[#1a2b3c]` ou qualquer valor mágico fora da escala =
+ * defeito a corrigir, não padrão a seguir.
+ *
+ * Narrativa: base fria (grafite-azulado sobre papel acinzentado); o único
+ * acento é a brasa (cobre queimado) — ação ou evidência, nunca decoração.
+ * Serifa (Newsreader) = argumento; grotesca (Archivo) = chrome; mono
+ * (IBM Plex Mono) = fato. Se está em mono, tem fonte e data — se não tem
+ * fonte, não é fato, não vai para a tela.
  */
 
+/* ---------- TEMA CLARO — "Edição da manhã" ---------- */
 :root {
-  /* superfícies */
-  --papel: #f6f4ee;
-  --cartao: #fffefb;
-  --cartao-2: #efece2;
-  /* texto */
-  --tinta: #1b2420;
-  --tinta-2: #4c5a54;
-  --tinta-3: #5f6e67;
-  /* traços */
-  --linha: #ddd8c9;
-  --linha-forte: #b9b39f;
-  /* borda de componente interativo (campo/controle): >= 3:1 vs cartão (WCAG 1.4.11) */
-  --borda-campo: #8f8a76;
-  /* acento (verde-cédula): fundo de ação × texto/acento */
-  --selo: #0d5c44;
-  --selo-forte: #094634;
-  --sobre-selo: #f6f4ee;
-  --selo-texto: #0b4a37;
-  /* tarja regulatória e lacunas (âmbar documental) */
-  --aviso-fundo: #f8f1dc;
-  --aviso-borda: #d9c791;
-  --aviso-texto: #6d4f00;
-  /* erro */
-  --erro-fundo: #f9e9e4;
-  --erro-borda: #e0b3a6;
-  --erro-texto: #8c2f14;
-  /* realce de citação */
-  --realce: #e7efdf;
+  /* Fundos e superfícies */
+  --bg-page: #f6f6f3; /* papel frio da página (nunca creme)          */
+  --bg-card: #fdfdfb; /* card/tese; "folha" 1 passo acima do papel   */
+  --bg-elevated: #ffffff; /* modais, dropdowns, tooltips + sombra fria   */
+
+  /* Tinta */
+  --ink-primary: #16181d; /* corpo e títulos — 16.40:1 na página         */
+  --ink-secondary: #4a4f58; /* subtítulos, descrições — 7.60:1             */
+  --ink-tertiary: #686d76; /* metadados, timestamps — 4.80:1 (AA)         */
+
+  /* Estrutura */
+  --line-subtle: #e6e5df; /* hairlines, réguas, zebra (decorativa)       */
+  --line-strong: #c7c6bf; /* réguas de cabeçalho de seção (decorativa)   */
+  --border-field: #8f8e86; /* inputs/selects — 3.04:1 página (UI ≥3)      */
+
+  /* Acento — BRASA (cobre queimado). ÚNICO acento da identidade */
+  --accent-action: #a03a06; /* botão primário, toggle ativo — 6.25:1 UI */
+  --accent-action-hover: #7f2e04; /* hover/pressed                            */
+  --accent-on-action: #ffffff; /* texto sobre acento — 6.77:1              */
+  --accent-text: #9e3c00; /* links, números-fonte, tab ativa — 6.26:1 */
+
+  /* Aviso / lacuna declarada (dado defasado, "em breve", dado não encontrado) */
+  --warn-bg: #fbf0d9;
+  --warn-border: #a3781a; /* 3.53:1 no warn-bg */
+  --warn-text: #7a5200; /* 6.12:1 no warn-bg */
+
+  /* Erro (falha técnica de fonte/serviço — NÃO usar para lacuna declarada) */
+  --error-bg: #fbeae8;
+  --error-border: #c1554b; /* 3.86:1 no error-bg */
+  --error-text: #a3251c; /* 6.35:1 no error-bg */
+
+  /* Realce de citação — o "salmão FT" guardado só para evidência */
+  --quote-wash: #f9ece2; /* + borda esquerda 2px var(--accent-action) */
+
+  /* ---------- Motion — "a edição sendo impressa" ---------- */
+  /* Durações: puramente CSS, sem lib runtime; usar via classes utilitárias
+     abaixo ou `duration-[var(--dur-*)]` do Tailwind (arbitrary value). */
+  --dur-tick: 120ms; /* micro: hover, focus, toggle          */
+  --dur-set: 240ms; /* estado: tabs, chips, accordion       */
+  --dur-press: 420ms; /* entradas de conteúdo, reveals        */
+  --dur-edition: 700ms; /* hero, página/tema (1x por view)      */
+  --stagger-step: 60ms; /* passo do stagger .i-1…i-12 */
 }
 
+/* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
+   Não é inversão: a tinta do claro (#16181d) vira a superfície
+   do escuro; a brasa acende. Motion não muda entre temas. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --papel: #101513;
-    --cartao: #171d1a;
-    --cartao-2: #1e2521;
-    --tinta: #ece9df;
-    --tinta-2: #aab5ae;
-    --tinta-3: #94a099;
-    --linha: #2a322d;
-    --linha-forte: #45504a;
-    --borda-campo: #69766e;
-    --selo: #156a50;
-    /* hover do botão primário: 5,2:1 com --sobre-selo (AA; #1d8263 dava 4,16) */
-    --selo-forte: #17715a;
-    --sobre-selo: #f2f0e8;
-    --selo-texto: #5fc9a2;
-    --aviso-fundo: #241d0e;
-    --aviso-borda: #57451c;
-    --aviso-texto: #e3c377;
-    --erro-fundo: #2a1712;
-    --erro-borda: #6b3625;
-    --erro-texto: #f0a58c;
-    --realce: #22301f;
+    --bg-page: #101216; /* carvão azulado; nunca #000                  */
+    --bg-card: #16181d; /* = tinta do tema claro: a página vira tinta  */
+    --bg-elevated: #1d2027; /* sobe com borda, não com sombra              */
+
+    --ink-primary: #ebe9e4; /* off-white de papel — 15.45:1 na página      */
+    --ink-secondary: #b5b3ac; /* 8.46:1 no card                              */
+    --ink-tertiary: #8f8d87; /* 5.65:1 na página · 5.35:1 no card           */
+
+    --line-subtle: #23262d;
+    --line-strong: #383c45;
+    --border-field: #616772; /* 3.12:1 no card (UI ≥3) */
+
+    --accent-action: #e97b3c; /* 6.57:1 na página como UI */
+    --accent-action-hover: #f28a50;
+    --accent-on-action: #1c0e05; /* TINTA ESCURA, nunca branco (~2.5:1!):
+                                     6.61:1 no botão, 7.65:1 no hover */
+    --accent-text: #f4996a; /* 8.58:1 página · 8.13:1 card */
+
+    --warn-bg: #2a2214;
+    --warn-border: #957634; /* 3.68:1 */
+    --warn-text: #e6c172; /* 9.15:1 */
+
+    --error-bg: #2a1614;
+    --error-border: #ad5f54; /* 3.71:1 */
+    --error-text: #f2938a; /* 7.62:1 */
+
+    --quote-wash: #251a12; /* carvão quente + borda esq. 2px accent */
   }
 }
 
+/* ============================================================
+ * Camada semântica → utilitários Tailwind v4 (nomes limpos).
+ * Cada `--color-*` aponta para o primitivo certo; troca de tema é 100%
+ * resolvida pelas CSS vars acima — nenhuma classe muda entre claro/escuro.
+ * ============================================================ */
 @theme inline {
-  --color-papel: var(--papel);
-  --color-cartao: var(--cartao);
-  --color-cartao-2: var(--cartao-2);
-  --color-tinta: var(--tinta);
-  --color-tinta-2: var(--tinta-2);
-  --color-tinta-3: var(--tinta-3);
-  --color-linha: var(--linha);
-  --color-linha-forte: var(--linha-forte);
-  --color-borda-campo: var(--borda-campo);
-  --color-selo: var(--selo);
-  --color-selo-forte: var(--selo-forte);
-  --color-sobre-selo: var(--sobre-selo);
-  --color-selo-texto: var(--selo-texto);
-  --color-aviso-fundo: var(--aviso-fundo);
-  --color-aviso-borda: var(--aviso-borda);
-  --color-aviso-texto: var(--aviso-texto);
-  --color-erro-fundo: var(--erro-fundo);
-  --color-erro-borda: var(--erro-borda);
-  --color-erro-texto: var(--erro-texto);
-  --color-realce: var(--realce);
+  /* Superfícies */
+  --color-page: var(--bg-page);
+  --color-card: var(--bg-card);
+  --color-elevated: var(--bg-elevated);
 
-  --font-display: var(--font-fraunces);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Tinta */
+  --color-ink: var(--ink-primary);
+  --color-ink-2: var(--ink-secondary);
+  --color-ink-3: var(--ink-tertiary);
 
-  --animate-entrada: entrada 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-brilho: brilho 1.6s ease-in-out infinite;
+  /* Estrutura */
+  --color-line: var(--line-subtle);
+  --color-line-strong: var(--line-strong);
+  --color-field: var(--border-field);
+
+  /* Brasa (acento único) */
+  --color-brasa: var(--accent-action);
+  --color-brasa-forte: var(--accent-action-hover);
+  --color-sobre-brasa: var(--accent-on-action);
+  --color-brasa-texto: var(--accent-text);
+
+  /* Aviso / lacuna declarada */
+  --color-aviso-fundo: var(--warn-bg);
+  --color-aviso-borda: var(--warn-border);
+  --color-aviso-texto: var(--warn-text);
+
+  /* Erro técnico (nunca para lacuna) */
+  --color-erro-fundo: var(--error-bg);
+  --color-erro-borda: var(--error-border);
+  --color-erro-texto: var(--error-text);
+
+  /* Realce de citação */
+  --color-realce: var(--quote-wash);
+
+  /* Fontes (next/font — ver layout.tsx) */
+  --font-display: var(--font-newsreader);
+  --font-sans: var(--font-archivo);
+  --font-mono: var(--font-plex-mono);
+  /* Newsreader itálico É UMA INSTÂNCIA SEPARADA de next/font (P1,
+     CORRECOES-RODADA-1.md): `--font-newsreader` acima só carrega o estilo
+     "normal" (o itálico de 147 kB deixou de ser preloadado em toda rota).
+     `--font-newsreader-italico` só existe onde `src/lib/fontes.ts` é
+     importado e sua `.variable` é aplicada a um ancestral — hoje só
+     `/tese` e `/como-funciona` (as únicas rotas que renderizam itálico:
+     Markdown.tsx <em>/voz D5 e o parágrafo narrado do pipeline). Use a
+     classe `font-display-italico` (nunca a `italic` do Tailwind sozinha)
+     em qualquer lugar que precise do itálico REAL — senão o navegador
+     sintetiza um oblíquo falso a partir da família só-normal acima. */
+  --font-display-italico: var(--font-newsreader-italico);
+
+  /* Easings nomeados (viram utilitários `ease-ink` / `ease-rule` / `ease-settle`) */
+  --ease-ink: cubic-bezier(0.22, 1, 0.36, 1); /* padrão da casa: sai rápido, assenta longo */
+  --ease-rule: cubic-bezier(0.65, 0, 0.35, 1); /* simétrico: réguas/barras que se imprimem  */
+  --ease-settle: linear(0, 0.53 18%, 0.92 38%, 1.02 58%, 0.99 78%, 1); /* ÚNICO spring: citação */
+
+  /* Escala tipográfica editorial (seção 3 do brief) — nomes próprios para não
+     colidir com a escala default do Tailwind (xs/sm/base/lg...); usar
+     `text-label`, `text-meta`, `text-ui`, `text-body`, `text-lede`,
+     `text-h3`, `text-h2`, `text-h1`, `text-hero`. */
+  --text-label: 0.75rem; /* 12px — labels caps (Archivo, tracking aberto) */
+  --text-label--line-height: 1.35;
+  --text-meta: 0.8125rem; /* 13px — metadados mono (fonte, data, id)        */
+  --text-meta--line-height: 1.4;
+  --text-ui: 0.875rem; /* 14px — chrome de interface                     */
+  --text-ui--line-height: 1.4;
+  --text-body: 1rem; /* 16px — corpo de tese (medida 65–70ch, ideal max-w-prose) */
+  --text-body--line-height: 1.6;
+  --text-lede: 1.125rem; /* 18px — lede/abertura                           */
+  --text-lede--line-height: 1.5;
+  --text-h3: 1.375rem; /* 22px */
+  --text-h3--line-height: 1.3;
+  --text-h2: 1.75rem; /* 28px */
+  --text-h2--line-height: 1.2;
+  --text-h1: 2.5rem; /* 40px */
+  --text-h1--line-height: 1.1;
+  --text-hero: clamp(4rem, 8vw, 5.5rem); /* Newsreader opsz alto */
+  --text-hero--line-height: 0.98;
+  --text-hero--letter-spacing: -0.015em;
 }
 
-@keyframes entrada {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes brilho {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
+/* ---------- Base ---------- */
 body {
-  background: var(--papel);
-  color: var(--tinta);
+  background: var(--bg-page);
+  color: var(--ink-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  /* Cross-fade de tema (assinatura "Virada de Edição", troca clara/escuro
+     do SO): 240ms nas próprias vars de cor — escopo body + superfícies
+     abaixo (.sombra-elevada/.bg-card/.bg-elevated), nunca um `*` global
+     (custo de composição). `prefers-reduced-motion` já zera a duração via
+     a regra `*, ::before, ::after` no fim deste arquivo. */
+  transition:
+    background-color var(--dur-set) var(--ease-ink),
+    color var(--dur-set) var(--ease-ink);
+}
+
+/* Mesma troca de tema nas superfícies elevadas ("folha"/card/dropdown):
+   sem isso, só o `body` cross-fadeia e os cards trocam de cor num corte
+   seco, quebrando a assinatura. */
+.bg-card,
+.bg-elevated {
+  transition:
+    background-color var(--dur-set) var(--ease-ink),
+    border-color var(--dur-set) var(--ease-ink);
+}
+
+/* Gate anti-alucinação como regra visual: número factual nunca na sans —
+   se está em mono, tem fonte; todo mono é numérico-tabular por padrão. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
 }
 
 ::selection {
-  background: var(--selo);
-  color: var(--sobre-selo);
+  background: var(--accent-action);
+  color: var(--accent-on-action);
 }
 
-/* Foco visível consistente (a11y) — anel verde sobre qualquer superfície. */
+/* Foco visível consistente (a11y) — anel em brasa sobre qualquer superfície;
+   accent-text mantém ≥3:1 contra --bg-page/--bg-card nos dois temas. */
 :focus-visible {
-  outline: 2px solid var(--selo-texto);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
 /* Âncoras do sumário não somem sob a tarja fixa. */
 [id] {
-  scroll-margin-top: 5.5rem;
+  scroll-margin-top: 6rem;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+/* Elevação (camada componente): sombra fria só no claro; no escuro, a
+   elevação já vem da borda de --bg-elevated (nunca reforçar com glow). */
+.sombra-elevada {
+  box-shadow: 0 12px 32px -12px rgb(22 24 29 / 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  .sombra-elevada {
+    box-shadow: none;
+  }
+}
+
+/* ============================================================
+ * Motion system — assinaturas CSS puras (CSP-safe: zero style inline,
+ * zero lib runtime). Disparo por classe: `Reveal`/`useReveal`
+ * (src/components/motion/Reveal.tsx) alternam `.is-armed`/`.is-revealed`
+ * via IntersectionObserver. Progressive enhancement: SEM `.is-armed`
+ * (JS não carregou) nenhuma regra abaixo esconde nada — conteúdo sempre
+ * visível por padrão.
+ * ============================================================ */
+
+/* Stagger CSP-safe: `.i-1`…`.i-12` fixam o delay (sem --i por style inline).
+   `animation-delay` viaja junto de graça: elementos que usam `animation`
+   em vez de `transition` (ex.: `.entrada-hero`, P2 abaixo) reaproveitam a
+   MESMA escala de stagger sem precisar de classes irmãs. Não tem custo para
+   quem só usa `transition` (a propriedade fica ociosa sem `animation-name`). */
+.i-1 {
+  transition-delay: calc(var(--stagger-step) * 1);
+  animation-delay: calc(var(--stagger-step) * 1);
+}
+.i-2 {
+  transition-delay: calc(var(--stagger-step) * 2);
+  animation-delay: calc(var(--stagger-step) * 2);
+}
+.i-3 {
+  transition-delay: calc(var(--stagger-step) * 3);
+  animation-delay: calc(var(--stagger-step) * 3);
+}
+.i-4 {
+  transition-delay: calc(var(--stagger-step) * 4);
+  animation-delay: calc(var(--stagger-step) * 4);
+}
+.i-5 {
+  transition-delay: calc(var(--stagger-step) * 5);
+  animation-delay: calc(var(--stagger-step) * 5);
+}
+.i-6 {
+  transition-delay: calc(var(--stagger-step) * 6);
+  animation-delay: calc(var(--stagger-step) * 6);
+}
+.i-7 {
+  transition-delay: calc(var(--stagger-step) * 7);
+  animation-delay: calc(var(--stagger-step) * 7);
+}
+.i-8 {
+  transition-delay: calc(var(--stagger-step) * 8);
+  animation-delay: calc(var(--stagger-step) * 8);
+}
+.i-9 {
+  transition-delay: calc(var(--stagger-step) * 9);
+  animation-delay: calc(var(--stagger-step) * 9);
+}
+.i-10 {
+  transition-delay: calc(var(--stagger-step) * 10);
+  animation-delay: calc(var(--stagger-step) * 10);
+}
+.i-11 {
+  transition-delay: calc(var(--stagger-step) * 11);
+  animation-delay: calc(var(--stagger-step) * 11);
+}
+.i-12 {
+  transition-delay: calc(var(--stagger-step) * 12);
+  animation-delay: calc(var(--stagger-step) * 12);
+}
+/* Marcador semântico: opcional, permite ajustar --stagger-step por seção. */
+.stagger {
+  --stagger-step: 60ms;
+}
+
+/* 1. ASSENTAMENTO DE TIPO — padrão da casa para títulos/blocos. Blocos
+      inteiros, nunca letras voando. `.reveal` sem variante = esta.
+      FIX Q1 (CORRECOES-RODADA-1.md, bloqueante de release): a versão
+      anterior animava também `clip-path: inset(0 0 100% 0)` no PRÓPRIO nó
+      observado pelo IntersectionObserver. Com JS ligado, esse clip zera a
+      geometria visual do elemento a ponto do observer nunca reportar
+      interseção — TODO H1/intro do site ficava preso em opacity:0 (39/39
+      elementos, provado em scratchpad/diag_reveal_bug.py). A correção usa
+      SÓ opacity+transform, como as demais variantes abaixo (que sempre
+      funcionaram). Se um dia quiser reintroduzir o efeito de clip, aplique
+      num ELEMENTO FILHO interno (span/div) — nunca no nó que o observer
+      observa. */
+.reveal.is-armed {
+  opacity: 0;
+  transform: translateY(0.35em);
+  transition:
+    opacity var(--dur-press) var(--ease-ink),
+    transform var(--dur-press) var(--ease-ink);
+}
+.reveal.is-armed.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 2. IMPRESSÃO DE RÉGUA — hairline que desenha da esquerda; usar em uma
+      régua/hr que abre uma seção de tese. `.atraso-regua` no bloco de texto
+      que segue faz o texto assentar 80ms depois da régua. */
+.reveal-regua.is-armed {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-press) var(--ease-rule);
+}
+.reveal-regua.is-armed.is-revealed {
+  transform: scaleX(1);
+}
+.atraso-regua {
+  transition-delay: 80ms;
+}
+
+/* 3. FILA DO TICKER — cards de galeria/dimensões, stagger em ordem de
+      leitura (combinar com `.stagger` + `.i-1`…`.i-12`). */
+.reveal-ticker.is-armed {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity var(--dur-set) var(--ease-ink),
+    transform var(--dur-set) var(--ease-ink);
+}
+.reveal-ticker.is-armed.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Hover de card da fila: hairline superior 1px→2px em brasa — sem levitação,
+   sem sombra (guard-rail: "SaaS arejado" proibido). */
+.cartao-ticker {
+  position: relative;
+}
+.cartao-ticker::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: var(--accent-action);
+  transition: height var(--dur-tick) var(--ease-ink);
+}
+.cartao-ticker:hover::before,
+.cartao-ticker:focus-within::before {
+  height: 2px;
+}
+
+/* 4. PIN DE CITAÇÃO — única micro-interação com spring (`--ease-settle`).
+      Aplicar sobre o chip de citação (fundo `--color-realce`, texto mono);
+      a borda esquerda "se imprime" de cima para baixo via ::before. */
+.citacao-pin {
+  position: relative;
+}
+.citacao-pin.is-armed {
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity var(--dur-set) var(--ease-settle),
+    transform var(--dur-set) var(--ease-settle);
+}
+.citacao-pin.is-armed.is-revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+.citacao-pin::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent-action);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform var(--dur-set) var(--ease-settle);
+}
+.citacao-pin.is-revealed::before {
+  transform: scaleY(1);
+}
+
+/* 5. SUBLINHADO DE BRASA — links/tabs; sempre da esquerda, sem depender de
+      reveal (é interação, não entrada). */
+.sublinhado-brasa {
+  background-image: linear-gradient(var(--accent-action), var(--accent-action));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 2px;
+  transition: background-size var(--dur-tick) var(--ease-rule);
+}
+.sublinhado-brasa:hover,
+.sublinhado-brasa:focus-visible,
+.sublinhado-brasa[aria-current="page"],
+.sublinhado-brasa[aria-current="location"] {
+  /* "location" cobre TOCs/sumários de página (D2: scrollspy do IndiceNav em
+     /como-funciona) — "page" continua servindo nav real entre páginas. */
+  background-size: 100% 2px;
+}
+@media (prefers-color-scheme: dark) {
+  .sublinhado-brasa:hover,
+  .sublinhado-brasa:focus-visible {
+    text-shadow: 0 0 12px color-mix(in srgb, var(--accent-action) 45%, transparent);
+  }
+}
+
+/* 6. LACUNA DECLARADA — badge "dado não encontrado": outline tracejado
+      expande e dissolve 1x ao entrar em view. MESMA hierarquia de uma
+      citação (tokens de aviso) — nunca a de erro. */
+.lacuna-declarada {
+  outline: 2px dashed var(--warn-border);
+  outline-offset: 0px;
+}
+.lacuna-declarada.is-armed {
+  transition:
+    outline-color var(--dur-press) var(--ease-ink),
+    outline-offset var(--dur-press) var(--ease-ink);
+}
+.lacuna-declarada.is-armed.is-revealed {
+  outline-color: transparent;
+  outline-offset: 6px;
+}
+
+/* Célula de lacuna em tabelas — hachura CSS pura (sem imagem). */
+.hachura-lacuna {
+  background-color: var(--warn-bg);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--warn-border) 0,
+    var(--warn-border) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+  border: 1px solid var(--warn-border);
+}
+
+/* 7. TRAÇO DO ELO — SVG causal da cláusula 05 (/como-funciona, TracoDoElo em
+      como-funciona/page.tsx): os elos (.traco-elo) desenham-se em sequência
+      e os pontos de origem (.ponto-elo) pulsam 1x ao conectar. Reaproveita
+      o ciclo is-armed/is-revealed do <Reveal variant="reveal-ticker"> que já
+      envolve o card inteiro da cláusula — sem observer adicional. Cada
+      <path> usa `pathLength={1}` (atributo SVG) para o dash normalizar em
+      0–1 independente da geometria — não precisa saber o comprimento real
+      do traço em px. Fallback sem JS/sem is-armed: sem dasharray nenhum,
+      traço estático sempre visível (nunca escondido por padrão). */
+.reveal-ticker.is-armed .traco-elo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--dur-press) var(--ease-rule);
+}
+.reveal-ticker.is-armed.is-revealed .traco-elo {
+  stroke-dashoffset: 0;
+}
+/* Ordem de leitura: cada elo desenha 120ms depois do anterior — nunca todos
+   de uma vez (a cadeia causal é lida em sequência, não simultânea). */
+.reveal-ticker.is-armed .traco-elo:nth-of-type(2) {
+  transition-delay: 120ms;
+}
+.reveal-ticker.is-armed .traco-elo:nth-of-type(3) {
+  transition-delay: 240ms;
+}
+
+/* Pulso único do ponto de origem ao conectar (scale 1→1.4→1, 400ms) — NÃO é
+   o spring do sistema (usa `--ease-ink`, não `--ease-settle`: o único spring
+   continua exclusivo do Pin de Citação). `transform-box: fill-box` centra a
+   escala no próprio círculo (o padrão do SVG usa a viewBox como origem). */
+.ponto-elo {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo {
+  animation: pulso-elo var(--dur-press) var(--ease-ink) both;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-1 {
+  animation-delay: 80ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-2 {
+  animation-delay: 200ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-3 {
+  animation-delay: 320ms;
+}
+.reveal-ticker.is-armed.is-revealed .ponto-elo-4 {
+  animation-delay: 440ms;
+}
+@keyframes pulso-elo {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 8. RÉGUA DE LEITURA — barra de progresso de 2px em brasa no topo da
+      página da tese (gancho `.regua-leitura` em TeseView.tsx). Scroll-driven
+      nativo (zero JS): a barra é dirigida pela posição de scroll do
+      documento, não por tempo — a regra global de `prefers-reduced-motion`
+      (que zera `animation-duration`) não a esconde nem trava, porque a
+      "duração" de uma scroll-timeline não representa tempo real, e o
+      progresso reflete diretamente o scroll que o próprio leitor decidiu
+      fazer (não é movimento autônomo). Sem suporte ao recurso (@supports
+      abaixo falha): a barra fica com `scaleX(0)` (inerte) e o wayfinding
+      passa a ser só o scrollspy do sumário (Sumario/useSecaoAtiva em
+      TeseView.tsx) — nunca as duas coisas competindo. */
+.regua-leitura {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent-action);
+  transform-origin: left;
+  transform: scaleX(0);
+  z-index: 55; /* acima da Tarja (z-50, sticky) e ainda abaixo do skip-link (z-60) */
+  pointer-events: none;
+}
+@supports (animation-timeline: scroll(root block)) {
+  .regua-leitura {
+    animation-name: regua-leitura-progresso;
+    animation-duration: 1ms; /* irrelevante: o progresso vem da timeline, não do tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes regua-leitura-progresso {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 9. VIRADA DE EDIÇÃO / ABERTURA INSTANTÂNEA — decisão registrada no
+      relatório da passada de motion: o React `<ViewTransition>` (flag
+      `experimental.viewTransition` do Next 16) exige React canary; este
+      projeto está pinado em react/react-dom 19.2.4 ESTÁVEL — o componente
+      não existe no runtime instalado e seu tipo só existe em
+      `@types/react/canary.d.ts` (não no entry-point padrão de "react"),
+      então habilitar a flag quebraria `tsc --noEmit` e o build. Alternativa
+      100% CSS/CSP-safe adotada:
+        a) `@view-transition { navigation: auto }` — ativa a transição
+           NATIVA do navegador em navegação cross-document de verdade (sem
+           JS, sem SPA: hard nav / no-JS / abrir em nova aba). At-rule
+           desconhecida é só ignorada onde não há suporte — zero risco.
+        b) shared element (só para os 12 tickers pré-gerados, conjunto
+           finito e estático — EXEMPLOS_PRONTOS em lib/tickers.ts, Fase 2
+           multiativo inclui HGLG11/TD-IPCA-2035 nos slots 11/12): classes
+           `.vt-tese-1`…`.vt-tese-12` PRÉ-DECLARADAS (nunca geradas em
+           runtime) aplicadas ao ticker do card e ao ticker do cabeçalho da
+           tese — cobre o mesmo caso (a). Ticker fora da lista não recebe
+           nome, cai só no véu abaixo.
+        c) o véu — cobre a navegação SPA real do App Router (a maioria dos
+           cliques): `.virada-edicao` no <main> de /tese, 1x por
+           carregamento de página (o <main> é recriado a cada navegação
+           para a rota, então a animação nunca se repete dentro da mesma
+           view). Implementado como um OVERLAY (::after) que se recolhe de
+           baixo para cima — de propósito, NÃO um `clip-path` no próprio
+           `<main>`: `clip-path`/`transform`/`filter` diferente de `none`
+           num ancestral vira containing block para descendentes
+           `position: fixed` (a Régua de Leitura mora dentro do <main>) — um
+           clip-path no <main> prenderia a régua ao box do <main> em vez do
+           viewport pelos 700ms da transição. O overlay evita o problema por
+           ser uma camada própria, sem envolver o conteúdo real. */
+@view-transition {
+  navigation: auto;
+}
+
+.vt-tese-1 {
+  view-transition-name: tese-titulo-1;
+}
+.vt-tese-2 {
+  view-transition-name: tese-titulo-2;
+}
+.vt-tese-3 {
+  view-transition-name: tese-titulo-3;
+}
+.vt-tese-4 {
+  view-transition-name: tese-titulo-4;
+}
+.vt-tese-5 {
+  view-transition-name: tese-titulo-5;
+}
+.vt-tese-6 {
+  view-transition-name: tese-titulo-6;
+}
+.vt-tese-7 {
+  view-transition-name: tese-titulo-7;
+}
+.vt-tese-8 {
+  view-transition-name: tese-titulo-8;
+}
+.vt-tese-9 {
+  view-transition-name: tese-titulo-9;
+}
+.vt-tese-10 {
+  view-transition-name: tese-titulo-10;
+}
+.vt-tese-11 {
+  view-transition-name: tese-titulo-11;
+}
+.vt-tese-12 {
+  view-transition-name: tese-titulo-12;
+}
+
+.virada-edicao {
+  /* `position: relative` só ancora o overlay abaixo (containing block de
+     elemento ABSOLUTE) — isto NÃO afeta descendentes `position: fixed`
+     como `.regua-leitura` (só transform/filter/perspective/clip-path/
+     will-change/contain fariam isso, nenhum presente aqui). */
+  position: relative;
+}
+.virada-edicao::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40; /* acima do conteúdo, abaixo da Tarja sticky (z-50) */
+  background: var(--bg-page);
+  pointer-events: none;
+  transform-origin: top;
+  /* `both`: mantém o estado final (scaleY(0), recolhido) depois dos
+     --dur-edition — SEM side-effect no <main> (containing block de fixed),
+     porque quem persiste é o transform de um pseudo-elemento sem filhos, não
+     de um ancestral da Régua de Leitura. Sem `both`/`forwards` o overlay
+     voltaria a `transform: none` (scaleY(1), cobrindo tudo de novo) assim
+     que a animação "termina" — bug oposto ao do <main>, cuidado ao mexer. */
+  animation: virada-edicao-veu var(--dur-edition) var(--ease-rule) both;
+}
+@keyframes virada-edicao-veu {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0);
+  }
+}
+
+/* 10. ENTRADA DO HERO (LCP-safe) — P2, CORRECOES-RODADA-1.md: elementos
+       acima da dobra (hero da landing) não podem nascer com opacity:0 preso
+       a um gate de IntersectionObserver — o Largest Contentful Paint mede o
+       primeiro paint "cheio" do elemento, e um hero que só vira opaco depois
+       do JS montar + o observer confirmar interseção atrasa essa métrica
+       para nada (o hero já está na viewport no load, por definição). Esta
+       assinatura roda incondicionalmente via `animation` no load (SEM classe
+       `.is-armed`/`.is-revealed`, sem observer) e anima SÓ `transform` — o
+       elemento nasce com opacity:1 (pintável já no primeiro frame). Reusa a
+       escala de stagger `.i-1`…`.i-12` (que também setam `animation-delay`,
+       ver acima) para a ordem de leitura do hero. Reveals COM opacidade
+       seguem reservados para conteúdo abaixo da dobra (`.reveal`/Reveal.tsx),
+       que pode se dar ao luxo de esperar o scroll. */
+.entrada-hero {
+  animation: entrada-hero var(--dur-press) var(--ease-ink) both;
+}
+@keyframes entrada-hero {
+  from {
+    transform: translateY(0.35em);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -152,5 +723,60 @@ html {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Reveals ainda rodam 1x, mas só como fade curto (≤150ms) — sem
+     transform/clip-path/scale. Mais específico que a regra acima: vence. */
+  .reveal.is-armed,
+  .reveal-regua.is-armed,
+  .reveal-ticker.is-armed,
+  .citacao-pin.is-armed,
+  .lacuna-declarada.is-armed,
+  .entrada-hero {
+    transform: none !important;
+    clip-path: none !important;
+    outline-offset: 0px !important;
+    transition-duration: 120ms !important;
+  }
+  .citacao-pin::before {
+    transition-duration: 120ms !important;
+  }
+
+  /* Traço do Elo: sem desenho progressivo nem pulso — traço e pontos ficam
+     no estado final direto (o guard genérico acima já zera a duração; isto
+     cobre o caso raro de `.is-armed` já ter sido setado antes do usuário
+     ligar "reduzir movimento" em pleno uso). */
+  .traco-elo {
+    stroke-dashoffset: 0 !important;
+  }
+  .ponto-elo {
+    animation: none !important;
+  }
+
+  /* Virada de Edição: corte seco + fade curto (≤120ms) no lugar do véu que
+     desliza — comportamento explícito do brief para View Transitions/troca
+     de tema. Troca a animação do overlay (scaleY) por um simples fade de
+     opacidade. */
+  .virada-edicao::after {
+    animation: virada-edicao-veu-fade 120ms var(--ease-ink) both !important;
+  }
+
+  /* Transição nativa do navegador (@view-transition {navigation:auto}):
+     mesma orientação da doc oficial do Next para View Transitions — sem
+     duração, sem delay, troca instantânea. */
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+@keyframes virada-edicao-veu-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

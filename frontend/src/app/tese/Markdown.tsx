@@ -233,20 +233,60 @@ function renderEnfase(text: string, keyBase: string): ReactNode[] {
     const bold = /^\*\*([^*]+)\*\*$/.exec(part);
     if (bold) return <strong key={key}>{bold[1]}</strong>;
     const italic = /^\*([^*]+)\*$/.exec(part);
-    if (italic) return <em key={key}>{italic[1]}</em>;
+    // font-display-italico (P1, CORRECOES-RODADA-1.md): família itálica REAL
+    // (segunda instância next/font, só carregada em /tese — única rota que
+    // renderiza este componente). Sem a classe, o navegador sintetizaria um
+    // oblíquo falso a partir do Newsreader normal.
+    if (italic) return (
+      <em key={key} className="font-display-italico">
+        {italic[1]}
+      </em>
+    );
     const code = /^`([^`]+)`$/.exec(part);
     if (code) {
       return (
-        <code
-          key={key}
-          className="rounded bg-cartao-2 px-1 font-mono text-[0.85em]"
-        >
+        <code key={key} className="bg-line px-1 py-0.5 font-mono text-ink">
           {code[1]}
         </code>
       );
     }
-    return <Fragment key={key}>{part}</Fragment>;
+    return <Fragment key={key}>{realcarNumeros(part, key)}</Fragment>;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Realce presentacional de números factuais — "se está em mono, tem fonte"
+// (design system BRASA EDITORIAL, DESIGN-BRIEF.md §3). Puramente visual:
+// reaproveita os MESMOS limites de quantificador das regexes de citação
+// abaixo (RE_MONETARIO/RE_DECIMAL, já auditadas contra ReDoS — achado M1) e
+// NÃO participa da lógica de ancoragem de citação/sanitização.
+// ---------------------------------------------------------------------------
+
+let RE_NUMERO_VISUAL: RegExp | null = null;
+
+function realcarNumeros(text: string, keyBase: string): ReactNode[] {
+  // Construída sob demanda (não no top level do módulo): RE_MONETARIO/
+  // RE_DECIMAL só existem mais abaixo neste arquivo; adiar para a primeira
+  // chamada evita depender de ordem de inicialização entre `const`s do módulo.
+  RE_NUMERO_VISUAL ??= new RegExp(`${RE_MONETARIO.source}|${RE_DECIMAL.source}`, "g");
+  const re = RE_NUMERO_VISUAL;
+  re.lastIndex = 0;
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <span key={`${keyBase}-n${i}`} className="font-mono text-brasa-texto">
+        {m[0]}
+      </span>,
+    );
+    last = m.index + m[0].length;
+    i++;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes.length > 0 ? nodes : [text];
 }
 
 export function renderInline(
@@ -268,7 +308,7 @@ export function renderInline(
           href={m[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-selo-texto underline decoration-linha-forte underline-offset-2 hover:decoration-selo-texto"
+          className="text-brasa-texto underline decoration-line-strong underline-offset-2 hover:decoration-brasa-texto"
         >
           {renderEnfase(m[1], `lr${i}`)}
         </a>,
@@ -381,31 +421,47 @@ export function MarcadorCitacao({ refCitacao }: { refCitacao: CitacaoRef }) {
       <a
         href={`#citacao-${indice}`}
         aria-label={`Citação ${indice}${fonte ? ` — fonte: ${fonte.descricao}` : ""}`}
-        className="rounded px-1 py-0.5 font-mono text-[0.7rem] font-semibold text-selo-texto no-underline hover:bg-realce"
+        className="bg-realce px-1 py-0.5 font-mono text-label font-semibold text-brasa-texto no-underline hover:bg-brasa hover:text-sobre-brasa"
       >
         [{indice}]
       </a>
       {/* Sem margem entre âncora e balão e sem pointer-events-none: o ponteiro
           pode ENTRAR no balão sem que ele feche (WCAG 1.4.13 — hoverable). O
-          clique na âncora leva à citação completa (alternativa sempre acessível). */}
+          clique na âncora leva à citação completa (alternativa sempre acessível).
+          Q2 (CORRECOES-RODADA-1.md): a âncora `[n]` é um `inline-block` minúsculo
+          dentro de texto corrido — pode cair em QUALQUER x da linha. Nenhuma
+          âncora estática relativa a ela (centralizada, `right-0`, `left-0`...)
+          garante contenção: um balão de 256px sempre estoura um dos dois lados
+          da viewport para alguma posição possível do marcador dentro da coluna
+          de leitura (medido: `left-1/2` estourava perto da borda direita —
+          +90px de scroll horizontal documento inteiro, mesmo invisível, porque
+          um `absolute` fora da tela ainda soma no scrollWidth; testar a troca
+          por `right-0` isolado só move o mesmo bug para citações perto da
+          borda ESQUERDA/meio da linha). Sem JS de posicionamento e sem CSS
+          Anchor Positioning (suporte de browser insuficiente sem @supports
+          complexo), a única contenção MATEMATICAMENTE garantida em mobile é
+          desacoplar o balão do marcador: abaixo de `sm` ele vira `fixed`,
+          ancorado à VIEWPORT (não ao marcador) com margem segura fixa dos
+          dois lados — nunca vaza, custe a perder a proximidade exata com o
+          marcador nesse breakpoint (troca aceitável: `sm:` e acima mantém a
+          ancoragem original, relativa ao marcador, onde a coluna de leitura
+          já tem folga suficiente da borda da viewport). */}
       <span
         role="tooltip"
-        className="invisible absolute bottom-full left-1/2 z-40 w-64 -translate-x-1/2 rounded-lg border border-linha bg-cartao p-3 text-left text-xs leading-snug text-tinta opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+        className="sombra-elevada invisible fixed inset-x-4 bottom-4 z-40 border border-line-strong bg-elevated p-3 text-left text-ui leading-snug text-ink opacity-0 transition-opacity duration-[var(--dur-tick)] group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:bottom-full sm:w-64 sm:max-w-[min(16rem,calc(100vw-2rem))]"
       >
-        <span className="mb-1 block font-mono text-[0.65rem] uppercase tracking-wide text-tinta-3">
+        <span className="mb-1 block font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
           Fonte da citação {indice}
         </span>
-        <span className="block font-medium">
+        <span className="block font-medium text-ink">
           {fonte?.descricao || citacao.titulo_documento || "Documento-fonte"}
         </span>
         {fonte?.dt_referencia && (
-          <span className="mt-0.5 block text-tinta-3">
+          <span className="mt-0.5 block font-mono text-meta text-ink-3">
             Referência: {formatDataCurta(fonte.dt_referencia)}
           </span>
         )}
-        {dominio && (
-          <span className="mt-0.5 block font-mono text-tinta-3">{dominio}</span>
-        )}
+        {dominio && <span className="mt-0.5 block font-mono text-meta text-ink-3">{dominio}</span>}
       </span>
     </span>
   );
@@ -423,6 +479,16 @@ function Marcadores({ refs }: { refs: CitacaoRef[] }) {
   );
 }
 
+// Célula de tabela sem dado: heurística de MATCH EXATO (não substring) para
+// não confundir um valor real com o placeholder — puramente presentacional,
+// não participa do parseBlocos acima. Espelha os rótulos de abstenção do
+// motor ("dado não encontrado", AGENTS.md: abster > inventar).
+const RE_CELULA_LACUNA = /^(dado não encontrado|não encontrado|indispon[íi]vel|n\/d|n\.d\.|n\/a|—|-)$/i;
+
+function ehCelulaLacuna(texto: string): boolean {
+  return RE_CELULA_LACUNA.test(texto.trim());
+}
+
 // ---------------------------------------------------------------------------
 // Render dos blocos
 // ---------------------------------------------------------------------------
@@ -431,45 +497,48 @@ export function Blocos({
   blocos,
   refs = [],
   hostsOk,
+  narrada = false,
 }: {
   blocos: Bloco[];
   refs?: CitacaoRef[];
   // hosts permitidos para links do markdown (derivados das fontes da tese)
   hostsOk?: ReadonlySet<string>;
+  // Voz narrada da D5 (seção "Camada geopolítica e correlações"): itálico
+  // Newsreader 500 — a ÚNICA seção que recebe esse tratamento (DESIGN-
+  // BRIEF.md §3: "itálico 500 = voz exclusiva da D5 narrada"). Afeta só
+  // parágrafos de prosa corrida, não títulos/listas/tabelas.
+  narrada?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-4 text-tinta">
+    <div className="flex flex-col gap-5 font-display text-body text-ink">
       {blocos.map((bloco, i) => {
         switch (bloco.kind) {
           case "h1":
             return (
-              <h2
-                key={i}
-                className="font-display text-xl font-semibold tracking-tight"
-              >
+              <h2 key={i} className="font-display text-h2 font-semibold tracking-tight text-ink">
                 {renderInline(bloco.text, hostsOk)}
               </h2>
             );
           case "h2":
             return (
-              <h3
-                key={i}
-                className="mt-2 font-display text-lg font-semibold tracking-tight"
-              >
+              <h3 key={i} className="mt-2 font-display text-h3 font-semibold tracking-tight text-ink">
                 {renderInline(bloco.text, hostsOk)}
               </h3>
             );
           case "h3":
             return (
-              <h4 key={i} className="mt-1 text-base font-semibold">
+              <h4 key={i} className="mt-1 font-display text-lede font-semibold text-ink">
                 {renderInline(bloco.text, hostsOk)}
               </h4>
             );
           case "quote":
+            // Blockquote do markdown = a voz de aviso do próprio motor (ex.: o
+            // aviso de não-recomendação embutido na introdução da tese) — par
+            // aviso-*, nunca quote-wash (exclusivo de evidência/citação).
             return (
               <blockquote
                 key={i}
-                className="border-l-2 border-aviso-borda pl-3 text-sm italic leading-relaxed text-tinta-2"
+                className="border-l-2 border-aviso-borda bg-aviso-fundo/40 py-2 pl-4 font-sans text-ui text-aviso-texto"
               >
                 {renderInline(bloco.text, hostsOk)}
               </blockquote>
@@ -477,14 +546,14 @@ export function Blocos({
           case "table":
             return (
               <div key={i} className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse font-sans text-ui text-ink">
                   <thead>
-                    <tr className="border-b border-linha-forte text-left">
+                    <tr className="border-b-2 border-line-strong text-left">
                       {bloco.header.map((c, j) => (
                         <th
                           key={j}
                           scope="col"
-                          className="px-3 py-2 font-semibold"
+                          className="px-3 py-2 font-sans text-label font-semibold uppercase tracking-[0.1em] text-ink-2"
                         >
                           {renderInline(c, hostsOk)}
                         </th>
@@ -493,13 +562,25 @@ export function Blocos({
                   </thead>
                   <tbody>
                     {bloco.rows.map((row, j) => (
-                      <tr key={j} className="border-b border-linha">
-                        {row.map((c, k) => (
-                          <td key={k} className="px-3 py-2 align-top">
-                            {renderInline(c, hostsOk)}
-                            <Marcadores refs={citacoesDoTexto(c, refs)} />
-                          </td>
-                        ))}
+                      <tr key={j} className="border-b border-line">
+                        {row.map((c, k) => {
+                          if (ehCelulaLacuna(c)) {
+                            return (
+                              <td
+                                key={k}
+                                className="hachura-lacuna px-3 py-2 text-center align-middle font-mono text-meta text-aviso-texto"
+                              >
+                                {c}
+                              </td>
+                            );
+                          }
+                          return (
+                            <td key={k} className="px-3 py-2 align-top">
+                              {renderInline(c, hostsOk)}
+                              <Marcadores refs={citacoesDoTexto(c, refs)} />
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
@@ -508,7 +589,7 @@ export function Blocos({
             );
           case "ul":
             return (
-              <ul key={i} className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed">
+              <ul key={i} className="list-disc space-y-2 pl-5 text-body marker:text-ink-3">
                 {bloco.items.map((item, j) => (
                   <li key={j}>
                     {renderInline(item, hostsOk)}
@@ -519,7 +600,7 @@ export function Blocos({
             );
           case "ol":
             return (
-              <ol key={i} className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed">
+              <ol key={i} className="list-decimal space-y-2 pl-5 text-body marker:text-ink-3">
                 {bloco.items.map((item, j) => (
                   <li key={j}>
                     {renderInline(item, hostsOk)}
@@ -531,7 +612,16 @@ export function Blocos({
           case "p":
           default:
             return (
-              <p key={i} className="text-sm leading-relaxed">
+              <p
+                key={i}
+                className={
+                  narrada
+                    ? // font-display-italico (P1): família itálica REAL — ver nota em
+                      // renderEnfase acima e em src/lib/fontes.ts.
+                      "text-body font-display-italico italic font-medium"
+                    : "text-body"
+                }
+              >
                 {renderInline(bloco.text, hostsOk)}
                 <Marcadores refs={citacoesDoTexto(bloco.text, refs)} />
               </p>

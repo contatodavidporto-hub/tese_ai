@@ -11,11 +11,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { classesReveal, useReveal } from "@/components/motion/Reveal";
 import {
   atualizarStatusHistorico,
   registrarNoHistorico,
 } from "@/lib/historico";
-import { EXEMPLOS_PRONTOS, TICKER_B3_RE } from "@/lib/tickers";
+import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseView } from "./TeseView";
 import { TickerCombobox } from "./TickerCombobox";
 import type { CriarTeseResposta, TeseOut } from "./types";
@@ -167,9 +168,9 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   const iniciarPorTicker = useCallback(
     async (tickerBruto: string) => {
       const normalizado = tickerBruto.trim().toUpperCase();
-      if (!TICKER_B3_RE.test(normalizado)) {
+      if (!TICKER_RE.test(normalizado)) {
         setErroLocal(
-          "Ticker fora do formato da B3 (ex.: PETR4, VALE3, TAEE11). Confira o código e tente de novo — nenhuma chamada foi feita.",
+          "Ticker fora do formato aceito — ex.: PETR4, HGLG11, TD-IPCA-2035. Confira o código e tente de novo — nenhuma chamada foi feita.",
         );
         return;
       }
@@ -317,13 +318,16 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
       : 0;
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-3 rounded-xl border border-linha bg-cartao p-5 sm:flex-row sm:items-start"
+        className="flex flex-col gap-4 border border-line bg-card p-6 sm:flex-row sm:items-start"
       >
         <div className="flex flex-1 flex-col gap-1.5">
-          <label htmlFor="ticker" className="text-sm font-medium text-tinta">
+          <label
+            htmlFor="ticker"
+            className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
+          >
             Ticker
           </label>
           <TickerCombobox
@@ -334,35 +338,31 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
               if (erroLocal) setErroLocal(null);
             }}
             disabled={isBusy}
+            erroId={erroLocal ? "ticker-erro" : undefined}
           />
           <div aria-live="polite">
             {erroLocal && (
-              <p className="mt-1 text-xs font-medium text-erro-texto">{erroLocal}</p>
+              <p id="ticker-erro" className="mt-1 text-ui font-medium text-erro-texto">
+                {erroLocal}
+              </p>
             )}
           </div>
         </div>
         <button
           type="submit"
           disabled={isBusy || ticker.trim() === ""}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-selo px-5 py-2.5 text-sm font-semibold text-sobre-selo transition-colors hover:bg-selo-forte disabled:cursor-not-allowed disabled:opacity-60 sm:mt-7"
+          className="inline-flex min-h-11 items-center justify-center bg-brasa px-6 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte disabled:cursor-not-allowed disabled:opacity-60 sm:mt-7"
         >
-          {isBusy ? (
-            <>
-              <Spinner />
-              Gerando…
-            </>
-          ) : (
-            "Gerar tese"
-          )}
+          {isBusy ? "Gerando…" : "Gerar tese"}
         </button>
       </form>
 
       {/* aria-live SÓ no rótulo curto (dentro do CartaoCarregando/CartaoErro):
           um live region no documento inteiro faria o leitor de tela anunciar o
           contador a cada segundo e reler a tese toda ao ficar pronta. */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
         {(state.phase === "submitting" || state.phase === "polling") && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             <CartaoCarregando
               rotulo={
                 state.phase === "submitting"
@@ -387,7 +387,7 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
           />
         )}
         {state.phase === "ready" && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             <p role="status" className="sr-only">
               Tese de {state.tese.ticker} pronta.
             </p>
@@ -401,7 +401,7 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
                   setTicker("");
                   document.getElementById("ticker")?.focus();
                 }}
-                className="rounded-lg border border-borda-campo bg-cartao px-4 py-2 text-sm font-medium text-tinta hover:border-selo-texto"
+                className="min-h-11 border border-field bg-card px-5 font-sans text-ui font-medium text-ink hover:border-brasa-texto"
               >
                 Gerar outra tese
               </button>
@@ -413,15 +413,17 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   );
 }
 
-function Spinner() {
-  return (
-    <span
-      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-      aria-hidden
-    />
-  );
+// Impressão de Régua num elemento próprio (sem <div> extra de children) —
+// exatamente o padrão de `useReveal` para uma <hr>/barra fina (DESIGN-
+// TOKENS.md §3): usado nas barras "vazias" do loading e do skeleton.
+function ReguaImpressa({ className }: { className: string }) {
+  const { ref, armado, revelado } = useReveal<HTMLDivElement>();
+  return <div ref={ref} className={classesReveal("reveal-regua", armado, revelado, className)} />;
 }
 
+// Rótulo curto + contador REAL (não telemetria simulada: o polling só sabe
+// "processing"/"ready"/"error" — nenhuma barra de progresso finge fases que o
+// backend não expõe). A régua acima do rótulo imprime 1x ao montar (sem loop).
 function CartaoCarregando({
   rotulo,
   contadorSegundos,
@@ -434,16 +436,14 @@ function CartaoCarregando({
   onCancelar?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-linha bg-cartao px-5 py-4">
-      <div className="flex items-center gap-3 text-sm text-tinta">
-        <Spinner />
-        {/* live region = só o rótulo estável; o contador fica fora da árvore
-            de acessibilidade para não ser anunciado a cada segundo */}
-        <span role="status" className="font-medium">
+    <div className="flex flex-col gap-3 border border-line bg-card px-6 py-5">
+      <ReguaImpressa className="h-1 w-20 bg-brasa" />
+      <div className="atraso-regua flex flex-wrap items-center gap-3">
+        <span role="status" className="font-sans text-ui font-semibold text-ink">
           {rotulo}
         </span>
         {typeof contadorSegundos === "number" && contadorSegundos > 0 && (
-          <span aria-hidden className="font-mono text-xs text-tinta-3">
+          <span aria-hidden className="font-mono text-meta text-ink-3">
             {contadorSegundos}s
           </span>
         )}
@@ -451,13 +451,13 @@ function CartaoCarregando({
           <button
             type="button"
             onClick={onCancelar}
-            className="ml-auto text-xs text-tinta-3 underline underline-offset-2 hover:text-tinta"
+            className="-m-2 ml-auto p-2 font-sans text-ui text-ink-3 underline underline-offset-2 hover:text-ink"
           >
             Cancelar
           </button>
         )}
       </div>
-      {detalhe && <p className="text-xs leading-relaxed text-tinta-3">{detalhe}</p>}
+      {detalhe && <p className="atraso-regua text-ui text-ink-2">{detalhe}</p>}
     </div>
   );
 }
@@ -470,17 +470,14 @@ function CartaoErro({
   onTentarDeNovo?: () => void;
 }) {
   return (
-    <div
-      role="alert"
-      className="rounded-xl border border-erro-borda bg-erro-fundo px-5 py-4 text-sm text-erro-texto"
-    >
-      <p className="font-semibold">Não foi possível gerar a tese</p>
-      <p className="mt-1">{mensagem}</p>
+    <div role="alert" className="flex flex-col gap-2 border border-erro-borda bg-erro-fundo px-6 py-5 text-ui text-erro-texto">
+      <p className="font-sans font-semibold">Não foi possível gerar a tese</p>
+      <p>{mensagem}</p>
       {onTentarDeNovo && (
         <button
           type="button"
           onClick={onTentarDeNovo}
-          className="mt-3 rounded-lg border border-erro-borda px-3 py-1.5 text-xs font-semibold hover:bg-erro-borda/30"
+          className="mt-2 min-h-11 w-fit border border-erro-borda px-4 font-sans text-ui font-semibold hover:bg-erro-borda/20"
         >
           Tentar novamente
         </button>
@@ -490,28 +487,31 @@ function CartaoErro({
 }
 
 // Skeleton com o formato do documento final (evita layout shift na chegada):
-// bloco do aviso + cabeçalho + sumário + seções, nas alturas aproximadas.
+// hairlines que "se imprimem" 1x (Impressão de Régua) — sem loop, sem shimmer.
 function EsqueletoTese() {
   return (
-    <div aria-hidden className="flex animate-pulse flex-col gap-5">
-      <div className="h-13 rounded-xl border border-aviso-borda bg-aviso-fundo" />
-      <div className="h-36 rounded-xl border border-linha bg-cartao" />
-      <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <div className="hidden flex-col gap-2 lg:flex">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-3.5 w-11/12 rounded bg-cartao-2" />
+    <div aria-hidden className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3 border border-line bg-card px-6 py-6">
+        <ReguaImpressa className="h-2 w-24 bg-line-strong" />
+        <div className="h-6 w-40 bg-line-strong" />
+        <div className="h-3 w-56 bg-line" />
+      </div>
+      <div className="grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16">
+        <div className="hidden flex-col gap-3 lg:flex">
+          <ReguaImpressa className="h-2 w-11/12 bg-line" />
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-2 w-11/12 bg-line" />
           ))}
         </div>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-8">
           {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-3 rounded-xl border border-linha bg-cartao p-6"
-            >
-              <div className="h-5 w-1/3 rounded bg-cartao-2" />
-              <div className="h-3.5 w-full rounded bg-cartao-2" />
-              <div className="h-3.5 w-11/12 rounded bg-cartao-2" />
-              <div className="h-3.5 w-4/5 rounded bg-cartao-2" />
+            <div key={i} className="flex flex-col gap-3 border-t-2 border-line-strong pt-4">
+              <ReguaImpressa className={`h-2 w-1/3 bg-line-strong i-${i + 1}`} />
+              <div className="flex flex-col gap-2">
+                <div className="h-2 w-full bg-line" />
+                <div className="h-2 w-11/12 bg-line" />
+                <div className="h-2 w-4/5 bg-line" />
+              </div>
             </div>
           ))}
         </div>

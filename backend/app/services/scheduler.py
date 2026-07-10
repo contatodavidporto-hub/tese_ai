@@ -80,6 +80,20 @@ def _job_bootstrap_cadastro() -> object:
         return n
 
 
+def _job_warm_cache() -> object:
+    """Aquece o cache das teses da galeria (top-10 IBOV + exemplos multiativo
+    HGLG11/TD-IPCA-2035 — `lote_default`, o MESMO lote do CLI sem args).
+    GASTA LLM — ver a config `scheduler_warm_cache_horas` (teto de custo
+    diário aplica; cache hit não gasta nada)."""
+    from app.scripts.warm_cache import aquecer, lote_default
+
+    resumo = aquecer(lote_default())
+    return (
+        f"{resumo['prontas']}/{resumo['total']} ready; "
+        f"custo=US${resumo['custo_usd']}; falhas={resumo['falhas'] or '-'}"
+    )
+
+
 def jobs_configurados(settings: Settings) -> list[Job]:
     """Jobs habilitados pela config (intervalo 0 = job desligado)."""
     jobs: list[Job] = []
@@ -109,6 +123,19 @@ def jobs_configurados(settings: Settings) -> list[Job]:
                 # Pior caso observado do download FCA (3 anos em série) ~540s.
                 timeout_s=900,
                 func=_job_bootstrap_cadastro,
+            )
+        )
+    if settings.scheduler_warm_cache_horas > 0:
+        jobs.append(
+            # POR ÚLTIMO de propósito: num mesmo tick, o refresh_macro roda
+            # antes — as teses re-geradas já saem com as séries atualizadas.
+            Job(
+                nome="warm_cache",
+                intervalo=dt.timedelta(hours=settings.scheduler_warm_cache_horas),
+                # Lote frio = até 12 gerações sequenciais (~1-2 min cada):
+                # top 10 IBOV + exemplos multiativo (HGLG11, TD-IPCA-2035).
+                timeout_s=2400,
+                func=_job_warm_cache,
             )
         )
     return jobs
