@@ -466,8 +466,17 @@ def _calc_basileia(session: Session, ctx: ContextoMetricas, hoje: dt.date) -> _R
     if linha.metodologia:
         rotulos.append(linha.metodologia)
     rotulos.append(_ROTULO_PCT_FRACAO)
+    # Reconciliação de escala (F3, notas-integracao-f3.md): o IF.data grava a
+    # BASILEIA já em PONTOS PERCENTUAIS (14.77 = 14,77%; ver ifdata.py:
+    # "o REST devolve FRAÇÃO (0,1477); gravamos em % (×100)"). A CONVENÇÃO
+    # INTERNA deste módulo (todo `unidade='pct'` = fração decimal, ver
+    # docstring do topo e `_ROTULO_PCT_FRACAO`) exige normalizar de volta para
+    # fração aqui — é a ÚNICA leitura com esse desvio de escala (checado
+    # chave a chave contra os demais `_calc_*`, todos já fração). A
+    # serialização do envelope (`metricas_para_envelope`) reconverte fração ->
+    # pontos percentuais de forma UNIFORME para todo `unidade='pct'`.
     return _Resultado(
-        valor=_dec(linha.valor),
+        valor=_dec(linha.valor) / 100,
         fontes=(fonte,),
         rotulos=tuple(rotulos),
         unidade=_UNIDADE_ENVELOPE.get(linha.unidade, "razao"),
@@ -1126,7 +1135,15 @@ def calcular(
 
 def metricas_para_envelope(metricas: list[MetricaSetor]) -> list[dict]:
     """Serializa para o bloco `metricas_setor` do envelope v3 (§5): Decimal ->
-    number, datas -> ISO, tuplas -> listas."""
+    number, datas -> ISO, tuplas -> listas.
+
+    Reconciliação de escala (decisão do maestro, 2026-07-10): internamente
+    `unidade='pct'` é SEMPRE fração decimal (0,15 = 15%, convenção deste
+    módulo — ver `_calc_basileia`, já normalizada). NO ENVELOPE, `pct` é
+    PONTOS PERCENTUAIS (contrato v3: 14.77 -> exibe "14,77%") — o frontend
+    NÃO multiplica por 100. Esta função faz a ÚNICA conversão fração->pontos,
+    de forma UNIFORME para toda métrica `unidade='pct'` com valor presente.
+    """
 
     def _fonte(f: FonteMetrica) -> dict:
         return {
@@ -1135,10 +1152,20 @@ def metricas_para_envelope(metricas: list[MetricaSetor]) -> list[dict]:
             "dt_referencia": f.dt_referencia.isoformat() if f.dt_referencia else None,
         }
 
+    def _valor_envelope(m: MetricaSetor) -> float | None:
+        if m.valor is None:
+            return None
+        if m.unidade == "pct":
+            # Multiplica ainda em Decimal (exato) antes de converter — evita
+            # arredondamento duplo do float (Decimal("0.168")*100 == 16.800
+            # exato; `float(m.valor) * 100` já parte de um float arredondado).
+            return float(m.valor * 100)
+        return float(m.valor)
+
     return [
         {
             "nome": m.nome,
-            "valor": float(m.valor) if m.valor is not None else None,
+            "valor": _valor_envelope(m),
             "unidade": m.unidade,
             "formula": m.formula,
             "o_que_mede": m.o_que_mede,

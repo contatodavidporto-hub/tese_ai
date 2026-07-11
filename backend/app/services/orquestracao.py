@@ -13,13 +13,41 @@ from typing import TYPE_CHECKING
 
 from app.core.logging import get_logger
 from app.models.models import Empresa, FiiCadastro
-from app.services import commodities, fii_dados, focus, macro_global, sec, tesouro
+from app.services import (
+    anbima_ettj,
+    aneel,
+    commodities,
+    cotahist,
+    fii_dados,
+    focus,
+    ifdata,
+    macro_global,
+    planos_contas,
+    proventos_b3,
+    sec,
+    tesouro,
+)
 from app.services import dados as dados_svc
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
+
+# Ticker do ETF de referência do Ibovespa (CODBDI 14, sonda A9) — série usada
+# pelo motor (F3) para o β "aproximado" vs BOVA11 no COTAHIST (SGS 7/nível do
+# Ibovespa está descontinuada). Backfillado junto com o ticker da tese: toda
+# tese de ação/FII ganha a série de mercado necessária ao β sem passo extra.
+TICKER_MERCADO_BETA = "BOVA11"
+
+
+def _e_setor_energia_transmissao(setor: str | None) -> bool:
+    """Mesma detecção por substring de `valuation._e_setor_energia` (v1 só tem
+    a vertical energia/transmissão) — cópia local pequena e deliberada para
+    não acoplar `orquestracao` (ingest) a `valuation` (cálculo determinístico
+    puro), que são camadas diferentes do pipeline (plano §2.1)."""
+    s = (setor or "").lower()
+    return "energ" in s or "transmiss" in s or "eletric" in s or "elétric" in s
 
 
 def _passos_isolados(
@@ -62,11 +90,31 @@ def ingest_macro_refresh(session: Session) -> dict[str, str]:
 
 def ingest_completo(session: Session, empresa: Empresa) -> dict[str, str]:
     """Ingere fundamentos (D1) + macro BR (D3) + Brent (D3) + macro global (D4) +
-    pares globais (D2). Cada passo é isolado; devolve o status de cada um."""
+    pares globais (D2) + ingest AMPLIADO da Fase "Tese Profunda" (F3, plano
+    §2.1): COTAHIST (preço + BOVA11 p/ β aproximado) + proventos B3 (DY a
+    mercado) sempre; IF.data quando o filing detectou plano financeiro
+    (banco/seguradora — só banco tem mapa curado, IF.data abstém gracioso
+    para seguradora); ANEEL RAP quando o setor é energia/transmissão. Cada
+    passo é isolado (SAVEPOINT); falha de conector NUNCA derruba a tese —
+    vira lacuna rotulada, lida a jusante pelo motor (`tese.py`)."""
     resultados: dict[str, str] = {}
     passo = _passos_isolados(session, resultados)
 
     passo("fundamentos", lambda: dados_svc.ingest_fundamentos(session, empresa))
+    # A partir daqui `empresa.plano_contas`/`empresa.setor` já refletem o filing
+    # (setados por `ingest_fundamentos`/identidade antes deste ponto).
+    ticker = (empresa.ticker or "").strip().upper()
+    if ticker:
+        passo("cotahist_precos", lambda: cotahist.ensure_precos(session, ticker))
+        passo("cotahist_bova11", lambda: cotahist.ensure_precos(session, TICKER_MERCADO_BETA))
+        passo("proventos_b3", lambda: proventos_b3.ensure_proventos(session, ticker))
+    if empresa.plano_contas in planos_contas.PLANOS_FINANCEIROS and empresa.cd_cvm is not None:
+        passo(
+            "ifdata_banco",
+            lambda: ifdata.ensure_indicadores_banco(session, empresa.cd_cvm),
+        )
+    if ticker and _e_setor_energia_transmissao(empresa.setor):
+        passo("aneel_rap", lambda: aneel.ensure_rap(session, ticker))
     passo("macro_br", lambda: dados_svc.ingest_macro(session))
     passo("usd_historico", lambda: dados_svc.ingest_usd_historico(session))
     passo("commodities_brent", lambda: commodities.ingest_brent(session))
@@ -82,14 +130,24 @@ def ingest_completo(session: Session, empresa: Empresa) -> dict[str, str]:
 
 def ingest_fii_completo(session: Session, fii: FiiCadastro) -> dict[str, str]:
     """Ingestão da classe FII (etapa 11/D): informes mensais (indicadores) +
-    vacância trimestral + macro BR (Selic/IPCA) + CDI + Focus. Cada passo é
+    vacância trimestral + ingest AMPLIADO (F3, plano §2.1) — COTAHIST (preço
+    de mercado da cota) e proventos B3 (DY a mercado), NESTA ORDEM (informes
+    ANTES de proventos: `fii_cadastro.isin`, exigido pelo conector de
+    proventos, é populado pelo informe geral já resolvido em `ensure_ativo`/
+    `fii_indicadores`) — + macro BR (Selic/IPCA) + CDI + Focus. Cada passo é
     isolado (SAVEPOINT): Olinda fora do ar degrada para as séries factuais do
-    SGS sem derrubar a tese. Commit único ao final."""
+    SGS sem derrubar a tese. Sem ticker (heurística de ISIN zerada por
+    colisão) os passos de B3 são pulados — não há como consultar COTAHIST/
+    proventos sem o código de negociação. Commit único ao final."""
     resultados: dict[str, str] = {}
     passo = _passos_isolados(session, resultados)
 
     passo("fii_indicadores", lambda: fii_dados.ingest_indicadores(session, fii))
     passo("fii_vacancia", lambda: fii_dados.ingest_vacancia(session, fii))
+    ticker = (fii.ticker or "").strip().upper()
+    if ticker:
+        passo("fii_cotahist_precos", lambda: cotahist.ensure_precos(session, ticker))
+        passo("fii_proventos_b3", lambda: proventos_b3.ensure_proventos(session, ticker))
     passo("macro_br", lambda: dados_svc.ingest_macro(session))
     passo("cdi", lambda: focus.ingest_cdi(session))
     passo("focus", lambda: focus.ingest_focus(session))
@@ -102,12 +160,15 @@ def ingest_fii_completo(session: Session, fii: FiiCadastro) -> dict[str, str]:
 def ingest_renda_fixa_completo(session: Session, familia: str, ano: int) -> dict[str, str]:
     """Ingestão da classe RENDA_FIXA (etapa 11/D): SÓ o título pedido (janela
     limitada — o CSV completo da STN nunca entra cru) + CDI (fato, SGS) +
-    Focus (expectativa, Olinda; falha degrada para o SGS). Passos isolados,
-    commit único ao final."""
+    Focus (expectativa, Olinda; falha degrada para o SGS) + ingest AMPLIADO
+    (F3, plano §2.1): snapshot ANBIMA ETTJ do dia (inflação implícita/proxy da
+    curva soberana — TRAVA ToS: nunca série histórica, `ensure_snapshot`
+    ingere só o dia). Passos isolados, commit único ao final."""
     resultados: dict[str, str] = {}
     passo = _passos_isolados(session, resultados)
 
     passo("titulo_tesouro", lambda: tesouro.ingest_titulo(session, familia, ano))
+    passo("anbima_ettj", lambda: anbima_ettj.ensure_snapshot(session))
     passo("cdi", lambda: focus.ingest_cdi(session))
     passo("focus", lambda: focus.ingest_focus(session))
 

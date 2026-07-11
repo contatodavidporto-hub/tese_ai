@@ -547,6 +547,11 @@ def _preparar_motor_fake(
             tese_teto_custo_usd_dia=0,
             tese_model_synthesis="claude-opus-4-8",
             tese_model_extraction="claude-haiku-4-5-20251001",
+            tese_max_tokens_sintese=16000,
+            # Consenso desligado por padrão nestes testes offline (LLM06) —
+            # gerar_tese chama `_montar_blocos_novos`/`consenso.buscar` de
+            # forma incondicional; sem isto o motor não teria o atributo.
+            consenso_enabled=False,
         ),
     )
     monkeypatch.setattr(tese_svc.anthropic, "Anthropic", lambda api_key=None: client)

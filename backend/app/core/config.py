@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # Haiku para a extração de metadados (etapa 2, sem citações). Sobrepujáveis via .env.
     tese_model_synthesis: str = "claude-opus-4-8"
     tese_model_extraction: str = "claude-haiku-4-5-20251001"
+    # max_tokens da síntese (Fase "Tese Profunda", F3): 8000 -> 16000 — mais
+    # documentos determinísticos (técnica/valuation/métricas/consenso) e mais
+    # seções no system prompt pedem mais espaço de saída. Configurável (nunca
+    # hardcoded) para permitir ajuste sem deploy de código.
+    tese_max_tokens_sintese: int = 16000
 
     # Usuário-demo do slice: as teses (RLS owner-only) precisam de um dono real em
     # `auth.users`. Resolvido sob demanda via Admin API do Supabase (service_role).

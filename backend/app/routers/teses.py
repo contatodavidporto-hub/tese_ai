@@ -133,4 +133,14 @@ def get_tese(tese_id: uuid.UUID, session: Annotated[Session, Depends(get_session
     out.fontes = env.get("fontes", []) or []
     out.lacunas = env.get("lacunas", []) or []
     out.uso = env.get("uso")
+    # Blocos novos ("Tese Profunda", contrato-envelope-v3.md) — só chegam a
+    # este ponto quando status != error e o envelope não tem 'erro' (o `if`
+    # acima já retornou antes disso) — fail-closed já garantido pela guarda
+    # de cima; aqui só espelha `env.get(...)` (ausência = tese legada/sem
+    # dado novo, seção correspondente não aparece na UI).
+    out.graficos = env.get("graficos", []) or []
+    out.tecnica = env.get("tecnica")
+    out.valuation = env.get("valuation")
+    out.consenso = env.get("consenso")
+    out.metricas_setor = env.get("metricas_setor", []) or []
     return out

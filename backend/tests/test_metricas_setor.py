@@ -339,7 +339,12 @@ def test_classe_desconhecida_devolve_lista_vazia(sessao: Session) -> None:
 # Banco — Basileia / ROE / NIM / ativos problemáticos / P/VP
 # ---------------------------------------------------------------------------
 def test_basileia_com_valor_rotulo_prudencial_e_fonte(sessao: Session) -> None:
-    _banco_indicador(sessao, "BASILEIA", 0.168, dt.date(2026, 3, 31))
+    # Reconciliação de escala (F3, 2026-07-10): IF.data grava a Basileia já em
+    # PONTOS PERCENTUAIS (ifdata.py: "o REST devolve fração; gravamos em %
+    # (×100)" — ex. real "Basileia Itaú = 14,77%"). A fixture usa 16,8 (pontos)
+    # e `_calc_basileia` normaliza para a convenção interna do módulo (fração
+    # decimal, `_ROTULO_PCT_FRACAO`) — o envelope reconverte para pontos.
+    _banco_indicador(sessao, "BASILEIA", 16.8, dt.date(2026, 3, 31))
     m = _por_nome(calcular(sessao, _ctx_banco(), hoje=HOJE), "Índice de Basileia")
     assert m.valor == Decimal("0.168")
     assert m.unidade == "pct"
@@ -845,7 +850,12 @@ def test_templates_de_todas_as_classes_passam_no_gate(sessao: Session) -> None:
 # Serialização para o envelope v3 (§5)
 # ---------------------------------------------------------------------------
 def test_metricas_para_envelope_shape_do_contrato(sessao: Session) -> None:
-    _banco_indicador(sessao, "BASILEIA", 0.168, dt.date(2026, 3, 31))
+    # Fixture em pontos percentuais (convenção real do IF.data — ver
+    # reconciliação de escala F3 acima); o envelope v3 exibe `pct` em PONTOS
+    # PERCENTUAIS (decisão do maestro 2026-07-10), então o valor de saída bate
+    # com o de entrada (16,8) — a normalização fração<->pontos acontece só na
+    # travessia interna (`_calc_basileia` -> `_valor_envelope`).
+    _banco_indicador(sessao, "BASILEIA", 16.8, dt.date(2026, 3, 31))
     metricas = calcular(sessao, _ctx_banco(), hoje=HOJE)
     envelope = metricas_para_envelope(metricas)
     assert len(envelope) == len(metricas)
@@ -861,7 +871,7 @@ def test_metricas_para_envelope_shape_do_contrato(sessao: Session) -> None:
         "rotulos",
         "lacuna",
     }
-    assert isinstance(item["valor"], float) and item["valor"] == 0.168
+    assert isinstance(item["valor"], float) and item["valor"] == 16.8
     assert item["lacuna"] is None
     fonte = item["fontes"][0]
     assert set(fonte) == {"descricao", "url", "dt_referencia"}

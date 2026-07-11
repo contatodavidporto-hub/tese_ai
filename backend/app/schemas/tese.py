@@ -76,6 +76,161 @@ class UsoOut(BaseModel):
     custo_estimado_usd: float | None = None
 
 
+class FonteRefOut(BaseModel):
+    """Referência de fonte dos 5 blocos novos (contrato v3) — mais enxuta que
+    `FonteOut`: sem `id` (cita a origem do DADO — B3/CVM/BCB/ANEEL/ANBIMA —,
+    não uma linha do registro de fontes da tese)."""
+
+    descricao: str
+    url: str | None = None
+    dt_referencia: dt.date | None = None
+
+
+# --- 1. Gráficos --------------------------------------------------------------
+
+
+class PontoGraficoOut(BaseModel):
+    d: str
+    v: float
+
+
+class PontoFaixaGraficoOut(BaseModel):
+    d: str
+    sup: float
+    inf: float
+
+
+class SerieGraficoOut(BaseModel):
+    nome: str
+    pontos: list[PontoGraficoOut] = Field(default_factory=list)
+
+
+class FaixaGraficoOut(BaseModel):
+    nome: str
+    pontos: list[PontoFaixaGraficoOut] = Field(default_factory=list)
+
+
+class LinhaRefGraficoOut(BaseModel):
+    nome: str
+    valor: float
+
+
+class GraficoOut(BaseModel):
+    id: str
+    tipo: str  # "linha" | "linha_faixa" | "macd" | "oscilador"
+    titulo: str
+    ticker: str
+    eixo_y: str  # "BRL" | "indice" | "pct"
+    nota: str
+    fonte: FonteRefOut
+    series: list[SerieGraficoOut] = Field(default_factory=list)
+    faixa: FaixaGraficoOut | None = None
+    linhas_ref: list[LinhaRefGraficoOut] = Field(default_factory=list)
+
+
+# --- 2. Técnica -----------------------------------------------------------
+
+
+class IndicadorTecnicoOut(BaseModel):
+    nome: str
+    valor: float | None = None
+    unidade: str  # "indice" | "BRL" | "pct"
+    detalhe: str | None = None
+    o_que_mede: str
+    leitura: str
+
+
+class TecnicaOut(BaseModel):
+    nota: str
+    fonte: FonteRefOut
+    indicadores: list[IndicadorTecnicoOut] = Field(default_factory=list)
+    lacunas: list[str] = Field(default_factory=list)
+
+
+# --- 3. Valuation -----------------------------------------------------------
+
+
+class PremissaValuationOut(BaseModel):
+    nome: str
+    valor: str  # já formatado pt-BR — a UI só exibe
+    origem: str
+    rotulo: str  # "fato" | "premissa" | "aproximação"
+
+
+class CenarioValuationOut(BaseModel):
+    nome: str  # "conservador" | "base" | "otimista"
+    parametros: str
+    valor: float | None = None
+    unidade: str
+    omitido: str | None = None
+
+
+class FaixaValuationOut(BaseModel):
+    min: float
+    max: float
+    unidade: str
+
+
+class SensibilidadeValuationOut(BaseModel):
+    eixo_linhas: str
+    eixo_colunas: str
+    linhas: list[str] = Field(default_factory=list)
+    colunas: list[str] = Field(default_factory=list)
+    celulas: list[list[float | None]] = Field(default_factory=list)
+
+
+class ModeloValuationOut(BaseModel):
+    nome: str
+    descricao: str
+    premissas: list[PremissaValuationOut] = Field(default_factory=list)
+    cenarios: list[CenarioValuationOut] = Field(default_factory=list)
+    faixa: FaixaValuationOut | None = None
+    sensibilidade: SensibilidadeValuationOut | None = None
+    omitido: str | None = None
+
+
+class ValuationOut(BaseModel):
+    aviso: str
+    modelos: list[ModeloValuationOut] = Field(default_factory=list)
+    lacunas: list[str] = Field(default_factory=list)
+
+
+# --- 4. Consenso --------------------------------------------------------------
+
+
+class ItemConsensoOut(BaseModel):
+    casa: str | None = None
+    metrica: str  # "preco_alvo"
+    valor: float
+    moeda: str
+    veiculo: str
+    url: str
+    titulo: str
+    data_materia: str | None = None
+    data_busca: str
+
+
+class ConsensoOut(BaseModel):
+    aviso: str
+    itens: list[ItemConsensoOut] = Field(default_factory=list)
+    lacunas: list[str] = Field(default_factory=list)
+
+
+# --- 5. Métricas do setor ------------------------------------------------------
+
+
+class MetricaSetorOut(BaseModel):
+    nome: str
+    valor: float | None = None
+    unidade: str  # "pct" | "BRL" | "razao" | "x"
+    formula: str
+    o_que_mede: str
+    implicacao: str
+    fontes: list[FonteRefOut] = Field(default_factory=list)
+    rotulos: list[str] = Field(default_factory=list)
+    lacuna: str | None = None
+
+
 class TeseOut(BaseModel):
     id: uuid.UUID
     ticker: str
@@ -95,3 +250,11 @@ class TeseOut(BaseModel):
     lacunas: list[str] = Field(default_factory=list)
     uso: UsoOut | None = None
     erro: str | None = None
+    # Blocos novos ("Tese Profunda", contrato-envelope-v3.md) — ADITIVOS e
+    # opcionais: ausência = tese legada válida (default_factory/None). O
+    # router (fail-closed) NÃO os preenche em status=error/gate bloqueado.
+    graficos: list[GraficoOut] = Field(default_factory=list)
+    tecnica: TecnicaOut | None = None
+    valuation: ValuationOut | None = None
+    consenso: ConsensoOut | None = None
+    metricas_setor: list[MetricaSetorOut] = Field(default_factory=list)

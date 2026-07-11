@@ -26,13 +26,22 @@ from __future__ import annotations
 import re
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.models.models import Empresa, Fonte, Fundamento
+from app.models.models import (
+    Empresa,
+    Fonte,
+    Fundamento,
+    MacroSerie,
+    PrecoDiario,
+    Provento,
+    SetorIndicador,
+)
 from app.services import correlacao, planos_contas
 from app.services import dados as dados_svc
 from app.services.ativos.base import ACAO as INFO
-from app.services.correlacao import Elo, elo_interpretativo
+from app.services.correlacao import Elo, elo_co_movimento, elo_interpretativo
 
 CLASSE = INFO.codigo
 
@@ -185,13 +194,144 @@ def montar_elos_financeira(contexto: dict) -> list[Elo]:
     return [e for e in elos if e.validada]
 
 
+# ---------------------------------------------------------------------------
+# Elos AMPLIADOS (F3, plano §2.9) — reusam os primitivos de `correlacao`;
+# fonte nas DUAS pontas sempre; abstenção silenciosa sem dado novo (nunca
+# derruba a tese, nunca inventa elo).
+# ---------------------------------------------------------------------------
+_MIN_PREGOES_ELO_TECNICO = 30  # espelha MIN_N do co-movimento (correlacao.MIN_N)
+
+
+def montar_elos_tecnica(session: Session, empresa: Empresa) -> list[Elo]:
+    """Selic → linha de Acumulação/Distribuição técnica (co-movimento, plano
+    §2.9). Recalcula o primitivo PURO de `tecnica.linha_ad` sobre o COTAHIST
+    já persistido (nunca refaz o ingest) — Pearson NÃO-causal, `n<MIN_N`
+    abstém (herdado de `correlacao.elo_co_movimento`)."""
+    ticker = (empresa.ticker or "").strip().upper()
+    if not ticker:
+        return []
+    try:
+        linhas = (
+            session.execute(
+                select(PrecoDiario)
+                .where(PrecoDiario.ticker == ticker)
+                .order_by(PrecoDiario.data_pregao)
+            )
+            .scalars()
+            .all()
+        )
+    except (ProgrammingError, OperationalError):
+        return []  # tabela ausente (migração 0006 pendente/teste offline) — sem elo
+    barras = [
+        p
+        for p in linhas
+        if p.maxima is not None
+        and p.minima is not None
+        and p.fechamento is not None
+        and p.volume is not None
+    ]
+    if len(barras) < _MIN_PREGOES_ELO_TECNICO:
+        return []
+    from app.services import tecnica as tecnica_svc  # import tardio — evita ciclo
+
+    ad = tecnica_svc.linha_ad(
+        [float(b.maxima) for b in barras],
+        [float(b.minima) for b in barras],
+        [float(b.fechamento) for b in barras],
+        [float(b.volume) for b in barras],
+    )
+    serie_ad = list(zip((b.data_pregao for b in barras), ad, strict=True))
+    serie_selic = [
+        (m.data, float(m.valor))
+        for m in session.execute(
+            select(MacroSerie)
+            .where(MacroSerie.codigo == "SELIC_META_ANUAL", MacroSerie.valor.is_not(None))
+            .order_by(MacroSerie.data)
+        ).scalars()
+    ]
+    fonte_selic = next(
+        (
+            m.fonte_id
+            for m in session.execute(
+                select(MacroSerie)
+                .where(MacroSerie.codigo == "SELIC_META_ANUAL")
+                .order_by(MacroSerie.data.desc())
+                .limit(1)
+            ).scalars()
+        ),
+        None,
+    )
+    fonte_precos = barras[-1].fonte_id
+    if not serie_selic or fonte_selic is None or fonte_precos is None:
+        return []
+    elo = elo_co_movimento(
+        "selic→ad_tecnico",
+        ("Meta Selic (% a.a.)", fonte_selic),
+        ("Linha de Acumulação/Distribuição (técnica, COTAHIST)", fonte_precos),
+        serie_selic,
+        serie_ad,
+    )
+    return [elo] if elo is not None else []
+
+
+def montar_elos_energia(session: Session, empresa: Empresa) -> list[Elo]:
+    """RAP → receita → dividendos (energia/transmissão, plano §2.9) —
+    interpretativo com hedge: a RAP é TETO regulatório de receita, não fato de
+    pagamento; a ligação com proventos é condicional."""
+    ticker = (empresa.ticker or "").strip().upper()
+    if not ticker:
+        return []
+    try:
+        rap = session.execute(
+            select(SetorIndicador)
+            .where(
+                SetorIndicador.ticker == ticker,
+                SetorIndicador.indicador.in_(("RAP_CICLO", "RAP")),
+            )
+            .order_by(SetorIndicador.competencia.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if rap is None:
+            return []
+        provento = session.execute(
+            select(Provento)
+            .where(Provento.ticker == ticker)
+            .order_by(Provento.data_com.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+    except (ProgrammingError, OperationalError):
+        return []  # tabela ausente (migração 0006 pendente/teste offline) — sem elo
+    if provento is None:
+        return []
+    return [
+        elo_interpretativo(
+            "rap→receita→dividendos",
+            ("RAP — Receita Anual Permitida (ANEEL SIGET)", rap.fonte_id),
+            ("Proventos distribuídos (B3)", provento.fonte_id),
+            ligacao_causal=(
+                "cadeia: a RAP homologada é o teto de receita regulada de transmissão; "
+                "a receita realizada tende a se aproximar da RAP contratada, e parte do "
+                "resultado pode ser distribuída como proventos"
+            ),
+            hedge=(
+                "condicional; RAP é teto regulatório, não fato de pagamento — payout, "
+                "alavancagem e outros usos do caixa não são capturados por este elo"
+            ),
+        )
+    ]
+
+
 def montar_elos(session: Session, empresa: Empresa) -> list[Elo]:
     """Elos da classe AÇÃO: grafo legado (8 elos, BYTE-IDÊNTICO — vive em
     `correlacao.montar_grafo`) + elos do plano financeiro quando o filing
-    detectou banco/seguradora (D8)."""
+    detectou banco/seguradora (D8) + elos AMPLIADOS (F3, §2.9: Selic→A/D
+    técnico sempre que há COTAHIST suficiente; RAP→dividendos só quando há
+    RAP e proventos persistidos — abstenção silenciosa sem dado novo)."""
     contexto = correlacao.coletar_contexto(session, empresa)
     elos = correlacao.montar_grafo(contexto)
     elos.extend(montar_elos_financeira(contexto))
+    elos.extend(montar_elos_tecnica(session, empresa))
+    elos.extend(montar_elos_energia(session, empresa))
     return elos
 
 
@@ -203,7 +343,9 @@ __all__ = [
     "ensure_ativo",
     "ingest",
     "montar_elos",
+    "montar_elos_energia",
     "montar_elos_financeira",
+    "montar_elos_tecnica",
     "nome_ativo",
     "precisa_ingest",
     "system_prompt",
