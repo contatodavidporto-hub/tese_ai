@@ -185,9 +185,13 @@ _R10_SINAL_RE = re.compile(
 # Diretiva ao leitor (verbo comprar/vender por radical, entrada/saída,
 # posicionamento, "hora de", "momento de compra/venda", "sinal de
 # compra/venda"). `\w*` após o radical casa a flexão inteira (compre/
-# comprar/comprando/vendam...) com fronteira de palavra no fim.
+# comprar/comprando/vendam...) com fronteira de palavra no fim. `buy|sell`
+# (decisão fora do plano, ver resposta final): a tese é PT-BR, então
+# sinal+diretiva em INGLÊS ("The RSI signals a buy") só aparece como
+# vazamento — mesma lógica do bloco INGLÊS já existente em
+# `_PADROES_RECOMENDACAO`.
 _R10_DIRETIVA_RE = re.compile(
-    r"\b(compr\w*|vend\w*|entrada|sa[íi]da|"
+    r"\b(compr\w*|vend\w*|entrada|sa[íi]da|buy|sell|"
     r"posicion(?:e|ar)(?:-se)?\s+(?:comprad[oa]|vendid[oa])|"
     r"hora\s+de|momento\s+de\s+(?:compra|venda|comprar|vender)|"
     r"sinal\s+de\s+(?:compra|venda))\b",
