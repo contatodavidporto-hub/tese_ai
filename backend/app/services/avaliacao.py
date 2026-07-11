@@ -132,6 +132,34 @@ _PADROES_RECOMENDACAO = [
     r"\b(buy|sell|hold|accumulate)\s+(the\s+)?(stock|shares|position)\b",
     r"\bprice\s+target\b",
     r"\brating[:\s]+(buy|sell|hold|neutral|overweight|underweight)\b",
+    r"\bload\s+up\b",
+    r"\btime\s+to\s+(buy|sell|load)\b",
+    r"\bact\s+now\b",
+    r"\bstrong\s+upside\b",
+    # --- Red-team v3 (gate v3, 22 furos) — léxico de diretiva ampliado. Estes
+    #     padrões vivem no léxico GERAL (não em `_R10_DIRETIVA_RE`/`_R11_
+    #     DIRETIVA_RE`) porque são diretiva ao leitor por si só, em QUALQUER
+    #     seção — não dependem de coexistir com um sinal técnico/termo de
+    #     valuation na mesma frase (ao contrário de "espaço para alta"/
+    #     "confirma o momento", abaixo, que só viram diretiva quando
+    #     ANCORADOS num sinal técnico — ver `_R10_DIRETIVA_RE`). ---
+    r"\bmont(?:e|em|ar)\s+(?:a\s+)?posi[çc][ãa]o\b",
+    r"\b(?:adicion|inclu[ai]|incorpor)\w*\s+(?:ao|à|na|no|a)\s+"
+    r"(?:sua\s+|essa\s+)?(?:carteira|portf[óo]lio|posi[çc][ãa]o)\b",
+    r"\bzer(?:e|em|ar)\s+(?:a\s+)?posi[çc][ãa]o\b",
+    r"\bsurf(?:e|em|ar)\s+(?:o\s+)?movimento\b",
+    r"\babrir\s+(?:posi[çc][ãa]o\s+)?(?:long|short|comprad[oa]|vendid[oa])\b",
+    r"\bjanela\b[^.;\n]{0,40}\bentrada\b",
+    # Voz passiva / particípio — o verbo direcional muda de sujeito, não de
+    # sentido: "a compra é recomendada" / "deveria ser acumulado" continuam
+    # sendo diretiva de compra/venda, só que sem imperativo/1ª pessoa.
+    r"\b(?:compra|venda)\s+(?:é|foi|est[áa]|s[ãa]o)\s+recomendad[ao]s?\b",
+    r"\bdeve(?:ria)?m?\s+ser\s+" r"(?:acumulad|comprad|vendid|adquirid|carregad|reduzid)[oa]s?\b",
+    # "alvo" NU (sem "preço-"/"valor-" na frente — esses já são cobertos por
+    # `\bpre[çc]o[\s-]?alvo\b`/`\bvalor[\s-]?alvo\b` acima) seguido de valor:
+    # fecha o contrabando de preço-alvo para FORA da seção de consenso sob um
+    # rótulo mais curto ("o alvo de R$ 63 sugere...", CONS-06).
+    r"\balvo\s*(?:de|em|:)\s*R\$",
 ]
 _RECOMENDACAO_RE = re.compile("|".join(_PADROES_RECOMENDACAO), re.IGNORECASE)
 
@@ -190,11 +218,23 @@ _R10_SINAL_RE = re.compile(
 # sinal+diretiva em INGLÊS ("The RSI signals a buy") só aparece como
 # vazamento — mesma lógica do bloco INGLÊS já existente em
 # `_PADROES_RECOMENDACAO`.
+# Red-team v3 (gate v3): "espaço para alta/queda" e "confirma o momento/
+# movimento" são desfechos direcionais que só configuram diretiva quando
+# ANCORADOS a um sinal técnico (`_R10_SINAL_RE`) na MESMA frase — por isso
+# vivem aqui, e não no léxico geral (`_PADROES_RECOMENDACAO`): fora de um
+# contexto técnico, "espaço para alta" pode ser uma leitura de cenário
+# legítima (ex.: valuation) sem virar recomendação. "confirma o momento" é
+# borderline (R10-04) — decisão: incluir, pois SÓ dispara combinado com
+# sinal técnico explícito, o que já restringe a superfície a leituras
+# técnicas (nenhum verde do red-team usa a frase fora desse contexto).
 _R10_DIRETIVA_RE = re.compile(
     r"\b(compr\w*|vend\w*|entrada|sa[íi]da|buy|sell|"
     r"posicion(?:e|ar)(?:-se)?\s+(?:comprad[oa]|vendid[oa])|"
     r"hora\s+de|momento\s+de\s+(?:compra|venda|comprar|vender)|"
-    r"sinal\s+de\s+(?:compra|venda))\b",
+    r"sinal\s+de\s+(?:compra|venda)|"
+    r"espa[çc]o\s+para\s+(?:alta|queda)|"
+    r"alvo\s+(?:de|em)|"
+    r"confirma\s+o\s+(?:momento|movimento))\b",
     re.IGNORECASE,
 )
 
@@ -477,6 +517,72 @@ def _tem_numero_de_claim(frase: str) -> bool:
     return False
 
 
+# --- Red-team v3 (TERMO-04) — número por extenso PT-BR ----------------------
+# Numeral por extenso (dicionário fechado um..dez/vinte/trinta.../cem/mil —
+# não tenta cobrir toda a gramática de composição numérica, só o vocabulário
+# suficiente p/ frases como "quatorze vírgula sete por cento") + marcador
+# ('vírgula'/'por cento') NA MESMA FRASE. Chamada só DEPOIS que o termo
+# vetado já casou (`_tem_numero_de_claim(frase) or _tem_numero_extenso(frase)`
+# em `termos_vetados_com_numero`) — a coocorrência com o termo vetado É a
+# condição da regra, então "por cento" sozinho em texto legítimo alhures
+# nunca chega a este check (não contamina `_tem_numero_de_claim`, que segue
+# só dígitos — usado também por `_consenso_numeros_sem_atribuicao`/R12).
+_NUMERAL_EXTENSO_PT = (
+    "zero",
+    "um",
+    "uma",
+    "dois",
+    "duas",
+    "tr[êe]s",
+    "quatro",
+    "cinco",
+    "seis",
+    "sete",
+    "oito",
+    "nove",
+    "dez",
+    "onze",
+    "doze",
+    "treze",
+    "quatorze",
+    "catorze",
+    "quinze",
+    "dezesseis",
+    "dezesseis",
+    "dezessete",
+    "dezoito",
+    "dezenove",
+    "vinte",
+    "trinta",
+    "quarenta",
+    "cinq(?:u|ü)enta",
+    "sessenta",
+    "setenta",
+    "oitenta",
+    "noventa",
+    "cem",
+    "cento",
+    "duzentos",
+    "trezentos",
+    "quatrocentos",
+    "quinhentos",
+    "seiscentos",
+    "setecentos",
+    "oitocentos",
+    "novecentos",
+    "mil",
+)
+_NUMERAL_EXTENSO_RE = re.compile(r"\b(?:" + "|".join(_NUMERAL_EXTENSO_PT) + r")\b", re.IGNORECASE)
+_EXTENSO_MARCADOR_RE = re.compile(r"\bv[íi]rgula\b|\bpor\s+cento\b", re.IGNORECASE)
+
+
+def _tem_numero_extenso(frase: str) -> bool:
+    """Número por extenso como número-de-claim: exige a COOCORRÊNCIA de um
+    numeral por extenso com 'vírgula'/'por cento' na MESMA frase — ver nota
+    acima sobre por que isso não é falso-positivo."""
+    return bool(_NUMERAL_EXTENSO_RE.search(frase) and _EXTENSO_MARCADOR_RE.search(frase))
+
+
 def _tokens_numericos_de_claim(frase: str) -> set[str]:
     """Dígitos normalizados (sem separador) de todo número "de claim" da
     frase — MESMO critério de significância de `_tem_numero_de_claim`
@@ -515,15 +621,97 @@ def _numeros_citados_de_origem(citacoes: list | None, origem_re: re.Pattern[str]
 
 
 def _isento_por_citacao(frase: str, origem_re: re.Pattern[str], citacoes: list | None) -> bool:
-    """O termo vetado nesta frase tem seu número ancorado numa citação da
-    origem esperada (A2)? Sem `citacoes` (chamada direta da função pura,
-    compatibilidade retroativa) ou sem citação correspondente -> nunca isento
-    (fail-closed; termo+número sem citação correspondente segue bloqueante).
+    """O termo vetado nesta frase tem TODOS os seus números ancorados numa
+    citação da origem esperada (A2 + correção red-team v3, TERMO-03/TERMO-10)?
+
+    SUBCONJUNTO, não interseção: antes, `nums_frase & citados` bastava UM
+    número bater para isentar a FRASE inteira — um número real citado
+    "lavava" um número fabricado na mesma frase ('Basileia de 16,8% [citado],
+    projetado a 21,0% [inventado]' passava por inteiro). Agora TODOS os
+    números-de-claim da frase (`nums_frase`) precisam estar em `citados`;
+    sobrando qualquer um, a frase inteira segue bloqueante. Sem `citacoes`
+    (chamada direta da função pura, compatibilidade retroativa) ou sem
+    citação correspondente -> nunca isento (fail-closed).
     """
     nums_frase = _tokens_numericos_de_claim(frase)
     if not nums_frase:
         return False
-    return bool(nums_frase & _numeros_citados_de_origem(citacoes, origem_re))
+    return nums_frase.issubset(_numeros_citados_de_origem(citacoes, origem_re))
+
+
+# --- Red-team v3 — subconjunto vs. sub-claims independentes na MESMA frase --
+# O subconjunto acima é correto para "mesma métrica, valor real + valor
+# fabricado" (TERMO-03/10), mas um período pode legitimamente conter DOIS
+# sub-claims DISTINTOS e cada um com seu PRÓPRIO mecanismo de isenção válido
+# — 'DY do informe: 0,66%' (isento pelo RÓTULO, não por citação) 'enquanto o
+# DY a mercado ... soma 9,00%' (isento por CITAÇÃO COTAHIST) — ver V-10. Sem
+# tratamento, o subconjunto exigiria que o número do informe TAMBÉM tivesse
+# citação (que não existe por natureza: é auto-declarado), quebrando V-10.
+# As funções abaixo isolam o SUB-TRECHO local (';'/', enquanto') em torno de
+# uma posição, para que o subconjunto de CADA sub-claim seja avaliado com
+# SEUS PRÓPRIOS números — não com os do vizinho.
+_SUBCLAUSULA_DY_RE = re.compile(r";|,\s*enquanto\b|,\s*ao\s+passo\s+que\b", re.IGNORECASE)
+
+
+def _subclausula_em(texto: str, pos: int) -> str:
+    """Sub-trecho de `texto` delimitado por ';'/', enquanto'/', ao passo que'
+    que contém a posição `pos`. Sem fronteira nenhuma, devolve `texto`
+    inteiro (comportamento idêntico ao escopo de frase inteira já usado
+    pelas demais regras — mudança é ADITIVA, só entra em jogo quando há de
+    fato uma sub-cláusula contrastante)."""
+    limites = [0] + [m.start() for m in _SUBCLAUSULA_DY_RE.finditer(texto)] + [len(texto)]
+    limites = sorted(set(limites))
+    for ini, fim in zip(limites, limites[1:], strict=False):
+        if ini <= pos < fim:
+            return texto[ini:fim]
+    return texto
+
+
+def _subclausula_dy_mercado(frase: str) -> str:
+    """Escopo do relaxamento por citação de `_VETADO_DY_MERCADO`: a
+    sub-cláusula em torno da menção 'a mercado', não a frase inteira — evita
+    que o número de um sub-claim VIZINHO (o DY do informe, isento por rótulo
+    e por natureza sem citação) force o subconjunto do sub-claim de mercado a
+    falhar (V-10). Sem menção 'a mercado' na frase, devolve a frase inteira
+    (não deveria ser chamada nesse caso, mas é fail-safe)."""
+    m = _MERCADO_TERMO_RE.search(frase)
+    if m is None:
+        return frase
+    return _subclausula_em(frase, m.start())
+
+
+def _dy_periodo_quebras_ancoradas(periodo: str, citacoes: list | None) -> bool:
+    """Toda quebra 'a mercado'/anualização do período (fora de ressalva
+    protetora) tem, na SUA PRÓPRIA sub-cláusula, todos os números ancorados
+    por citação COTAHIST/B3? Usado só para RESTAURAR a isenção do DY do
+    informe quando `_dy_isento_no_periodo` (period-wide, A3 — INTACTO, não
+    tocado) a nega por causa de um sub-claim de mercado que É legitimamente
+    citado (V-10: 'DY do informe 0,66%, enquanto o DY a mercado ... 9,00%
+    [citado COTAHIST]'). Um sub-claim de mercado FABRICADO (sem citação
+    correspondente, TERMO-09) mantém a poison period-wide original — devolve
+    False e a isenção do informe continua negada."""
+    protegidos = [m.span() for m in _DY_CAVEAT_PROTEGIDO_RE.finditer(periodo)]
+    for quebra in _DY_ANUALIZADO_OU_MERCADO_RE.finditer(periodo):
+        if any(ini <= quebra.start() and quebra.end() <= fim for ini, fim in protegidos):
+            continue  # dentro de ressalva protetora — não é quebra real
+        sub = _subclausula_em(periodo, quebra.start())
+        if not _isento_por_citacao(sub, _ORIGEM_COTAHIST_RE, citacoes):
+            return False
+    return True
+
+
+def _dy_isento_no_periodo_com_citacao(periodo: str, fim_frase: int, citacoes: list | None) -> bool:
+    """Isenção do DY do informe (A3, `_dy_isento_no_periodo`, PRESERVADA sem
+    alteração) + fallback por citação (red-team v3, correção V-10): se o
+    rótulo do informe está presente mas a isenção period-wide falha só por
+    causa de uma quebra 'a mercado' que tem, ela própria, citação válida na
+    sua sub-cláusula (`_dy_periodo_quebras_ancoradas`), a isenção do informe
+    é restaurada — o sub-claim vizinho é genuíno e citado, não lavagem."""
+    if _DY_ROTULO_INFORME_RE.search(periodo[:fim_frase]) is None:
+        return False
+    if _dy_isento_no_periodo(periodo, fim_frase):
+        return True
+    return _dy_periodo_quebras_ancoradas(periodo, citacoes)
 
 
 def _parse_numero_brl(token: str) -> float | None:
@@ -687,20 +875,37 @@ def termos_vetados_com_numero(
                         continue
                 elif termo_re.search(frase) is None:
                     continue
-                if not _tem_numero_de_claim(frase):
+                # Red-team v3 (TERMO-04): número por extenso PT-BR também conta
+                # como número-de-claim — só é consultado aqui, DEPOIS do termo
+                # vetado já ter casado na frase (a coocorrência com o termo é a
+                # condição da regra; ver `_tem_numero_extenso`), então não
+                # contamina `_tem_numero_de_claim`/`_consenso_numeros_sem_
+                # atribuicao` (que seguem só dígitos, comportamento intacto).
+                if not _tem_numero_de_claim(frase) and not _tem_numero_extenso(frase):
                     continue
                 if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
-                if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo, fim_frase):
-                    continue  # DY mensal do informe, auto-declarado e rotulado (A3: intacto)
+                if rotulo is _VETADO_DY and _dy_isento_no_periodo_com_citacao(
+                    periodo, fim_frase, citacoes
+                ):
+                    continue  # DY do informe (A3, intacto) + fallback por citação (V-10)
                 # A2 (correção red-team): relaxamento por CITAÇÃO — não toca
                 # `_dy_isento_no_periodo` (A3); é uma saída ADICIONAL (OR),
                 # então um DY do informe (rótulo) e um DY a mercado (citação)
                 # na MESMA frase podem cada um se justificar por seu próprio
                 # caminho. Sem citação/origem correspondente -> segue vetado.
+                # `_VETADO_DY_MERCADO` usa a SUB-CLÁUSULA em torno de "a
+                # mercado" (não a frase inteira) — senão o subconjunto (abaixo)
+                # exigiria citação também para o número do sub-claim vizinho
+                # (o DY do informe, auto-declarado, isento por rótulo — nunca
+                # por citação), quebrando V-10 (correção red-team v3).
                 origem_re = _RELAXAMENTO_POR_CITACAO.get(rotulo)
-                if origem_re is not None and _isento_por_citacao(frase, origem_re, citacoes):
-                    continue
+                if origem_re is not None:
+                    texto_escopo = (
+                        _subclausula_dy_mercado(frase) if rotulo is _VETADO_DY_MERCADO else frase
+                    )
+                    if _isento_por_citacao(texto_escopo, origem_re, citacoes):
+                        continue
                 # 240 chars: o corte em 120 truncava a frase ANTES do trecho
                 # que causou o veto (diagnóstico do FP de produção 10/07 exigiu
                 # reconstruir o texto no banco) — laudo precisa mostrar o gatilho.
