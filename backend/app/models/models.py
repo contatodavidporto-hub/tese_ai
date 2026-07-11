@@ -431,3 +431,161 @@ class TituloPublico(Base):
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class PrecoDiario(Base):
+    """OHLCV diário por ticker (COTAHIST B3) — referência, NÃO ajustado por proventos.
+
+    Técnica/β calculados sobre este preço são "aproximados" (rótulo obrigatório
+    no consumidor). `codbdi` filtra o tipo de mercado do COTAHIST (02=lote-padrão,
+    12=FII, 14=ETF). `fonte_id` NOT NULL — sem fonte não é fato.
+    """
+
+    __tablename__ = "precos_diarios"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    ticker: Mapped[str] = mapped_column(Text, nullable=False)
+    data_pregao: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    abertura: Mapped[float | None] = mapped_column(Numeric)
+    maxima: Mapped[float | None] = mapped_column(Numeric)
+    minima: Mapped[float | None] = mapped_column(Numeric)
+    fechamento: Mapped[float | None] = mapped_column(Numeric)
+    volume: Mapped[float | None] = mapped_column(Numeric)
+    negocios: Mapped[int | None] = mapped_column(Integer)
+    codbdi: Mapped[int | None] = mapped_column(Integer)
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Provento(Base):
+    """Dividendo/JCP/rendimento por ticker (B3 cashDividends) — base do DY a mercado.
+
+    `fonte_id` NOT NULL — sem fonte não é fato.
+    """
+
+    __tablename__ = "proventos"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    ticker: Mapped[str] = mapped_column(Text, nullable=False)
+    tipo: Mapped[str] = mapped_column(Text, nullable=False)  # 'DIVIDENDO'|'JCP'|'RENDIMENTO'|...
+    valor: Mapped[float] = mapped_column(Numeric, nullable=False)
+    data_com: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    data_pagamento: Mapped[dt.date | None] = mapped_column(Date)
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class BancoIndicador(Base):
+    """Indicador TIPADO do IF.data (BCB) — Basileia/PR/RWA/carteira/LL anualizado.
+
+    `base` ('prudencial'|'societario') nunca é misturada dentro do mesmo
+    indicador (Res. 4966 muda a base a partir de 2025). `fonte_id` NOT NULL.
+    """
+
+    __tablename__ = "banco_indicadores"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    cd_cvm: Mapped[int] = mapped_column(Integer, nullable=False)
+    indicador: Mapped[str] = mapped_column(Text, nullable=False)
+    valor: Mapped[float] = mapped_column(Numeric, nullable=False)
+    unidade: Mapped[str] = mapped_column(Text, nullable=False)  # 'PCT'|'BRL'|'RAZAO'
+    base: Mapped[str] = mapped_column(Text, nullable=False)  # 'prudencial'|'societario'
+    dt_referencia: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    metodologia: Mapped[str | None] = mapped_column(Text)
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SetorIndicador(Base):
+    """Registro genérico extensível por (ticker, indicador, competência).
+
+    Hoje só RAP (ANEEL/energia); varejo/saneamento/seguros entram depois como
+    DADO (novo valor de `indicador`), não como tabela nova. `empresa_id` é
+    opcional (liga ao cadastro quando existir); `fonte_id` NOT NULL.
+    """
+
+    __tablename__ = "setor_indicadores"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    empresa_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("empresas.id", ondelete="SET NULL")
+    )
+    ticker: Mapped[str] = mapped_column(Text, nullable=False)
+    indicador: Mapped[str] = mapped_column(Text, nullable=False)
+    valor: Mapped[float] = mapped_column(Numeric, nullable=False)
+    unidade: Mapped[str] = mapped_column(Text, nullable=False)
+    competencia: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    metodologia: Mapped[str | None] = mapped_column(Text)
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CurvaSnapshot(Base):
+    """ETTJ ANBIMA — SNAPSHOT do dia (nunca série sistemática, ToS ANBIMA).
+
+    `fonte_id` NOT NULL; unicidade por (data_ref, curva, vertice_du).
+    """
+
+    __tablename__ = "curva_snapshot"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    data_ref: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    curva: Mapped[str] = mapped_column(Text, nullable=False)  # 'PRE'|'IPCA'
+    vertice_du: Mapped[int] = mapped_column(Integer, nullable=False)
+    taxa: Mapped[float] = mapped_column(Numeric, nullable=False)
+    inflacao_implicita: Mapped[float | None] = mapped_column(Numeric)
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ConsensoAnalista(Base):
+    """Item de consenso de terceiros (web_search) — sempre ATRIBUÍDO.
+
+    `cited_text` é o trecho citado, truncado a 150 chars (CHECK no banco):
+    o motor nunca cita a página bruta como documento, só o item estruturado
+    validado (defesa contra prompt-injection do conteúdo da página).
+    `fonte_id` NOT NULL — sem fonte não é fato.
+    """
+
+    __tablename__ = "consenso_analistas"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    ticker: Mapped[str] = mapped_column(Text, nullable=False)
+    casa: Mapped[str | None] = mapped_column(Text)
+    metrica: Mapped[str] = mapped_column(Text, nullable=False)  # ex.: 'preco_alvo'|'rating'
+    valor: Mapped[float | None] = mapped_column(Numeric)
+    moeda: Mapped[str | None] = mapped_column(Text)
+    veiculo: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    titulo: Mapped[str] = mapped_column(Text, nullable=False)
+    cited_text: Mapped[str] = mapped_column(Text, nullable=False)
+    page_age: Mapped[str | None] = mapped_column(Text)
+    data_busca: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

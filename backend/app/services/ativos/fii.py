@@ -24,9 +24,10 @@ MOTOR (PerfilClasse):
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.models.models import FiiCadastro, FiiIndicador, Fonte
+from app.models.models import FiiCadastro, FiiIndicador, Fonte, PrecoDiario
 from app.services import fii_dados
 from app.services.ativos import comum
 from app.services.ativos.base import FII as INFO
@@ -279,8 +280,50 @@ def coletar_contexto(session: Session, fii: FiiCadastro) -> dict:
     }
 
 
+def montar_elos_preco_pvp(session: Session, fii: FiiCadastro) -> list[Elo]:
+    """Preço (COTAHIST) → P/VP (F3, plano §2.9): elo interpretativo ligando o
+    fechamento de mercado da cota ao valor patrimonial do informe — fonte nas
+    DUAS pontas (COTAHIST + informe CVM). Sem COTAHIST persistido (tabela
+    ausente ou ticker nunca ingerido) -> abstenção silenciosa."""
+    ticker = (fii.ticker or "").strip().upper()
+    if not ticker:
+        return []
+    try:
+        preco = session.execute(
+            select(PrecoDiario)
+            .where(PrecoDiario.ticker == ticker)
+            .order_by(PrecoDiario.data_pregao.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+    except (ProgrammingError, OperationalError):
+        return []
+    if preco is None or preco.fonte_id is None:
+        return []
+    vp = fii_dados.indicadores_recentes(session, fii).get("VP_COTA")
+    if vp is None or vp.fonte_id is None:
+        return []
+    return [
+        elo_interpretativo(
+            "preço→pvp_fii",
+            ("Preço de fechamento da cota (COTAHIST, não ajustado)", preco.fonte_id),
+            ("Valor patrimonial por cota (informe mensal CVM)", vp.fonte_id),
+            ligacao_causal=(
+                "leitura: a razão entre preço de mercado e valor patrimonial por cota "
+                "(P/VP) descreve se a cota negocia acima ou abaixo do valor "
+                "patrimonial declarado nas datas comparadas"
+            ),
+            hedge=(
+                "point-in-time; datas do pregão e da competência do informe podem "
+                "divergir — leitura descritiva, não julgamento de valor justo"
+            ),
+        )
+    ]
+
+
 def montar_elos(session: Session, fii: FiiCadastro) -> list[Elo]:
-    return montar_elos_fii(coletar_contexto(session, fii))
+    elos = montar_elos_fii(coletar_contexto(session, fii))
+    elos.extend(montar_elos_preco_pvp(session, fii))
+    return elos
 
 
 __all__ = [
@@ -294,6 +337,7 @@ __all__ = [
     "ingest",
     "montar_elos",
     "montar_elos_fii",
+    "montar_elos_preco_pvp",
     "nome_ativo",
     "precisa_ingest",
     "system_prompt",

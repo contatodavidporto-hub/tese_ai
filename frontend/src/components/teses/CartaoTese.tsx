@@ -48,7 +48,7 @@ type CartaoTeseProps = {
 // dimensão" — fabricar esse dado seria alucinação.
 export function CartaoTese({ papel, dataCarteira }: CartaoTeseProps) {
   // Virada de Edição (motion): shared element via classe CSS pré-declarada
-  // (`.vt-tese-N`, globals.css) — só para os 12 tickers do conjunto finito
+  // (`.vt-tese-N`, globals.css) — só para os 13 tickers do conjunto finito
   // EXEMPLOS_PRONTOS; cobre a navegação cross-document real (fallback sem
   // JS/hard nav). O véu em /tese cobre o caso comum (navegação SPA).
   const slot = slotVirada(papel.ticker);

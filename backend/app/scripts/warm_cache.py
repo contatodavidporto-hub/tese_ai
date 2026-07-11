@@ -62,10 +62,16 @@ TICKERS_IBOV_TOP: list[tuple[str, float]] = [
     ("WEGE3", 2.871),
 ]
 
-# Exemplos públicos multiativo da galeria (FII e renda fixa) — aquecidos junto
-# com o top 10 IBOV para o público ver resposta instantânea nas outras classes.
+# Exemplos públicos adicionais da galeria, além do top 10 IBOV — aquecidos
+# junto para o público ver resposta instantânea nas outras classes/setores:
+# TAEE11 (ação de energia/transmissão, classe 'acao' setor 'energia' — o DoD
+# da fase "Tese Profunda" exige um exemplo do setor, com RAP/ANEEL e DDM/
+# Gordon no valuation) + os exemplos multiativo FII/renda fixa (HGLG11,
+# TD-IPCA-2035). Custo do lote frio: 13 ativos × ~US$0,60-0,70/tese (correção
+# A14: síntese Opus max_tokens=16000 + consenso Haiku/web_search) ≈ US$7,80-
+# 9,10 — cabe com folga no teto diário (`tese_teto_custo_usd_dia=25`).
 # Manter em sincronia com frontend/src/lib/tickers.ts EXEMPLOS_PRONTOS.
-EXEMPLOS_MULTIATIVO: list[str] = ["HGLG11", "TD-IPCA-2035"]
+EXEMPLOS_MULTIATIVO: list[str] = ["TAEE11", "HGLG11", "TD-IPCA-2035"]
 
 
 def lote_default() -> list[str]:
@@ -82,7 +88,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="warm_cache",
         description="Pré-gera teses (warm cache). Sem códigos: top 10 do IBOV "
-        "+ exemplos multiativo (HGLG11, TD-IPCA-2035).",
+        "+ exemplos adicionais (TAEE11, HGLG11, TD-IPCA-2035).",
     )
     parser.add_argument(
         "codigos",

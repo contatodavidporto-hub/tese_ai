@@ -547,6 +547,11 @@ def _preparar_motor_fake(
             tese_teto_custo_usd_dia=0,
             tese_model_synthesis="claude-opus-4-8",
             tese_model_extraction="claude-haiku-4-5-20251001",
+            tese_max_tokens_sintese=16000,
+            # Consenso desligado por padrão nestes testes offline (LLM06) —
+            # gerar_tese chama `_montar_blocos_novos`/`consenso.buscar` de
+            # forma incondicional; sem isto o motor não teria o atributo.
+            consenso_enabled=False,
         ),
     )
     monkeypatch.setattr(tese_svc.anthropic, "Anthropic", lambda api_key=None: client)
@@ -768,3 +773,70 @@ def test_gerar_tese_fii_sem_dados_abstem_total(
     assert tese.status == "error"
     env = _envelope(sessao, tese)
     assert "dado não encontrado" in env["erro"]
+
+
+# ---------------------------------------------------------------------------
+# _montar_blocos_novos — custo do consenso exposto ao chamador (F6, pendência
+# F3/correção A14): `ResultadoConsenso.web_search_requests` precisa chegar
+# em `_BlocosNovos.web_search_requests` para `_estimar_custo`/`_usage_dict`
+# somarem o gasto real do estágio de consenso ao custo da tese.
+# ---------------------------------------------------------------------------
+def test_montar_blocos_novos_captura_web_search_requests_do_consenso(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Sessão SQLite SEM NENHUMA tabela criada: toda leitura de fato novo
+    # (metricas/_ler_precos/valuation) degrada para vazio/exceção engolida
+    # (mesmo padrão de `_ler_precos` e dos try/except de `_montar_blocos_novos`)
+    # — o único comportamento sob teste é a captura do custo do consenso.
+    engine = create_engine("sqlite://")
+    monkeypatch.setattr(tese_svc, "_tem_dado_novo", lambda *a, **k: True)
+    resultado = tese_svc.consenso_svc.ResultadoConsenso([], web_search_requests=4)
+    monkeypatch.setattr(tese_svc.consenso_svc, "buscar", lambda *a, **k: resultado)
+
+    with Session(engine) as sessao_vazia:
+        blocos = tese_svc._montar_blocos_novos(
+            sessao_vazia,
+            SimpleNamespace(),
+            SimpleNamespace(),
+            "fii",
+            SimpleNamespace(),
+            "HGLG11",
+            "PÁTRIA LOG - FII",
+            None,
+            None,
+            hoje=_HOJE,
+        )
+
+    engine.dispose()
+    assert blocos.consenso == []
+    assert blocos.web_search_requests == 4
+
+
+def test_montar_blocos_novos_sem_dado_novo_web_search_requests_fica_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Caminho legado (correção A12): sem fato novo, a pré-síntese NEM roda —
+    # consenso nunca é chamado e o custo fica em zero (default do dataclass).
+    monkeypatch.setattr(tese_svc, "_tem_dado_novo", lambda *a, **k: False)
+    chamou_consenso = []
+    monkeypatch.setattr(tese_svc.consenso_svc, "buscar", lambda *a, **k: chamou_consenso.append(1))
+
+    engine = create_engine("sqlite://")
+    with Session(engine) as sessao_vazia:
+        blocos = tese_svc._montar_blocos_novos(
+            sessao_vazia,
+            SimpleNamespace(),
+            SimpleNamespace(),
+            "fii",
+            SimpleNamespace(),
+            "HGLG11",
+            "PÁTRIA LOG - FII",
+            None,
+            None,
+            hoje=_HOJE,
+        )
+    engine.dispose()
+
+    assert chamou_consenso == []
+    assert blocos.web_search_requests == 0
+    assert blocos.consenso == []

@@ -16,6 +16,7 @@ from app.services.tese import (
     _detect_lacunas,
     _estimar_custo,
     _fmt_reais,
+    _usage_dict,
 )
 
 
@@ -149,6 +150,38 @@ def test_estimar_custo_inclui_cache_read_e_write() -> None:
 def test_estimar_custo_arredonda_para_seis_casas() -> None:
     custo = _estimar_custo("claude-opus-4-8", _usage_stub(input_tokens=1))
     assert custo == round(5.0 / 1_000_000, 6)
+
+
+def test_estimar_custo_soma_web_search_requests_do_consenso() -> None:
+    # F6/A14: o custo do consenso (server tool cobrada por USO, US$0,01/busca)
+    # entra na MESMA estimativa da tese — não é um custo separado escondido.
+    custo = _estimar_custo(
+        "claude-opus-4-8",
+        _usage_stub(input_tokens=1_000_000, output_tokens=1_000_000),
+        web_search_requests=4,
+    )
+    assert custo == 30.0 + 4 * 0.01
+
+
+def test_estimar_custo_web_search_requests_sem_tabela_de_preco_ainda_soma() -> None:
+    # Modelo desconhecido (sem tabela de preço) não pode esconder um custo
+    # REAL de busca já incorrido atrás de um `None`.
+    assert _estimar_custo("modelo-desconhecido", _usage_stub(), web_search_requests=2) == 0.02
+
+
+def test_usage_dict_expoe_web_search_requests_e_soma_no_custo() -> None:
+    uso = _usage_dict(
+        "claude-opus-4-8",
+        _usage_stub(input_tokens=1_000_000, output_tokens=1_000_000),
+        web_search_requests=4,
+    )
+    assert uso["web_search_requests"] == 4
+    assert uso["custo_estimado_usd"] == 30.04
+
+
+def test_usage_dict_sem_consenso_web_search_requests_fica_none() -> None:
+    uso = _usage_dict("claude-opus-4-8", _usage_stub(input_tokens=1_000_000))
+    assert uso["web_search_requests"] is None
 
 
 # ---------------------------------------------------------------------------
