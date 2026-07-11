@@ -107,6 +107,57 @@ template determinístico de métricas).
     Blocos determinísticos NUNCA precisam de citação para se justificar —
     a garantia vem do pipeline (`metricas_setor._fonte_obrigatoria`/
     `valuation.Insumo.fonte`, sempre com `Fonte` real), não do texto.
+
+Hotfix 3 (2026-07-11, bug TAEE11 provado ao vivo numa 3ª situação — hotfix 2
+corrigiu `texto_livre_novo`, mas o gate seguia bloqueando 3 gerações reais
+diferentes cuja única causa era o MARKDOWN, não `texto_livre_novo`): o modelo
+lê o documento citável de métricas (`tese._documentos_metricas`, um bloco por
+ORIGEM com `Fonte` real — B3/COTAHIST, BCB/IF.data, ANBIMA/ETTJ — construído
+a partir dos MESMOS `MetricaSetor` que populam `envelope['metricas_setor']`)
+e reescreve LEGITIMAMENTE o valor no corpo do markdown (ex.: "Dividend yield
+12m a mercado: 8,23%"). Isso não é alucinação — o número é real, validado e
+tem `Fonte` estrutural — mas a isenção A2/A3 (item 10/11 acima) exige que o
+número conste do `texto_citado` de UMA CITAÇÃO Anthropic da origem certa; o
+modelo às vezes (a) não anexa citação àquela frase específica, ou (b) escreve
+o valor na escala FRAÇÃO ("0,0823") em vez de PONTOS ("8,23%") — variante que
+nunca aparece literalmente em nenhum `texto_citado`. Sem saída, o número
+100% grounded bloqueia.
+
+15. Correção — ÂNCORA por métrica validada, além de citação: as mesmas
+    regras numéricas ancoradas em citação (A2/A3 — Basileia, inflação
+    implícita, P/VP-FII, DY a mercado) passam a aceitar TAMBÉM — como
+    alternativa OR à citação, nunca em vez dela — um número que casa
+    (tolerância ~0,005, escalada 100× entre pontos e fração — cobre
+    arredondamento de exibição) com o `valor` de algum item de
+    `envelope['metricas_setor']` cuja `fontes[].descricao`/`url` casa a
+    MESMA origem esperada da regra (`_RELAXAMENTO_POR_CITACAO`,
+    inalterado). Quando `unidade='pct'`, a âncora cobre AMBAS as escalas —
+    pontos (valor do envelope, já ×100 — `metricas_setor.
+    metricas_para_envelope`) e fração (÷100) — porque o modelo pode
+    escrever qualquer uma das duas. A checagem continua POR NÚMERO
+    (`_isento_por_citacao`, subconjunto — item 10, intacto): um número que
+    não casa NEM citação NEM âncora segue bloqueando a frase inteira, então
+    a anti-lavagem (TERMO-03/TERMO-10 — valor real ancorado + valor
+    fabricado na MESMA frase) permanece — a âncora só existe para valores
+    REAIS já computados e fontados pelo BACKEND (`metricas_setor.
+    _fonte_obrigatoria`), nunca para texto livre do modelo; um número
+    inventado não tem como coincidir com nenhum item de
+    `envelope['metricas_setor']`. 'DY a mercado' com número que NÃO é a
+    métrica real (ex.: uma cifra diferente da calculada) segue bloqueando
+    pela mesma razão. A origem "informe CVM" (4ª categoria do plano desta
+    correção) não ganhou uma nova regra consumidora: o DY do informe já
+    tem isenção própria e mais forte por RÓTULO regulatório
+    (`_dy_isento_no_periodo`, A3, inalterada — o número é auto-declarado
+    por definição CVM, não carece de casamento numérico); `_numeros_ancora_
+    de_metricas` é genérica em `origem_re` e já cobre as 3 origens
+    efetivamente usadas por `_RELAXAMENTO_POR_CITACAO` (BCB/IF.data,
+    ANBIMA/ETTJ, COTAHIST/B3) sem código adicional. Item (c) do relatório do
+    bug (fragmento de data virando número-de-claim) foi investigado e NÃO
+    reproduziu: datas ISO ('2025-07-11') tokenizam em partes de 2-4 dígitos
+    sem separador — abaixo do piso de significância de `_tem_numero_de_claim`
+    (M4a) — e "janela X a Y" não introduz números adicionais; teste de
+    regressão dedicado (`test_hotfix3_data_iso_nao_e_claim`) documenta o
+    comportamento observado.
 """
 
 from __future__ import annotations
@@ -627,25 +678,37 @@ def _tem_numero_extenso(frase: str) -> bool:
     return bool(_NUMERAL_EXTENSO_RE.search(frase) and _EXTENSO_MARCADOR_RE.search(frase))
 
 
-def _tokens_numericos_de_claim(frase: str) -> set[str]:
-    """Dígitos normalizados (sem separador) de todo número "de claim" da
-    frase — MESMO critério de significância de `_tem_numero_de_claim`
-    (separador OU >=5 dígitos OU percentual explícito), mas devolvendo os
-    tokens em vez de um bool. Usado pelo relaxamento por citação (A2): a
-    detecção (`_tem_numero_de_claim`) e a checagem de casamento numérico
-    precisam do MESMO critério de significância, senão um percentual inteiro
-    ('Basileia: 15%') seria detectado mas nunca conseguiria casar com a
-    citação (perdia a checagem de separador de `_numeros_significativos`).
+def _numeros_de_claim(frase: str) -> list[tuple[str, str]]:
+    """[(token ORIGINAL, dígitos normalizados), ...] de todo número "de
+    claim" da frase — MESMO critério de significância de `_tem_numero_de_
+    claim` (separador OU >=5 dígitos OU percentual explícito). O token
+    ORIGINAL preserva a posição do separador decimal — os dígitos sozinhos
+    colapsam '8,23' e '82,3' no mesmo '823', o que basta para o casamento
+    exato por CITAÇÃO (A2, string-a-string contra `texto_citado`), mas não
+    para o casamento por TOLERÂNCIA numérica da âncora de métrica (hotfix 3,
+    `_numero_bate_alguma_ancora`) — por isso devolvemos o par, não só o
+    dígito.
     """
-    achados: set[str] = set()
+    achados: list[tuple[str, str]] = []
     for m in _NUMERO_RE.finditer(frase):
         tok = m.group(0).rstrip(".")
         digitos = tok.replace(".", "").replace(",", "")
         if "," in tok or "." in tok or len(digitos) >= 5:
-            achados.add(digitos)
+            achados.append((tok, digitos))
         elif frase[m.end() : m.end() + 1] == "%":
-            achados.add(digitos)
+            achados.append((tok, digitos))
     return achados
+
+
+def _tokens_numericos_de_claim(frase: str) -> set[str]:
+    """Dígitos normalizados (sem separador) de todo número "de claim" da
+    frase — ver `_numeros_de_claim`. Usado pelo relaxamento por citação (A2):
+    a detecção (`_tem_numero_de_claim`) e a checagem de casamento numérico
+    precisam do MESMO critério de significância, senão um percentual inteiro
+    ('Basileia: 15%') seria detectado mas nunca conseguiria casar com a
+    citação (perdia a checagem de separador de `_numeros_significativos`).
+    """
+    return {digitos for _tok, digitos in _numeros_de_claim(frase)}
 
 
 def _numeros_citados_de_origem(citacoes: list | None, origem_re: re.Pattern[str]) -> set[str]:
@@ -664,23 +727,110 @@ def _numeros_citados_de_origem(citacoes: list | None, origem_re: re.Pattern[str]
     return _numeros_significativos(" ".join(textos))
 
 
-def _isento_por_citacao(frase: str, origem_re: re.Pattern[str], citacoes: list | None) -> bool:
+# --- Hotfix 3 (bug TAEE11, 3ª situação ao vivo) — âncora por MÉTRICA validada,
+# além de citação. `_isento_por_citacao` isentava só quando o número da frase
+# constava do `texto_citado` de uma citação Anthropic — mas um número que o
+# modelo REESCREVE no markdown a partir do documento citável de métricas
+# (`tese._documentos_metricas`, um bloco por origem com `Fonte` real) pode
+# legitimamente não ter citação (o modelo esqueceu de anexar) ou estar numa
+# escala diferente da do texto citado ('0,0823' em vez de '8,23%') — ambos
+# são falso-positivo, não alucinação: o valor É o mesmo que o backend já
+# computou e fontou em `envelope['metricas_setor']`. A âncora abaixo cobre
+# esse caso SEM abrir mão do subconjunto anti-lavagem: só cobre valores REAIS
+# já presentes no envelope (nunca controláveis pelo texto livre do modelo).
+_TOLERANCIA_ANCORA = 0.005  # mesma constante do carve-out de consenso (A1)
+
+
+def _numeros_ancora_de_metricas(
+    metricas_setor: list | None, origem_re: re.Pattern[str]
+) -> list[tuple[float, float]]:
+    """[(valor_âncora, tolerância), ...] de `envelope['metricas_setor']` cuja
+    `fontes[].descricao`/`url` casa `origem_re` (MESMA regra de origem do
+    relaxamento por citação, A2 — `_RELAXAMENTO_POR_CITACAO`).
+
+    Métrica com `valor is None` (lacuna declarada) ou sem fonte da origem
+    esperada NÃO vira âncora — fail-closed: número sem métrica REAL validada
+    da origem certa continua exigindo citação (comportamento ORIGINAL). Cada
+    métrica com `unidade='pct'` gera DUAS âncoras — pontos (o valor do
+    envelope, já ×100: `metricas_setor.metricas_para_envelope`) e fração
+    (÷100) —, porque o modelo pode legitimamente escrever qualquer uma das
+    duas escalas. A tolerância acompanha a escala (÷100 junto com o valor):
+    ~0,005 em pontos percentuais é a MESMA precisão relativa que ~0,00005 em
+    fração — cobre arredondamento de exibição (2-4 casas) sem afrouxar a
+    checagem 100× na escala menor.
+    """
+    ancoras: list[tuple[float, float]] = []
+    for m in metricas_setor or []:
+        if not isinstance(m, dict):
+            continue
+        valor = m.get("valor")
+        if valor is None:
+            continue
+        fontes = m.get("fontes") or []
+        casa_origem = any(
+            isinstance(f, dict)
+            and origem_re.search(f"{f.get('url') or ''} {f.get('descricao') or ''}")
+            for f in fontes
+        )
+        if not casa_origem:
+            continue
+        try:
+            v = float(valor)
+        except (TypeError, ValueError):
+            continue
+        ancoras.append((v, _TOLERANCIA_ANCORA))
+        if m.get("unidade") == "pct":
+            ancoras.append((v / 100, _TOLERANCIA_ANCORA / 100))
+    return ancoras
+
+
+def _numero_bate_alguma_ancora(tok: str, ancoras: Sequence[tuple[float, float]]) -> bool:
+    """O token numérico ORIGINAL (com separador — ver `_numeros_de_claim`)
+    casa, com tolerância, alguma âncora de métrica validada?"""
+    if not ancoras:
+        return False
+    v = _parse_numero_brl(tok)
+    if v is None:
+        return False
+    return any(abs(v - alvo) < tol for alvo, tol in ancoras)
+
+
+def _isento_por_citacao(
+    frase: str,
+    origem_re: re.Pattern[str],
+    citacoes: list | None,
+    metricas_setor: list | None = None,
+) -> bool:
     """O termo vetado nesta frase tem TODOS os seus números ancorados numa
-    citação da origem esperada (A2 + correção red-team v3, TERMO-03/TERMO-10)?
+    citação da origem esperada (A2 + correção red-team v3, TERMO-03/TERMO-10)
+    OU numa métrica VALIDADA de `envelope['metricas_setor']` da mesma origem
+    (hotfix 3, `_numeros_ancora_de_metricas` — OR, nunca em vez da citação)?
 
     SUBCONJUNTO, não interseção: antes, `nums_frase & citados` bastava UM
     número bater para isentar a FRASE inteira — um número real citado
     "lavava" um número fabricado na mesma frase ('Basileia de 16,8% [citado],
     projetado a 21,0% [inventado]' passava por inteiro). Agora TODOS os
-    números-de-claim da frase (`nums_frase`) precisam estar em `citados`;
-    sobrando qualquer um, a frase inteira segue bloqueante. Sem `citacoes`
-    (chamada direta da função pura, compatibilidade retroativa) ou sem
-    citação correspondente -> nunca isento (fail-closed).
+    números-de-claim da frase precisam estar cobertos (citação OU âncora);
+    sobrando qualquer um, a frase inteira segue bloqueante — a âncora só
+    cobre valores REAIS do envelope (nunca escritos/controláveis pelo
+    modelo), então um número fabricado ao lado de um número real+ancorado na
+    MESMA frase continua reprovando (TERMO-03/TERMO-10 intactos). Sem
+    `citacoes` nem `metricas_setor` (chamada direta da função pura,
+    compatibilidade retroativa) ou sem correspondência em nenhum dos dois ->
+    nunca isento (fail-closed).
     """
-    nums_frase = _tokens_numericos_de_claim(frase)
-    if not nums_frase:
+    pares = _numeros_de_claim(frase)
+    if not pares:
         return False
-    return nums_frase.issubset(_numeros_citados_de_origem(citacoes, origem_re))
+    nums_citados = _numeros_citados_de_origem(citacoes, origem_re)
+    ancoras = _numeros_ancora_de_metricas(metricas_setor, origem_re)
+    for tok, digitos in pares:
+        if digitos in nums_citados:
+            continue
+        if _numero_bate_alguma_ancora(tok, ancoras):
+            continue
+        return False
+    return True
 
 
 # --- Red-team v3 — subconjunto vs. sub-claims independentes na MESMA frase --
@@ -724,38 +874,44 @@ def _subclausula_dy_mercado(frase: str) -> str:
     return _subclausula_em(frase, m.start())
 
 
-def _dy_periodo_quebras_ancoradas(periodo: str, citacoes: list | None) -> bool:
+def _dy_periodo_quebras_ancoradas(
+    periodo: str, citacoes: list | None, metricas_setor: list | None = None
+) -> bool:
     """Toda quebra 'a mercado'/anualização do período (fora de ressalva
     protetora) tem, na SUA PRÓPRIA sub-cláusula, todos os números ancorados
-    por citação COTAHIST/B3? Usado só para RESTAURAR a isenção do DY do
-    informe quando `_dy_isento_no_periodo` (period-wide, A3 — INTACTO, não
-    tocado) a nega por causa de um sub-claim de mercado que É legitimamente
-    citado (V-10: 'DY do informe 0,66%, enquanto o DY a mercado ... 9,00%
-    [citado COTAHIST]'). Um sub-claim de mercado FABRICADO (sem citação
-    correspondente, TERMO-09) mantém a poison period-wide original — devolve
-    False e a isenção do informe continua negada."""
+    por citação COTAHIST/B3 OU por métrica validada da mesma origem (hotfix
+    3, `metricas_setor`)? Usado só para RESTAURAR a isenção do DY do informe
+    quando `_dy_isento_no_periodo` (period-wide, A3 — INTACTO, não tocado) a
+    nega por causa de um sub-claim de mercado que É legitimamente citado/
+    ancorado (V-10: 'DY do informe 0,66%, enquanto o DY a mercado ... 9,00%
+    [citado COTAHIST]'). Um sub-claim de mercado FABRICADO (sem citação nem
+    métrica correspondente, TERMO-09) mantém a poison period-wide original —
+    devolve False e a isenção do informe continua negada."""
     protegidos = [m.span() for m in _DY_CAVEAT_PROTEGIDO_RE.finditer(periodo)]
     for quebra in _DY_ANUALIZADO_OU_MERCADO_RE.finditer(periodo):
         if any(ini <= quebra.start() and quebra.end() <= fim for ini, fim in protegidos):
             continue  # dentro de ressalva protetora — não é quebra real
         sub = _subclausula_em(periodo, quebra.start())
-        if not _isento_por_citacao(sub, _ORIGEM_COTAHIST_RE, citacoes):
+        if not _isento_por_citacao(sub, _ORIGEM_COTAHIST_RE, citacoes, metricas_setor):
             return False
     return True
 
 
-def _dy_isento_no_periodo_com_citacao(periodo: str, fim_frase: int, citacoes: list | None) -> bool:
+def _dy_isento_no_periodo_com_citacao(
+    periodo: str, fim_frase: int, citacoes: list | None, metricas_setor: list | None = None
+) -> bool:
     """Isenção do DY do informe (A3, `_dy_isento_no_periodo`, PRESERVADA sem
-    alteração) + fallback por citação (red-team v3, correção V-10): se o
-    rótulo do informe está presente mas a isenção period-wide falha só por
-    causa de uma quebra 'a mercado' que tem, ela própria, citação válida na
-    sua sub-cláusula (`_dy_periodo_quebras_ancoradas`), a isenção do informe
-    é restaurada — o sub-claim vizinho é genuíno e citado, não lavagem."""
+    alteração) + fallback por citação/âncora (red-team v3 V-10 + hotfix 3):
+    se o rótulo do informe está presente mas a isenção period-wide falha só
+    por causa de uma quebra 'a mercado' que tem, ela própria, citação OU
+    métrica validada na sua sub-cláusula (`_dy_periodo_quebras_ancoradas`),
+    a isenção do informe é restaurada — o sub-claim vizinho é genuíno
+    (citado ou ancorado numa métrica real), não lavagem."""
     if _DY_ROTULO_INFORME_RE.search(periodo[:fim_frase]) is None:
         return False
     if _dy_isento_no_periodo(periodo, fim_frase):
         return True
-    return _dy_periodo_quebras_ancoradas(periodo, citacoes)
+    return _dy_periodo_quebras_ancoradas(periodo, citacoes, metricas_setor)
 
 
 def _parse_numero_brl(token: str) -> float | None:
@@ -860,7 +1016,10 @@ def _frases_com_fim(periodo: str):
 
 
 def termos_vetados_com_numero(
-    texto: str, classe: str = "acao", citacoes: list | None = None
+    texto: str,
+    classe: str = "acao",
+    citacoes: list | None = None,
+    metricas_setor: list | None = None,
 ) -> list[str]:
     """Termos VETADOS com número no mesmo período (bloqueante, D6c).
 
@@ -872,6 +1031,17 @@ def termos_vetados_com_numero(
     ETTJ; COTAHIST/B3) — relaxamento por CITAÇÃO, nunca por rótulo textual
     solto emitido pelo próprio modelo (`_RELAXAMENTO_POR_CITACAO`). Sem
     `citacoes` ou sem citação correspondente, o termo permanece bloqueante.
+
+    `metricas_setor` (hotfix 3, opcional — `None` idem retrocompatível):
+    `envelope['metricas_setor']` — os MESMOS termos acima (Basileia, inflação
+    implícita, P/VP-FII, DY a mercado) TAMBÉM deixam de bloquear quando o
+    número casa (tolerância) com o `valor` de uma métrica VALIDADA da mesma
+    origem, mesmo SEM citação Anthropic — cobre o modelo reescrevendo no
+    markdown um valor 100% grounded que o backend já computou (bug TAEE11,
+    3ª situação ao vivo: `_isento_por_citacao`/`_numeros_ancora_de_metricas`
+    têm o mecanismo completo). OR com a citação, nunca substitui-a; a
+    anti-lavagem por subconjunto permanece intacta (ver docstring de
+    `_isento_por_citacao`).
 
     RISCO RESIDUAL ACEITO (red-team v2.2, PR #24): anualização por SINÔNIMO —
     'equivale a X% no ano', 'em base anual', '12x o mensal' — NÃO é quebra-
@@ -930,25 +1100,26 @@ def termos_vetados_com_numero(
                 if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
                 if rotulo is _VETADO_DY and _dy_isento_no_periodo_com_citacao(
-                    periodo, fim_frase, citacoes
+                    periodo, fim_frase, citacoes, metricas_setor
                 ):
-                    continue  # DY do informe (A3, intacto) + fallback por citação (V-10)
-                # A2 (correção red-team): relaxamento por CITAÇÃO — não toca
-                # `_dy_isento_no_periodo` (A3); é uma saída ADICIONAL (OR),
-                # então um DY do informe (rótulo) e um DY a mercado (citação)
-                # na MESMA frase podem cada um se justificar por seu próprio
-                # caminho. Sem citação/origem correspondente -> segue vetado.
-                # `_VETADO_DY_MERCADO` usa a SUB-CLÁUSULA em torno de "a
-                # mercado" (não a frase inteira) — senão o subconjunto (abaixo)
-                # exigiria citação também para o número do sub-claim vizinho
-                # (o DY do informe, auto-declarado, isento por rótulo — nunca
-                # por citação), quebrando V-10 (correção red-team v3).
+                    continue  # DY do informe (A3, intacto) + fallback por citação/âncora (V-10)
+                # A2 (correção red-team): relaxamento por CITAÇÃO/ÂNCORA — não
+                # toca `_dy_isento_no_periodo` (A3); é uma saída ADICIONAL (OR),
+                # então um DY do informe (rótulo) e um DY a mercado (citação ou
+                # métrica validada, hotfix 3) na MESMA frase podem cada um se
+                # justificar por seu próprio caminho. Sem citação/âncora/origem
+                # correspondente -> segue vetado. `_VETADO_DY_MERCADO` usa a
+                # SUB-CLÁUSULA em torno de "a mercado" (não a frase inteira) —
+                # senão o subconjunto (abaixo) exigiria citação também para o
+                # número do sub-claim vizinho (o DY do informe, auto-declarado,
+                # isento por rótulo — nunca por citação), quebrando V-10
+                # (correção red-team v3).
                 origem_re = _RELAXAMENTO_POR_CITACAO.get(rotulo)
                 if origem_re is not None:
                     texto_escopo = (
                         _subclausula_dy_mercado(frase) if rotulo is _VETADO_DY_MERCADO else frase
                     )
-                    if _isento_por_citacao(texto_escopo, origem_re, citacoes):
+                    if _isento_por_citacao(texto_escopo, origem_re, citacoes, metricas_setor):
                         continue
                 # 240 chars: o corte em 120 truncava a frase ANTES do trecho
                 # que causou o veto (diagnóstico do FP de produção 10/07 exigiu
@@ -1180,12 +1351,23 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     correspondente (o LLM não vê nem escreve esse campo) — aplicar a regra
     de citação a ele bloqueia conteúdo 100% legítimo (bug TAEE11 provado
     ao vivo, 2ª tentativa).
+
+    Hotfix 3 (2026-07-11, bug TAEE11, 3ª situação — item 15 da docstring do
+    módulo): mesmo na superfície MODELO, um número pode ser 100% legítimo
+    SEM citação Anthropic — quando o modelo reescreve no markdown um valor
+    que o backend já computou e fontou em `envelope['metricas_setor']`
+    (documento citável por origem, `tese._documentos_metricas`) sem anexar a
+    citação àquela frase, ou escrevendo a escala fração em vez de pontos.
+    `termos_vetados_com_numero` agora recebe `metricas_setor` e aceita esse
+    número como âncora válida (OR com a citação, nunca em vez dela) — ver
+    `_isento_por_citacao`/`_numeros_ancora_de_metricas`.
     """
     classe = _normalizar_classe(classe)
     markdown = envelope.get("markdown") or ""
     citacoes = envelope.get("citacoes") or []
     fontes = envelope.get("fontes") or []
     lacunas = envelope.get("lacunas") or []
+    metricas_setor = envelope.get("metricas_setor") or []
     # Inclui texto gerado por LLM exposto ao usuário (resumo do Haiku) na
     # varredura, e — A5 (correção red-team) — o texto livre 100%
     # determinístico dos blocos novos (leituras técnicas + descrições de
@@ -1222,8 +1404,14 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     # por desenho — incluí-lo bloquearia número legítimo sem alternativa
     # (bug TAEE11, 2ª tentativa). A2/A3: relaxamento por citação (Basileia/
     # inflação implícita/P-VP-FII/DY a mercado) recebe as citações reais do
-    # envelope — seguem valendo para número de autoria do MODELO.
-    termos_vetados = termos_vetados_com_numero(texto_varredura_modelo, classe, citacoes=citacoes)
+    # envelope — seguem valendo para número de autoria do MODELO. Hotfix 3
+    # (3ª tentativa): `metricas_setor` dá a MESMA superfície uma âncora
+    # adicional por métrica validada (OR com citação) — o modelo pode
+    # legitimamente reescrever no markdown um valor que o backend já
+    # computou e fontou, sem citação Anthropic correspondente possível.
+    termos_vetados = termos_vetados_com_numero(
+        texto_varredura_modelo, classe, citacoes=citacoes, metricas_setor=metricas_setor
+    )
     # R10/R11 (A6/A7, bloqueantes): seguem na superfície AMPLA (inclui
     # texto_livre_novo) — são regra de POSTURA/diretiva, não de proveniência
     # numérica: uma leitura técnica ou de valuation virada conselho bloqueia
