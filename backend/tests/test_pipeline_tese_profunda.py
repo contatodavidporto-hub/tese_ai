@@ -687,6 +687,121 @@ def test_tese_fii_pvp_e_dy_mercado(sessao: Session, monkeypatch: pytest.MonkeyPa
 
 
 # ---------------------------------------------------------------------------
+# 4b) Regressão VIVA do Hotfix 2 (2026-07-11, bug TAEE11 na 2ª tentativa):
+# `_modelo_fii` (valuation.py) escreve "P/VP a mercado: 0,95"/"DY a mercado
+# 12m: 0,73%" — COM NÚMERO — dentro de `descricao` do modelo (observações
+# mescladas por `tese._descricao_modelo_envelope`), e `tese._texto_livre_novo`
+# inclui essa `descricao` verbatim. É a prova, no pipeline REAL (não em
+# fixture sintética de `test_avaliacao_gate_v3.py`), de que o bug do item 14
+# da docstring de `avaliacao.py` acontece de fato: texto determinístico do
+# backend, com número, chega em `texto_livre_novo` sem NUNCA ter sido citado
+# pelo LLM (`texto_livre_novo` é montado DEPOIS da síntese).
+#
+# `test_tese_fii_pvp_e_dy_mercado` (acima) NÃO cobre isto — estuba
+# `avaliar_tese` de propósito (`_preparar_motor_fake`, para não acoplar o
+# teste de ENVELOPE ao heurístico do gate). `test_tese_energia_dy_mercado_
+# gate_real_no_documento_correto` roda o gate REAL, mas para TAEE11 (classe
+# 'acao', modelo de Gordon) `texto_livre_novo` NUNCA carrega um número de DY/
+# P-VP a mercado — essa métrica só aparece ali via `_modelo_fii`, exclusivo
+# da classe FII (verificado ao vivo: instrumentei as duas suítes e despejei
+# `envelope["texto_livre_novo"]` — a variante ação/energia só tem leituras
+# técnicas + Gordon/múltiplos, sem números vetados; a variante FII tem os
+# dois números exatos usados abaixo). Ou seja: NENHUM teste do repositório
+# rodava "gate REAL + texto_livre_novo REAL com número vetado" antes deste —
+# o buraco de cobertura não estava no teste nomeado no hotfix, estava aqui.
+# ---------------------------------------------------------------------------
+def test_tese_fii_pvp_dy_mercado_texto_livre_novo_gate_real_nao_bloqueia(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f_cad = _fonte(sessao, "CVM — Informe Mensal FII (geral)")
+    fundo = FiiCadastro(
+        cnpj="33.728.688/0001-47", nome="FII TESTE HOTFIX2", ticker="FTST13", fonte_id=f_cad.id
+    )
+    sessao.add(fundo)
+    sessao.flush()
+    f_ind = _fonte(sessao, "CVM — Informe Mensal FII (complemento)")
+    sessao.add(
+        FiiIndicador(
+            fii_id=fundo.id,
+            indicador="VP_COTA",
+            valor=100.0,
+            unidade="BRL_POR_COTA",
+            dt_referencia=_HOJE - dt.timedelta(days=5),
+            fonte_id=f_ind.id,
+        )
+    )
+    sessao.commit()
+    _seed_precos(sessao, "FTST13", dias=30, preco_base=95.0)
+    _seed_provento(sessao, "FTST13", 0.7)
+
+    # Headings SEM numeração ("## Síntese", não "## 4. Síntese") — evita o
+    # efeito colateral não relacionado de `_numeros_significativos` tratar o
+    # "N." do próprio número da seção como número "de claim" (ponto após
+    # dígito conta como separador), que derrubaria a fidelidade numérica
+    # (D6d, nota — não bloqueia, mas reprovaria `aprovado` por outro motivo
+    # alheio a este teste).
+    markdown = (
+        "# Tese — FTST13 (FII TESTE HOTFIX2)\n"
+        "> Não é recomendação de investimento.\n"
+        "## Fundamentos do fundo\nVacância física e valor patrimonial descritos.\n"
+        "## Contexto macro e juros\n...\n"
+        "## Camada geopolítica e correlações (interpretação)\ncenário: juros.\n"
+        "## Síntese\n...\n## Riscos e contra-tese (bull × bear)\n...\n"
+        "## Fontes\n...\n## Lacunas\n- EBITDA: dado não encontrado\n"
+    )
+    # Cita TODOS os documentos (cobertura realista, `_FakeMessagesDinamico`) —
+    # mas o `numero_citado` do documento marcado NÃO contém os dígitos "095"/
+    # "073" das claims de P/VP-a-mercado/DY-a-mercado: nenhuma citação, por
+    # coincidência, relaxa os termos vetados de `texto_livre_novo` — a prova
+    # de que é a correção (superfície MODELO sem texto_livre_novo), e não uma
+    # citação afortunada, que faz este cenário passar.
+    client = _FakeClientDinamico(
+        markdown,
+        "Leitura de mercado de FII",  # marcador único do doc de valuation
+        "leitura de mercado sem número específico citado aqui",
+    )
+    monkeypatch.setattr(
+        tese_svc,
+        "get_settings",
+        lambda: SimpleNamespace(
+            anthropic_api_key="chave-de-teste-offline",
+            tese_teto_custo_usd_dia=0,
+            tese_model_synthesis="claude-opus-4-8",
+            tese_model_extraction="claude-haiku-4-5-20251001",
+            tese_max_tokens_sintese=16000,
+            consenso_enabled=False,
+        ),
+    )
+    monkeypatch.setattr(tese_svc.anthropic, "Anthropic", lambda api_key=None: client)
+    monkeypatch.setattr(tese_svc, "_extract_metadata_haiku", lambda *a, **k: None)
+    for perfil in (acao, fii, renda_fixa):
+        monkeypatch.setattr(
+            perfil,
+            "ingest",
+            lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("ingest não deveria rodar")),
+        )
+    # `avaliar_tese` NÃO é stubado (ao contrário de `test_tese_fii_pvp_e_dy_
+    # mercado`, que estuba de propósito) — o gate REAL é o alvo desta
+    # regressão.
+    tese = _criar_tese(sessao, "FTST13", "fii")
+
+    tese_svc.gerar_tese(sessao, tese.id)
+
+    sessao.refresh(tese)
+    assert tese.status == "ready", _envelope(sessao, tese).get("erro")
+    env = _envelope(sessao, tese)
+    # Prova viva (não hipótese de fixture): `_modelo_fii` grava o valor REAL
+    # com número no `texto_livre_novo` determinístico — se isto deixar de ser
+    # verdade num refactor futuro, o que este teste prova muda com ele.
+    assert "P/VP a mercado: 0,95" in env["texto_livre_novo"]
+    assert "DY a mercado 12m: 0,73%" in env["texto_livre_novo"]
+    laudo = env["avaliacao"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+    assert not laudo["termos_vetados"], laudo["termos_vetados"]
+    assert laudo["aprovado"] is True, laudo
+
+
+# ---------------------------------------------------------------------------
 # 5) Renda fixa — curva ANBIMA / inflação implícita
 # ---------------------------------------------------------------------------
 def test_tese_rf_curva_anbima_inflacao_implicita(

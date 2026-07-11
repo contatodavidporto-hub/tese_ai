@@ -16,6 +16,13 @@ Cobertura:
   independente da isenção do informe.
 - A7/R10: técnica-como-conselho.
 - A6/R11: valuation-como-preço-alvo, sem os gatilhos genéricos.
+- Hotfix 2 (2026-07-11, bug TAEE11 provado ao vivo na 2ª tentativa): DUAS
+  superfícies de varredura — `termos_vetados_com_numero`/A2/A3/R12/
+  faithfulness SÓ em markdown+resumo (autoria do modelo, proveniência por
+  citação); R1/R10/R11 seguem em markdown+resumo+texto_livre_novo (postura,
+  qualquer autor). `texto_livre_novo` nunca tem citação correspondente
+  (é escrito pelo backend DEPOIS da síntese) — antes do fix, número
+  legítimo com proveniência estrutural (fonte_id) bloqueava sempre.
 """
 
 from __future__ import annotations
@@ -587,3 +594,87 @@ def test_aviso_valuation_nao_colide_com_veto_de_preco_alvo():
     laudo = avaliar_tese(_envelope(md))
     assert laudo["violacoes_recomendacao"] == []
     assert laudo["bloqueante"] is False
+
+
+# ===========================================================================
+# Hotfix 2 (2026-07-11) — bug TAEE11 provado ao vivo na 2ª tentativa: A5
+# ampliou a varredura de linguagem/diretiva para `texto_livre_novo`, mas
+# `termos_vetados_com_numero` (numérico, ancorado em CITAÇÃO) foi arrastado
+# junto sem querer. `texto_livre_novo` é bloco DETERMINÍSTICO do backend
+# (métricas/leituras técnicas/valuation), escrito DEPOIS da síntese — nunca
+# tem citação Anthropic correspondente (proveniência é o `fonte_id`
+# estrutural de cada métrica/insumo, não uma citação). Aplicar a isenção
+# por citação (A2/A3) a esse texto é estruturalmente impossível de
+# satisfazer, então todo termo vetado-com-número ali bloqueava sempre,
+# mesmo groundado. Correção: DUAS superfícies —
+# `texto_varredura_amplo` (+texto_livre_novo) só para R1/R10/R11 (postura);
+# `texto_varredura_modelo` (sem texto_livre_novo) para as regras numéricas.
+# ===========================================================================
+
+_FRASE_TAEE11_DY_MERCADO = (
+    "**Proventos (retrato do passado):** Dividend yield 12m a mercado: 8,23% "
+    "(Σ proventos por ação com data-com nos últimos 12 meses / último preço "
+    "de fechamento);"
+)
+
+
+def test_hotfix2_a_dy_mercado_no_texto_livre_novo_nao_bloqueia():
+    """(a) Verde — a frase VIVA do bug TAEE11 (DY a mercado + número + Σ),
+    EXATAMENTE como observada, dentro de `texto_livre_novo` e SEM nenhuma
+    citação COTAHIST/B3 correspondente, com markdown limpo: aprovada,
+    não-bloqueante. Proveniência é o `fonte_id` estrutural da métrica, não
+    citação — este é o cenário que estava quebrado."""
+    md = "## 1. Fundamentos\nReceita citada normalmente."
+    env = _envelope(md, texto_livre_novo=_FRASE_TAEE11_DY_MERCADO)
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["termos_vetados"] == [], laudo["termos_vetados"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+    assert laudo["aprovado"] is True, laudo
+
+
+def test_hotfix2_b_dy_mercado_no_markdown_sem_citacao_continua_bloqueando():
+    """(b) Vermelho — SEM regressão: o MESMO tipo de claim ('DY a mercado de
+    8,23%'), mas de autoria do MODELO (no markdown) e sem citação COTAHIST/B3,
+    continua bloqueando. A superfície MODELO nunca perdeu a exigência de
+    citação — só texto_livre_novo saiu da varredura numérica."""
+    md = "## Indicadores\nDY a mercado de 8,23%, apurado no fechamento mais recente."
+    env = _envelope(md)  # citação genérica default não é COTAHIST/B3
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["bloqueante"] is True
+    assert laudo["termos_vetados"] != []
+
+
+def test_hotfix2_c_diretiva_no_texto_livre_novo_continua_bloqueando():
+    """(c) Vermelho — SEM regressão: diretiva ao leitor ('recomendamos
+    comprar') dentro de `texto_livre_novo` continua bloqueando — R1 roda na
+    superfície AMPLA (que segue incluindo texto_livre_novo), pois é regra de
+    POSTURA (CVM), não de proveniência numérica; não importa quem autorou."""
+    md = "## 1. Fundamentos\nReceita citada normalmente."
+    env = _envelope(md, texto_livre_novo="Recomendamos comprar a ação agora mesmo.")
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["bloqueante"] is True
+    assert laudo["violacoes_recomendacao"] != []
+
+
+def test_hotfix2_d_basileia_no_texto_livre_novo_aprovado_no_markdown_bloqueia():
+    """(d) Par verde/vermelho — Basileia (classe 'banco') com número: em
+    `texto_livre_novo` (backend, proveniência estrutural) não bloqueia; o
+    MESMO claim no markdown (autoria do modelo) sem citação IF.data/BCB
+    continua bloqueando."""
+    # Heading SEM numeração ("## Fundamentos", não "## 1. Fundamentos") —
+    # evita o efeito colateral não relacionado de `_numeros_significativos`
+    # tratar "1." do próprio número da seção como número "de claim" (ponto
+    # após dígito conta como separador), o que derrubaria a fidelidade
+    # numérica (D6d, nota — não bloqueia, mas reprovaria por outro motivo).
+    md_verde = "## Fundamentos\nCarteira de crédito e PDD citadas normalmente."
+    env_verde = _envelope(md_verde, texto_livre_novo="Índice de Basileia: 16,8% na data-base.")
+    laudo_verde = avaliar_tese(env_verde, classe="banco")
+    assert laudo_verde["termos_vetados"] == [], laudo_verde["termos_vetados"]
+    assert laudo_verde["bloqueante"] is False, laudo_verde["motivos"]
+    assert laudo_verde["aprovado"] is True, laudo_verde
+
+    md_vermelho = "## Solidez\nÍndice de Basileia: 16,8% na data-base."
+    env_vermelho = _envelope(md_vermelho)  # citação genérica default não é IF.data/BCB
+    laudo_vermelho = avaliar_tese(env_vermelho, classe="banco")
+    assert laudo_vermelho["bloqueante"] is True
+    assert laudo_vermelho["termos_vetados"] != []

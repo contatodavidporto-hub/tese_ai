@@ -37,10 +37,12 @@ compatível e ADITIVO por classe ('acao'/'banco'/'seguradora'/'fii'/'renda_fixa'
 Gate v3 (F4, plano "Tese Profunda" §2.10 + correções de red-team A1/A2/A3/A5/
 A6/A7 — as correções VENCEM sobre o §2.10 onde conflitam):
 
-8. A5 — varredura ampliada: `texto_varredura` passa a incluir também
-   `envelope['texto_livre_novo']` (leituras técnicas + descrições de
-   valuation + implicações de métricas + exibição canônica de consenso),
-   além de markdown + resumo. Cobre todo texto livre user-visible.
+8. A5 — varredura ampliada: as regras de linguagem/diretiva passam a
+   varrer também `envelope['texto_livre_novo']` (leituras técnicas +
+   descrições de valuation + implicações de métricas + exibição canônica
+   de consenso), além de markdown + resumo. Cobre todo texto livre
+   user-visible. Hotfix 2 (item 14, abaixo) restringe QUAIS regras usam
+   essa superfície ampliada — release original.
 9. A1/R12 — carve-out de consenso: `preço-alvo`/`price target`/`rating`
    direcional só são PERMITIDOS quando (a) a frase está dentro da seção H2
    cujo título contém 'consenso', (b) há marcador de atribuição, e (c) o
@@ -63,6 +65,48 @@ A6/A7 — as correções VENCEM sobre o §2.10 onde conflitam):
     ('valor justo'/'preço justo'/'valor intrínseco') + diretiva REAL ao
     leitor na MESMA frase — SEM os gatilhos genéricos 'acima de'/'abaixo
     de' (uso contábil/IFRS legítimo não pode bloquear).
+
+Hotfix 2 (2026-07-11, bug TAEE11 provado ao vivo na 2ª tentativa — após o
+hotfix do `_documentos_metricas` por origem já ter corrigido a 1ª): a
+varredura ampliada do item 8 (A5) tinha um efeito colateral não previsto —
+ela também expunha `texto_livre_novo` às regras NUMÉRICAS ancoradas em
+CITAÇÃO (`termos_vetados_com_numero` com os relaxamentos A2/A3, R12/
+carve-out de consenso e `_faithfulness_numerica`). Essas regras foram
+desenhadas para números de AUTORIA DO MODELO (a síntese do LLM), cuja única
+prova de proveniência é uma citação Anthropic apontando para a fonte
+correta — sem citação, o número é tratado como possível alucinação. Mas
+`texto_livre_novo` é preenchido pelo BACKEND, DEPOIS da síntese (`tese.
+_texto_livre_novo`), com métricas/leituras técnicas/valuation calculadas
+deterministicamente a partir de dado real — cada número ali carrega
+proveniência ESTRUTURAL (o `fonte_id` NOT NULL da métrica/insumo, nunca
+escrito pelo LLM), não proveniência por citação. Um trecho assim NUNCA vai
+ter uma citação Anthropic correspondente (o LLM não vê nem escreve
+`texto_livre_novo`), então a isenção por citação das regras acima é
+estruturalmente inalcançável para esse texto — todo termo vetado-com-
+número presente ali bloqueia SEMPRE, mesmo sendo 100% legítimo e groundado
+(prova ao vivo: 'Dividend yield 12m a mercado: 8,23% (Σ proventos por ação
+com data-com nos últimos 12 meses / último preço de fechamento)' do
+template determinístico de métricas).
+
+14. Correção — DUAS superfícies de varredura, não uma:
+    - `texto_varredura_amplo` (markdown + resumo + texto_livre_novo):
+      regras de RECOMENDAÇÃO/diretiva (R1 `_violacoes_recomendacao`, R10
+      técnica-como-conselho, R11 valuation-como-preço-alvo) — diretiva ao
+      leitor é uma violação de POSTURA (CVM), não uma alegação numérica;
+      não importa QUEM autorou a frase, uma diretiva de compra/venda
+      nunca pode ser servida. A guarda geopolítica (`_alertas_geopolitica`)
+      segue essa mesma lógica de defesa em profundidade — continua restrita
+      ao markdown (nunca teve motivo estrutural para aparecer em
+      `texto_livre_novo`, que não tem seção H2 'geopolítica').
+    - `texto_varredura_modelo` (markdown + resumo, SEM texto_livre_novo):
+      regras NUMÉRICAS ancoradas em citação (`termos_vetados_com_numero`
+      com A2/A3, R12/carve-out de consenso, `_faithfulness_numerica`) —
+      essas regras EXISTEM para pegar número de autoria do modelo sem
+      proveniência; aplicá-las a texto de autoria do backend com
+      proveniência estrutural é o bug em si (falso-positivo por desenho).
+    Blocos determinísticos NUNCA precisam de citação para se justificar —
+    a garantia vem do pipeline (`metricas_setor._fonte_obrigatoria`/
+    `valuation.Insumo.fonte`, sempre com `Fonte` real), não do texto.
 """
 
 from __future__ import annotations
@@ -1121,11 +1165,21 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     só ADICIONA checagens: tokens temáticos não-bloqueantes, termos vetados
     escopados e o piso de fidelidade numérica como nota (nunca bloqueio).
 
-    Gate v3 (F4): `texto_varredura` agora inclui `envelope['texto_livre_novo']`
-    (A5) além de markdown+resumo; o carve-out de consenso (A1/R12), o
-    relaxamento por citação dos termos vetados (A2/A3) e as regras NOVAS
-    R10 (técnica-como-conselho, A7) e R11 (valuation-como-preço-alvo, A6)
-    somam-se ao subconjunto BLOQUEANTE — ver docstring do módulo.
+    Gate v3 (F4) + Hotfix 2 (2026-07-11, item 14 da docstring do módulo):
+    DUAS superfícies de varredura. `texto_varredura_amplo` (markdown +
+    resumo + `envelope['texto_livre_novo']`, A5) alimenta as regras de
+    RECOMENDAÇÃO/diretiva — R1 (`_violacoes_recomendacao`), R10 (técnica-
+    como-conselho, A7) e R11 (valuation-como-preço-alvo, A6): diretiva ao
+    leitor bloqueia não importa quem autorou a frase. `texto_varredura_
+    modelo` (markdown + resumo, SEM texto_livre_novo) alimenta as regras
+    NUMÉRICAS ancoradas em citação — `termos_vetados_com_numero` (A2/A3),
+    o carve-out de consenso (A1/R12) e `_faithfulness_numerica`: essas
+    regras existem para número de AUTORIA DO MODELO sem proveniência;
+    `texto_livre_novo` é escrito pelo BACKEND com proveniência ESTRUTURAL
+    (`fonte_id` por métrica/insumo) e NUNCA vai ter uma citação Anthropic
+    correspondente (o LLM não vê nem escreve esse campo) — aplicar a regra
+    de citação a ele bloqueia conteúdo 100% legítimo (bug TAEE11 provado
+    ao vivo, 2ª tentativa).
     """
     classe = _normalizar_classe(classe)
     markdown = envelope.get("markdown") or ""
@@ -1142,7 +1196,13 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     resumo = ((envelope.get("metadata") or {}).get("resumo")) or ""
     texto_livre_novo = envelope.get("texto_livre_novo") or ""
     extra_texto = resumo + "\n\n" + texto_livre_novo
-    texto_varredura = markdown + "\n\n" + extra_texto
+    # Hotfix 2 (2026-07-11): DUAS superfícies — ver docstring da função/item
+    # 14 do módulo. `_amplo` inclui texto_livre_novo (defesa de POSTURA,
+    # aplica a QUALQUER autor); `_modelo` NÃO inclui (defesa de PROVENIÊNCIA
+    # numérica, só faz sentido para texto de autoria do modelo — o único que
+    # pode ter/faltar uma citação Anthropic).
+    texto_varredura_amplo = markdown + "\n\n" + extra_texto
+    texto_varredura_modelo = markdown + "\n\n" + resumo
 
     # A1 condição (c): valores dos itens VALIDADOS de consenso (para o
     # carve-out de 'preço-alvo'/'rating' e para o R12 de números soltos).
@@ -1155,15 +1215,22 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
 
     violacoes = _violacoes_recomendacao(markdown, extra_texto, consenso_valores)
     alertas_geo = _alertas_geopolitica(markdown)
-    # Termos vetados-com-número (D6c): varre também o texto livre novo — número
-    # inventado exposto ao usuário é exatamente o que o check fecha. A2/A3:
-    # relaxamento por citação (Basileia/inflação implícita/P-VP-FII/DY a
-    # mercado) recebe as citações reais do envelope.
-    termos_vetados = termos_vetados_com_numero(texto_varredura, classe, citacoes=citacoes)
-    # R10/R11 (A6/A7, bloqueantes): varrem o MESMO texto_varredura ampliado —
-    # a leitura técnica/valuation do próprio LLM é onde a diretiva vazaria.
-    violacoes_tecnica = _violacoes_tecnica_como_conselho(texto_varredura)
-    violacoes_valuation = _violacoes_valuation_como_alvo(texto_varredura)
+    # Termos vetados-com-número (D6c): SÓ na superfície MODELO (markdown +
+    # resumo) — Hotfix 2. `texto_livre_novo` NÃO entra aqui: é bloco
+    # determinístico com proveniência estrutural (fonte_id), nunca citado
+    # pelo LLM, então a isenção por citação (A2/A3) é inalcançável para ele
+    # por desenho — incluí-lo bloquearia número legítimo sem alternativa
+    # (bug TAEE11, 2ª tentativa). A2/A3: relaxamento por citação (Basileia/
+    # inflação implícita/P-VP-FII/DY a mercado) recebe as citações reais do
+    # envelope — seguem valendo para número de autoria do MODELO.
+    termos_vetados = termos_vetados_com_numero(texto_varredura_modelo, classe, citacoes=citacoes)
+    # R10/R11 (A6/A7, bloqueantes): seguem na superfície AMPLA (inclui
+    # texto_livre_novo) — são regra de POSTURA/diretiva, não de proveniência
+    # numérica: uma leitura técnica ou de valuation virada conselho bloqueia
+    # não importa se veio do LLM ou do template determinístico (defesa em
+    # profundidade contra template corrompido).
+    violacoes_tecnica = _violacoes_tecnica_como_conselho(texto_varredura_amplo)
+    violacoes_valuation = _violacoes_valuation_como_alvo(texto_varredura_amplo)
     # R12 (A1): números soltos na seção de consenso sem atribuição/casamento
     # — escopado ao MARKDOWN (a única zona com texto livre do LLM sujeito a
     # laundering; texto_livre_novo é determinístico, ver `_violacoes_
