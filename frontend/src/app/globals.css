@@ -639,10 +639,10 @@ html {
            NATIVA do navegador em navegação cross-document de verdade (sem
            JS, sem SPA: hard nav / no-JS / abrir em nova aba). At-rule
            desconhecida é só ignorada onde não há suporte — zero risco.
-        b) shared element (só para os 12 tickers pré-gerados, conjunto
-           finito e estático — EXEMPLOS_PRONTOS em lib/tickers.ts, Fase 2
-           multiativo inclui HGLG11/TD-IPCA-2035 nos slots 11/12): classes
-           `.vt-tese-1`…`.vt-tese-12` PRÉ-DECLARADAS (nunca geradas em
+        b) shared element (só para os 13 tickers pré-gerados, conjunto
+           finito e estático — EXEMPLOS_PRONTOS em lib/tickers.ts; Fase 2
+           multiativo inclui TAEE11/HGLG11/TD-IPCA-2035 nos slots 11-13):
+           classes `.vt-tese-1`…`.vt-tese-13` PRÉ-DECLARADAS (nunca geradas em
            runtime) aplicadas ao ticker do card e ao ticker do cabeçalho da
            tese — cobre o mesmo caso (a). Ticker fora da lista não recebe
            nome, cai só no véu abaixo.
@@ -697,6 +697,9 @@ html {
 }
 .vt-tese-12 {
   view-transition-name: tese-titulo-12;
+}
+.vt-tese-13 {
+  view-transition-name: tese-titulo-13;
 }
 
 .virada-edicao {

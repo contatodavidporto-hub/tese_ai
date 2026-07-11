@@ -217,7 +217,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   const secaoLacunas = documento?.secoes.find(ehSecaoLacunas);
   const temEstrutura = (documento?.secoes.length ?? 0) > 0;
   // Virada de Edição (motion): mesmo slot estático da galeria/teaser — só
-  // os 12 tickers pré-gerados recebem shared element (view-transition-name
+  // os 13 tickers pré-gerados recebem shared element (view-transition-name
   // via classe pré-declarada); os demais seguem sem nome, cobertos só pelo
   // véu de `.virada-edicao` (tese/page.tsx).
   const slotEdicao = slotVirada(tese.ticker);

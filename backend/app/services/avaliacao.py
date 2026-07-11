@@ -33,12 +33,43 @@ compatível e ADITIVO por classe ('acao'/'banco'/'seguradora'/'fii'/'renda_fixa'
    alucinação nas lacunas de cada classe.
 7. Fidelidade numérica: para classes != 'acao' o piso derruba `aprovado`
    (nota), sem bloquear; comportamento de 'acao' inalterado (só reportada).
+
+Gate v3 (F4, plano "Tese Profunda" §2.10 + correções de red-team A1/A2/A3/A5/
+A6/A7 — as correções VENCEM sobre o §2.10 onde conflitam):
+
+8. A5 — varredura ampliada: `texto_varredura` passa a incluir também
+   `envelope['texto_livre_novo']` (leituras técnicas + descrições de
+   valuation + implicações de métricas + exibição canônica de consenso),
+   além de markdown + resumo. Cobre todo texto livre user-visible.
+9. A1/R12 — carve-out de consenso: `preço-alvo`/`price target`/`rating`
+   direcional só são PERMITIDOS quando (a) a frase está dentro da seção H2
+   cujo título contém 'consenso', (b) há marcador de atribuição, e (c) o
+   número casa com o `valor` de algum item de `envelope['consenso']`. Fora
+   da seção, ou faltando (b)/(c), continua bloqueante. Todo número 'de
+   claim' na seção de consenso sem atribuição+casamento também bloqueia
+   (R12), mesmo sem a palavra 'preço-alvo'.
+10. A2 — relaxamentos por CITAÇÃO (não por rótulo emitido pelo modelo):
+    'índice de Basileia', 'P/VP'(FII)/'DY a mercado' e 'inflação implícita'
+    só deixam de bloquear quando o número consta do `texto_citado` de uma
+    citação cuja fonte casa com a origem esperada (IF.data/BCB; COTAHIST/B3;
+    ANBIMA/ETTJ). Sem citação correspondente, continua bloqueante — nunca
+    rebaixado por rótulo textual solto.
+11. A3 — 'DY a mercado' é regra NOVA e independente (`_VETADO_DY_MERCADO`),
+    sem tocar a isenção do DY do informe (`_dy_isento_no_periodo`).
+12. A7/R10 — técnica-como-conselho (bloqueante): palavra-de-sinal de
+    indicador técnico + diretiva ao leitor na MESMA frase. Leitura
+    descritiva pura (sem diretiva) passa.
+13. A6/R11 — valuation-como-preço-alvo (bloqueante): termo de valuation
+    ('valor justo'/'preço justo'/'valor intrínseco') + diretiva REAL ao
+    leitor na MESMA frase — SEM os gatilhos genéricos 'acima de'/'abaixo
+    de' (uso contábil/IFRS legítimo não pode bloquear).
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 
 # --- Recomendação direcional (positiva). Ancorada para evitar falsos positivos:
 #     "venda" cru (conta "Receita de Venda"), "recomendação" (disclaimer),
@@ -51,7 +82,10 @@ _PADROES_RECOMENDACAO = [
     r"\bvale a pena\b",
     r"\bpre[çc]o[\s-]?alvo\b",
     r"\bvalor[\s-]?alvo\b",
-    r"\bpre[çc]o[\s-]?justo\b",
+    # "preço justo" SAIU daqui (A6, correção red-team): passa a ser regido
+    # SÓ pelo R11 (`_R11_TERMO_RE`/`_R11_DIRETIVA_RE`, abaixo) junto com
+    # "valor justo"/"valor intrínseco" — os três só bloqueiam combinados com
+    # diretiva REAL ao leitor; uso contábil/IFRS legítimo passa a não bloquear.
     r"\bcompre\b",
     r"\b(comprar|vender)\s+(a|as|essa|essas|sua|suas)\s+a[çc][õoãa][eo]s?\b",
     r"\b(deve|deveria|sugiro|sugerimos)\s+(comprar|vender)\b",
@@ -106,6 +140,71 @@ _RECOMENDACAO_RE = re.compile("|".join(_PADROES_RECOMENDACAO), re.IGNORECASE)
 # Limitado a "de investimento" para não engolir texto direcional subsequente.
 _DISCLAIMER_RE = re.compile(
     r"n[ãa]o (é|e|constitui|configura) recomenda[çc][ãa]o(\s+de\s+investimento)?",
+    re.IGNORECASE,
+)
+# Disclaimer do bloco de VALUATION (F3, `valuation.AVISO_VALUATION` — "NÃO é
+# preço-alvo nem recomendação"): sem este strip, o próprio aviso anti-
+# recomendação do motor colidiria com o veto de 'preço-alvo' (achado desta
+# integração — decisão fora do plano original, ver resposta final). Mesma
+# lógica do `_DISCLAIMER_RE`: remove só a cláusula de NEGAÇÃO.
+_DISCLAIMER_VALUATION_RE = re.compile(
+    r"n[ãa]o (é|e|constitui|configura) pre[çc]o[\s-]?alvo"
+    r"(\s+(nem|e|ou)\s+recomenda[çc][ãa]o(\s+de\s+investimento)?)?",
+    re.IGNORECASE,
+)
+
+# --- A1 (correção red-team) — carve-out de consenso ------------------------
+# Marcador de ATRIBUIÇÃO exigido p/ permitir 'preço-alvo'/'price target'/
+# 'rating' direcional DENTRO da seção de consenso (condição b).
+_ATRIBUICAO_RE = re.compile(
+    r"\bsegundo\b|\bde acordo com\b|\bconforme\b|\bpara [oa]\b|\bna vis[ãa]o d[aeo]",
+    re.IGNORECASE,
+)
+# Subconjunto de `_PADROES_RECOMENDACAO` elegível ao carve-out (A1): SÓ estes
+# três — os demais padrões (compre, mantenha, stop-loss...) seguem
+# bloqueantes incondicionalmente, mesmo dentro da seção de consenso.
+_CARVEOUT_CONSENSO_RE = re.compile(
+    r"\bpre[çc]o[\s-]?alvo\b|\bprice\s+target\b|\btarget\s+price\b|"
+    r"\brating[:\s]+(compra|venda|manter|neutro)\b|"
+    r"\brating[:\s]+(buy|sell|hold|neutral|overweight|underweight)\b",
+    re.IGNORECASE,
+)
+
+# --- A7/R10 — técnica-como-conselho -----------------------------------------
+# Palavra-de-sinal de indicador técnico computado (tecnica.py). Âncoras com
+# \b: 'sobrecompra'/'sobrevenda' (leituras REAIS e neutras do motor) não têm
+# fronteira de palavra antes de 'compr'/'vend' (são uma palavra só) — não
+# colidem com a diretiva abaixo.
+_R10_SINAL_RE = re.compile(
+    r"\b(rsi|ifr|estoc[áa]stico|macd|bollinger|williams|"
+    r"m[eé]dias?\s+m[óo]ve(?:l|is)|mm|sma|ema|fibonacci|"
+    r"acumula[çc][ãa]o/?distribui[çc][ãa]o|a/d|"
+    r"golden\s+cross|death\s+cross|cruzamento\s+(?:dourado|de\s+morte))\b",
+    re.IGNORECASE,
+)
+# Diretiva ao leitor (verbo comprar/vender por radical, entrada/saída,
+# posicionamento, "hora de", "momento de compra/venda", "sinal de
+# compra/venda"). `\w*` após o radical casa a flexão inteira (compre/
+# comprar/comprando/vendam...) com fronteira de palavra no fim.
+_R10_DIRETIVA_RE = re.compile(
+    r"\b(compr\w*|vend\w*|entrada|sa[íi]da|"
+    r"posicion(?:e|ar)(?:-se)?\s+(?:comprad[oa]|vendid[oa])|"
+    r"hora\s+de|momento\s+de\s+(?:compra|venda|comprar|vender)|"
+    r"sinal\s+de\s+(?:compra|venda))\b",
+    re.IGNORECASE,
+)
+
+# --- A6/R11 — valuation-como-preço-alvo -------------------------------------
+# Termo de valuation. "valor intrínseco"/"valor justo" têm uso contábil/IFRS
+# legítimo (ex.: 'ativos avaliados a valor justo') — só bloqueia combinado
+# com diretiva REAL (abaixo); "acima de"/"abaixo de" NÃO são gatilho (A6).
+_R11_TERMO_RE = re.compile(
+    r"\b(valor\s+justo|pre[çc]o\s+justo|valor\s+intr[íi]nseco)\b", re.IGNORECASE
+)
+_R11_DIRETIVA_RE = re.compile(
+    r"\b(compr\w*|vend\w*|aproveite\w*|entrada|"
+    r"oportunidade\s+de\s+(?:compra|venda)|"
+    r"desconto\s+de\s+\d+%\s*(?:—|→|=|,)?\s*(?:compr\w*|oportunidad\w*))\b",
     re.IGNORECASE,
 )
 
@@ -258,28 +357,60 @@ _PAR_SUFIXO_RE = re.compile(r"^\s*[×x]\s*\w")
 _ELO_CONTEXTO_RE = re.compile(r"\belos?\b|\bfor[çc]a\b|co-?movimento|interpretativ", re.IGNORECASE)
 
 _VETADO_CURVA_DI = "curva DI com número sem rótulo 'proxy'"
+_VETADO_INFLACAO_IMPLICITA = "inflação implícita com número"
+_VETADO_BASILEIA = "índice de Basileia com número (não está na DFP — lacuna)"
+_VETADO_PVP_FII = "P/VP com número (preço B3 licenciado — lacuna)"
+_DY_BARE_RE = re.compile(r"\b(dividend\s+yield|dy)\b", re.IGNORECASE)
 _VETADO_DY = "dividend yield/DY com número sem rótulo 'do informe'/'auto-declarado'"
+# A3 (correção red-team): regra NOVA e independente p/ 'DY a mercado' — NÃO
+# reusa/toca `_dy_isento_no_periodo`/`_DY_ANUALIZADO_OU_MERCADO_RE` (isenção
+# do informe, semântica preservada). Única saída: relaxamento por CITAÇÃO
+# COTAHIST/B3 (A2, `_RELAXAMENTO_POR_CITACAO` abaixo). Aplica a TODA classe —
+# a métrica "DY a mercado 12m" também existe p/ ação/energia (§2.6).
+_VETADO_DY_MERCADO = "DY/dividend yield a mercado com número (permite citação COTAHIST/B3)"
+_MERCADO_FRAG = r"a[os]{0,2}\s+(?:pre[çc]os?\s+de\s+|valor\s+de\s+)?mercado"
+_MERCADO_TERMO_RE = re.compile(rf"\b{_MERCADO_FRAG}\b", re.IGNORECASE)
 
 # (rótulo, regex do termo, classes onde vale — None = todas as classes)
 _REGRAS_VETADAS: tuple[tuple[str, re.Pattern[str], frozenset[str] | None], ...] = (
     (_VETADO_CURVA_DI, re.compile(r"\bcurva\s+DI\b", re.IGNORECASE), None),
     (
-        "inflação implícita com número",
+        _VETADO_INFLACAO_IMPLICITA,
         re.compile(r"\binfla[çc][ãa]o\s+impl[íi]cita\b", re.IGNORECASE),
         None,
     ),
     (
-        "índice de Basileia com número (não está na DFP — lacuna)",
+        _VETADO_BASILEIA,
         re.compile(r"\b[íi]ndice\s+de\s+basil[eé]ia\b", re.IGNORECASE),
         None,
     ),
     (
-        "P/VP com número (preço B3 licenciado — lacuna)",
+        _VETADO_PVP_FII,
         re.compile(r"\bP\s*/\s*VP\b", re.IGNORECASE),
         frozenset({"fii"}),
     ),
-    (_VETADO_DY, re.compile(r"\b(dividend\s+yield|dy)\b", re.IGNORECASE), frozenset({"fii"})),
+    (_VETADO_DY, _DY_BARE_RE, frozenset({"fii"})),
+    # termo_re não é consultado p/ esta rotulo — detecção real é
+    # `_dy_mercado_termo_presente` (respeita a MESMA ressalva protetora de
+    # `_DY_CAVEAT_PROTEGIDO_RE`, senão a negação "NÃO é DY a preço de
+    # mercado" do próprio rótulo do informe dispararia a regra nova).
+    (_VETADO_DY_MERCADO, _DY_BARE_RE, None),
 )
+
+# --- A2 (correção red-team) — relaxamentos por CITAÇÃO, não por rótulo -----
+# Origem esperada (url/descrição da `Fonte` citada) por termo relaxável.
+# Termo+número SEM citação correspondente permanece BLOQUEANTE (não rebaixa).
+_ORIGEM_BASILEIA_RE = re.compile(r"if\.?\s?data|\bbcb\b", re.IGNORECASE)
+_ORIGEM_ANBIMA_RE = re.compile(r"\banbima\b|\bettj\b", re.IGNORECASE)
+_ORIGEM_COTAHIST_RE = re.compile(r"\bcotahist\b|\bb3\b", re.IGNORECASE)
+
+_RELAXAMENTO_POR_CITACAO: dict[str, re.Pattern[str]] = {
+    _VETADO_BASILEIA: _ORIGEM_BASILEIA_RE,
+    _VETADO_INFLACAO_IMPLICITA: _ORIGEM_ANBIMA_RE,
+    _VETADO_PVP_FII: _ORIGEM_COTAHIST_RE,
+    _VETADO_DY: _ORIGEM_COTAHIST_RE,
+    _VETADO_DY_MERCADO: _ORIGEM_COTAHIST_RE,
+}
 
 
 def _sem_acentos(texto: str) -> str:
@@ -342,6 +473,105 @@ def _tem_numero_de_claim(frase: str) -> bool:
     return False
 
 
+def _tokens_numericos_de_claim(frase: str) -> set[str]:
+    """Dígitos normalizados (sem separador) de todo número "de claim" da
+    frase — MESMO critério de significância de `_tem_numero_de_claim`
+    (separador OU >=5 dígitos OU percentual explícito), mas devolvendo os
+    tokens em vez de um bool. Usado pelo relaxamento por citação (A2): a
+    detecção (`_tem_numero_de_claim`) e a checagem de casamento numérico
+    precisam do MESMO critério de significância, senão um percentual inteiro
+    ('Basileia: 15%') seria detectado mas nunca conseguiria casar com a
+    citação (perdia a checagem de separador de `_numeros_significativos`).
+    """
+    achados: set[str] = set()
+    for m in _NUMERO_RE.finditer(frase):
+        tok = m.group(0).rstrip(".")
+        digitos = tok.replace(".", "").replace(",", "")
+        if "," in tok or "." in tok or len(digitos) >= 5:
+            achados.add(digitos)
+        elif frase[m.end() : m.end() + 1] == "%":
+            achados.add(digitos)
+    return achados
+
+
+def _numeros_citados_de_origem(citacoes: list | None, origem_re: re.Pattern[str]) -> set[str]:
+    """Números "significativos" (dígitos normalizados) do `texto_citado` de
+    citações cuja fonte (url + descrição) casa com `origem_re` (A2:
+    relaxamento por CITAÇÃO — nunca por rótulo emitido pelo próprio modelo).
+    """
+    textos: list[str] = []
+    for c in citacoes or []:
+        if not isinstance(c, dict):
+            continue
+        fonte = c.get("fonte") or {}
+        alvo = f"{fonte.get('url') or ''} {fonte.get('descricao') or ''}"
+        if origem_re.search(alvo):
+            textos.append(c.get("texto_citado") or "")
+    return _numeros_significativos(" ".join(textos))
+
+
+def _isento_por_citacao(frase: str, origem_re: re.Pattern[str], citacoes: list | None) -> bool:
+    """O termo vetado nesta frase tem seu número ancorado numa citação da
+    origem esperada (A2)? Sem `citacoes` (chamada direta da função pura,
+    compatibilidade retroativa) ou sem citação correspondente -> nunca isento
+    (fail-closed; termo+número sem citação correspondente segue bloqueante).
+    """
+    nums_frase = _tokens_numericos_de_claim(frase)
+    if not nums_frase:
+        return False
+    return bool(nums_frase & _numeros_citados_de_origem(citacoes, origem_re))
+
+
+def _parse_numero_brl(token: str) -> float | None:
+    """Converte um token numérico pt-BR ('63,00'/'1.234,50'/'63') para float
+    (ponto = separador de milhar, vírgula = decimal — convenção de `_NUMERO_RE`
+    usada em todo o módulo). `None` se não for um número válido."""
+    limpo = token.strip().rstrip(".")
+    if not limpo:
+        return None
+    if "," in limpo:
+        parte_inteira, _, parte_decimal = limpo.replace(".", "").partition(",")
+        texto = f"{parte_inteira}.{parte_decimal}"
+    else:
+        texto = limpo.replace(".", "")
+    try:
+        return float(texto)
+    except ValueError:
+        return None
+
+
+def _numero_bate_algum_item(frase: str, valores: Sequence[float]) -> bool:
+    """Algum número pt-BR da frase é (numericamente, com pequena tolerância
+    de arredondamento) igual a algum `valor` de item VALIDADO de
+    `envelope['consenso']` (A1 condição c — "isso é o R12 real")."""
+    if not valores:
+        return False
+    for m in _NUMERO_RE.finditer(frase):
+        v = _parse_numero_brl(m.group(0))
+        if v is not None and any(abs(v - alvo) < 0.005 for alvo in valores):
+            return True
+    return False
+
+
+def _dy_mercado_termo_presente(frase: str) -> bool:
+    """Há 'DY a mercado' de CLAIM na frase (A3, `_VETADO_DY_MERCADO`)?
+
+    Exige 'DY'/'dividend yield' + um trecho 'a mercado' (`_MERCADO_FRAG`) NÃO
+    protegido por uma ressalva quase-verbatim (`_DY_CAVEAT_PROTEGIDO_RE`) —
+    reusa a MESMA proteção de `_dy_isento_no_periodo` (sem tocá-la, A3) para
+    que a negação mandatória do rótulo do informe ("NÃO é DY a preço de
+    mercado") não dispare esta regra NOVA sozinha (ela nega A OCORRÊNCIA,
+    não afirma um DY a mercado).
+    """
+    if not _DY_BARE_RE.search(frase):
+        return False
+    protegidos = [m.span() for m in _DY_CAVEAT_PROTEGIDO_RE.finditer(frase)]
+    for m in _MERCADO_TERMO_RE.finditer(frase):
+        if not any(ini <= m.start() and m.end() <= fim for ini, fim in protegidos):
+            return True
+    return False
+
+
 def _dy_termo_presente(termo_re: re.Pattern[str], frase: str, periodo: str) -> bool:
     """Há 'dividend yield'/'DY' de CLAIM na frase?
 
@@ -393,8 +623,19 @@ def _frases_com_fim(periodo: str):
     yield periodo[inicio:], len(periodo)
 
 
-def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
+def termos_vetados_com_numero(
+    texto: str, classe: str = "acao", citacoes: list | None = None
+) -> list[str]:
     """Termos VETADOS com número no mesmo período (bloqueante, D6c).
+
+    `citacoes` (A2, correção red-team; opcional — `None` preserva o
+    comportamento ORIGINAL/retrocompatível desta função pura): Basileia,
+    inflação implícita, P/VP (FII) e o NOVO 'DY a mercado' (A3, abaixo) só
+    deixam de bloquear quando o número casa com o `texto_citado` de alguma
+    citação cuja fonte corresponde à origem esperada (IF.data/BCB; ANBIMA/
+    ETTJ; COTAHIST/B3) — relaxamento por CITAÇÃO, nunca por rótulo textual
+    solto emitido pelo próprio modelo (`_RELAXAMENTO_POR_CITACAO`). Sem
+    `citacoes` ou sem citação correspondente, o termo permanece bloqueante.
 
     RISCO RESIDUAL ACEITO (red-team v2.2, PR #24): anualização por SINÔNIMO —
     'equivale a X% no ano', 'em base anual', '12x o mensal' — NÃO é quebra-
@@ -437,6 +678,9 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                 if rotulo is _VETADO_DY:
                     if not _dy_termo_presente(termo_re, frase, periodo):
                         continue
+                elif rotulo is _VETADO_DY_MERCADO:
+                    if not _dy_mercado_termo_presente(frase):
+                        continue
                 elif termo_re.search(frase) is None:
                     continue
                 if not _tem_numero_de_claim(frase):
@@ -444,7 +688,15 @@ def termos_vetados_com_numero(texto: str, classe: str = "acao") -> list[str]:
                 if rotulo is _VETADO_CURVA_DI and _PROXY_RE.search(frase):
                     continue  # proxy NOMEADO no mesmo período é o uso citável permitido
                 if rotulo is _VETADO_DY and _dy_isento_no_periodo(periodo, fim_frase):
-                    continue  # DY mensal do informe, auto-declarado e rotulado
+                    continue  # DY mensal do informe, auto-declarado e rotulado (A3: intacto)
+                # A2 (correção red-team): relaxamento por CITAÇÃO — não toca
+                # `_dy_isento_no_periodo` (A3); é uma saída ADICIONAL (OR),
+                # então um DY do informe (rótulo) e um DY a mercado (citação)
+                # na MESMA frase podem cada um se justificar por seu próprio
+                # caminho. Sem citação/origem correspondente -> segue vetado.
+                origem_re = _RELAXAMENTO_POR_CITACAO.get(rotulo)
+                if origem_re is not None and _isento_por_citacao(frase, origem_re, citacoes):
+                    continue
                 # 240 chars: o corte em 120 truncava a frase ANTES do trecho
                 # que causou o veto (diagnóstico do FP de produção 10/07 exigiu
                 # reconstruir o texto no banco) — laudo precisa mostrar o gatilho.
@@ -470,7 +722,13 @@ def _chave_fonte(fonte: dict) -> tuple | None:
 
 
 def _strip_disclaimer(texto: str) -> str:
-    return _DISCLAIMER_RE.sub("", texto)
+    # Remove SÓ as cláusulas de negação (recomendação e, agora, o disclaimer
+    # de valuation "NÃO é preço-alvo nem recomendação" — decisão fora do
+    # plano original, ver resposta final: sem isto, o próprio aviso anti-
+    # recomendação do bloco de valuation da F3 colidiria com o veto de
+    # 'preço-alvo'). O resto da frase segue exposto à varredura.
+    texto = _DISCLAIMER_RE.sub("", texto)
+    return _DISCLAIMER_VALUATION_RE.sub("", texto)
 
 
 def _numeros_significativos(texto: str) -> set[str]:
@@ -506,32 +764,135 @@ def _faithfulness_numerica(markdown: str, citacoes: list) -> float | None:
     return round(ancorados / len(nums_texto), 3)
 
 
-def _violacoes_recomendacao(texto: str) -> list[str]:
-    achados: list[str] = []
-    for ln in texto.splitlines():
-        limpo = _strip_disclaimer(ln)
-        for m in _RECOMENDACAO_RE.finditer(limpo):
-            achados.append(m.group(0).strip())
-    return achados
-
-
-def _secao_geopolitica(markdown: str) -> str:
-    """Extrai o texto da seção '## 3. Camada geopolítica' (até o próximo H2)."""
-    linhas = markdown.splitlines()
+def _secao_por_titulo(markdown: str, chave: str) -> str:
+    """Extrai o texto de TODA seção H2 cujo título contém `chave` (minúsculo,
+    sem acento), até o próximo H2 — generalização do mecanismo de escopo
+    original da seção geopolítica, reusado pelo carve-out de consenso (A1)."""
+    linhas = (markdown or "").splitlines()
     dentro = False
     buf: list[str] = []
     for ln in linhas:
         if re.match(r"^##\s", ln):
-            dentro = "geopol" in ln.lower()
+            dentro = chave in _sem_acentos(ln.lower())
             continue
         if dentro:
             buf.append(ln)
     return "\n".join(buf)
 
 
+def _linhas_com_escopo(markdown: str, chave: str) -> list[tuple[str, bool]]:
+    """(linha, dentro) p/ cada linha do markdown — `dentro=True` sse a linha
+    está sob um H2 cujo título contém `chave` (mesmo mecanismo de
+    `_secao_por_titulo`, mas preservando a linha-a-linha p/ `_violacoes_
+    recomendacao` decidir a condição (a) do carve-out de consenso, A1)."""
+    dentro = False
+    saida: list[tuple[str, bool]] = []
+    for ln in (markdown or "").splitlines():
+        if re.match(r"^##\s", ln):
+            dentro = chave in _sem_acentos(ln.lower())
+            saida.append((ln, False))  # o cabeçalho em si não é "corpo" da seção
+            continue
+        saida.append((ln, dentro))
+    return saida
+
+
+def _violacoes_recomendacao(
+    markdown: str, extra_texto: str, consenso_valores: Sequence[float]
+) -> list[str]:
+    """Linguagem de recomendação/direcional (bloqueante).
+
+    A1 (correção red-team) — carve-out de consenso: `_CARVEOUT_CONSENSO_RE`
+    ('preço-alvo'/'price target'/'rating' direcional) só é EXEMPTO quando (a)
+    a linha está dentro de uma seção H2 cujo título contém 'consenso', (b) há
+    marcador de atribuição na linha (`_ATRIBUICAO_RE`) e (c) algum número da
+    linha casa com o `valor` de algum item VALIDADO de `envelope['consenso']`
+    (`consenso_valores`). Fora da seção — ou faltando (b)/(c) — permanece
+    bloqueante sem exceção; todo o resto de `_PADROES_RECOMENDACAO` (compre,
+    mantenha, stop-loss...) segue bloqueante incondicionalmente, mesmo
+    DENTRO da seção de consenso — só os 3 termos do carve-out são elegíveis.
+
+    `extra_texto` (resumo do Haiku + `texto_livre_novo`, A5) não tem
+    estrutura H2 — é 100% determinístico (`texto_livre_novo`) ou um resumo
+    neutro; a ÚNICA fonte possível de 'preço-alvo' ali é o renderizador
+    canônico do consenso já validado, então a condição (a) é satisfeita por
+    construção quando (b)+(c) valem (nenhuma superfície de ataque do LLM
+    livre nesta zona para este carve-out específico).
+    """
+    achados: list[str] = []
+
+    def _varrer(linha: str, *, dentro_consenso: bool) -> None:
+        limpo = _strip_disclaimer(linha)
+        for m in _RECOMENDACAO_RE.finditer(limpo):
+            trecho = m.group(0).strip()
+            if (
+                dentro_consenso
+                and _CARVEOUT_CONSENSO_RE.search(trecho)
+                and _ATRIBUICAO_RE.search(limpo)
+                and _numero_bate_algum_item(limpo, consenso_valores)
+            ):
+                continue  # A1: carve-out válido — atribuído e com número casado
+            achados.append(trecho)
+
+    for ln, dentro in _linhas_com_escopo(markdown, "consenso"):
+        _varrer(ln, dentro_consenso=dentro)
+    for ln in (extra_texto or "").splitlines():
+        _varrer(ln, dentro_consenso=True)
+    return achados
+
+
+def _consenso_numeros_sem_atribuicao(markdown: str, valores: Sequence[float]) -> list[str]:
+    """R12 (realizado via A1): todo número "de claim" dentro da seção H2 de
+    consenso do markdown precisa de marcador de atribuição + casar com um
+    item VALIDADO de `envelope['consenso']` — senão é tratado como número
+    inventado/laundering (bloqueante), MESMO sem a palavra 'preço-alvo'
+    (cobre 'consenso de analistas: R$ 63' sem veículo, alvo agregado
+    inventado pelo próprio LLM etc.). Espelha `_faithfulness_numerica`, mas
+    escopado à seção e aos itens VALIDADOS do envelope (não ao texto_citado
+    bruto — correção A1 condição c).
+    """
+    secao = _secao_por_titulo(markdown, "consenso")
+    achados: list[str] = []
+    for frase in re.split(r"(?<=[.;!?])\s+|\n", secao):
+        limpo = _strip_disclaimer(frase)
+        if not limpo.strip() or not _tem_numero_de_claim(limpo):
+            continue
+        if _ATRIBUICAO_RE.search(limpo) and _numero_bate_algum_item(limpo, valores):
+            continue
+        achados.append(limpo.strip()[:200])
+    return achados
+
+
+def _violacoes_tecnica_como_conselho(texto: str) -> list[str]:
+    """R10 (A7, bloqueante): palavra-de-sinal de indicador técnico computado
+    (RSI/MACD/Bollinger/Estocástico/Williams/médias móveis/Fibonacci/A-D/
+    cruzamento dourado-de-morte) + diretiva ao leitor na MESMA frase. Leitura
+    puramente descritiva (sem diretiva) passa — provado pelos templates REAIS
+    de `tecnica.py` no teste dedicado."""
+    achados: list[str] = []
+    for frase in re.split(r"(?<=[.;!?])\s+|\n", texto or ""):
+        limpo = _strip_disclaimer(frase)
+        if _R10_SINAL_RE.search(limpo) and _R10_DIRETIVA_RE.search(limpo):
+            achados.append(limpo.strip()[:200])
+    return achados
+
+
+def _violacoes_valuation_como_alvo(texto: str) -> list[str]:
+    """R11 (A6, bloqueante): termo de valuation ('valor justo'/'preço justo'/
+    'valor intrínseco') + diretiva REAL ao leitor na MESMA frase — SEM os
+    gatilhos genéricos 'acima de'/'abaixo de' (uso contábil/IFRS legítimo,
+    ex.: 'ativos avaliados a valor justo, acima de R$ 2 bilhões', não pode
+    bloquear)."""
+    achados: list[str] = []
+    for frase in re.split(r"(?<=[.;!?])\s+|\n", texto or ""):
+        limpo = _strip_disclaimer(frase)
+        if _R11_TERMO_RE.search(limpo) and _R11_DIRETIVA_RE.search(limpo):
+            achados.append(limpo.strip()[:200])
+    return achados
+
+
 def _alertas_geopolitica(markdown: str) -> list[str]:
     """Frases na seção geopolítica que afirmam um evento específico sem hedge."""
-    secao = _secao_geopolitica(markdown)
+    secao = _secao_por_titulo(markdown, "geopol")
     alertas: list[str] = []
     for frase in re.split(r"(?<=[.;])\s+|\n", secao):
         if (
@@ -550,23 +911,55 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     'banco'/'seguradora'/'fii'/'renda_fixa' são passadas por kwarg pelo motor)
     só ADICIONA checagens: tokens temáticos não-bloqueantes, termos vetados
     escopados e o piso de fidelidade numérica como nota (nunca bloqueio).
+
+    Gate v3 (F4): `texto_varredura` agora inclui `envelope['texto_livre_novo']`
+    (A5) além de markdown+resumo; o carve-out de consenso (A1/R12), o
+    relaxamento por citação dos termos vetados (A2/A3) e as regras NOVAS
+    R10 (técnica-como-conselho, A7) e R11 (valuation-como-preço-alvo, A6)
+    somam-se ao subconjunto BLOQUEANTE — ver docstring do módulo.
     """
     classe = _normalizar_classe(classe)
     markdown = envelope.get("markdown") or ""
     citacoes = envelope.get("citacoes") or []
     fontes = envelope.get("fontes") or []
     lacunas = envelope.get("lacunas") or []
-    # Inclui texto gerado por LLM exposto ao usuário (resumo do Haiku) na varredura.
-    # Quebra DUPLA: parágrafo novo — o resumo não pode se fundir à última linha
-    # do markdown sob a normalização de continuação do check de termos vetados.
+    # Inclui texto gerado por LLM exposto ao usuário (resumo do Haiku) na
+    # varredura, e — A5 (correção red-team) — o texto livre 100%
+    # determinístico dos blocos novos (leituras técnicas + descrições de
+    # valuation + implicações de métricas + exibição canônica de consenso).
+    # Quebra DUPLA entre partes: parágrafo novo — nenhuma parte pode se
+    # fundir à última linha da anterior sob a normalização de continuação do
+    # check de termos vetados.
     resumo = ((envelope.get("metadata") or {}).get("resumo")) or ""
-    texto_varredura = markdown + "\n\n" + resumo
+    texto_livre_novo = envelope.get("texto_livre_novo") or ""
+    extra_texto = resumo + "\n\n" + texto_livre_novo
+    texto_varredura = markdown + "\n\n" + extra_texto
 
-    violacoes = _violacoes_recomendacao(texto_varredura)
+    # A1 condição (c): valores dos itens VALIDADOS de consenso (para o
+    # carve-out de 'preço-alvo'/'rating' e para o R12 de números soltos).
+    consenso_env = envelope.get("consenso") or {}
+    consenso_valores = [
+        float(it["valor"])
+        for it in (consenso_env.get("itens") or [])
+        if isinstance(it, dict) and it.get("valor") is not None
+    ]
+
+    violacoes = _violacoes_recomendacao(markdown, extra_texto, consenso_valores)
     alertas_geo = _alertas_geopolitica(markdown)
-    # Termos vetados-com-número (D6c): varre também o resumo — número inventado
-    # exposto ao usuário é exatamente o que o check fecha.
-    termos_vetados = termos_vetados_com_numero(texto_varredura, classe)
+    # Termos vetados-com-número (D6c): varre também o texto livre novo — número
+    # inventado exposto ao usuário é exatamente o que o check fecha. A2/A3:
+    # relaxamento por citação (Basileia/inflação implícita/P-VP-FII/DY a
+    # mercado) recebe as citações reais do envelope.
+    termos_vetados = termos_vetados_com_numero(texto_varredura, classe, citacoes=citacoes)
+    # R10/R11 (A6/A7, bloqueantes): varrem o MESMO texto_varredura ampliado —
+    # a leitura técnica/valuation do próprio LLM é onde a diretiva vazaria.
+    violacoes_tecnica = _violacoes_tecnica_como_conselho(texto_varredura)
+    violacoes_valuation = _violacoes_valuation_como_alvo(texto_varredura)
+    # R12 (A1): números soltos na seção de consenso sem atribuição/casamento
+    # — escopado ao MARKDOWN (a única zona com texto livre do LLM sujeito a
+    # laundering; texto_livre_novo é determinístico, ver `_violacoes_
+    # recomendacao`).
+    consenso_sem_atribuicao = _consenso_numeros_sem_atribuicao(markdown, consenso_valores)
     # Seções universais (D6a): vivem no markdown (o resumo não é seccionado).
     secoes_ausentes = _secoes_obrigatorias_ausentes(markdown)
     tokens_ausentes = _tokens_classe_ausentes(markdown, classe)
@@ -610,6 +1003,9 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         or bool(elos_sem_fonte)
         or bool(secoes_ausentes)
         or bool(termos_vetados)
+        or bool(violacoes_tecnica)
+        or bool(violacoes_valuation)
+        or bool(consenso_sem_atribuicao)
     )
 
     motivos: list[str] = []
@@ -621,6 +1017,15 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         motivos.append(f"seção obrigatória ausente: {secoes_ausentes}")
     if termos_vetados:
         motivos.append(f"termo vetado com número: {termos_vetados}")
+    if violacoes_tecnica:
+        motivos.append(f"leitura técnica transformada em conselho (R10): {violacoes_tecnica}")
+    if violacoes_valuation:
+        motivos.append(f"valuation apresentado como preço-alvo (R11): {violacoes_valuation}")
+    if consenso_sem_atribuicao:
+        motivos.append(
+            f"número na seção de consenso sem atribuição/citação válida (R12): "
+            f"{consenso_sem_atribuicao}"
+        )
     if elos_sem_fonte:
         motivos.append(f"elo de correlação sem fonte numa das pontas: {elos_sem_fonte}")
     if not citacoes:
@@ -657,6 +1062,9 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         "secoes_ausentes": secoes_ausentes,
         "tokens_classe_ausentes": tokens_ausentes,
         "termos_vetados": termos_vetados,
+        "violacoes_tecnica_como_conselho": violacoes_tecnica,
+        "violacoes_valuation_como_alvo": violacoes_valuation,
+        "consenso_sem_atribuicao": consenso_sem_atribuicao,
         "citacoes_total": len(citacoes),
         "fontes_total": len(fontes),
         "fontes_unicas": len(chaves_fontes),  # dedup (url, descricao) — B1

@@ -843,7 +843,12 @@ def test_templates_de_todas_as_classes_passam_no_gate(sessao: Session) -> None:
     for ctx in contextos:
         todas.extend(calcular(sessao, ctx, hoje=HOJE))
     assert todas
-    assert _violacoes_recomendacao(_texto_varredura(todas)) == []
+    # F4 (gate v3): `_violacoes_recomendacao` passou a receber markdown e
+    # extra_texto separados (A1 — carve-out de consenso escopado por seção
+    # H2, só existe em markdown real). Este blob de textos de métrica não é
+    # markdown estruturado — é exatamente o tipo de conteúdo que cai em
+    # `texto_livre_novo` no envelope real, então entra como `extra_texto`.
+    assert _violacoes_recomendacao("", _texto_varredura(todas), []) == []
 
 
 # ---------------------------------------------------------------------------

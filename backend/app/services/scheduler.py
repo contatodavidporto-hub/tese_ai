@@ -39,6 +39,10 @@ logger = get_logger(__name__)
 # Namespace dos advisory locks deste app (evita colisão com outros usos do banco).
 _LOCK_NS = "tese-ai:job:"
 
+# ETF do Ibovespa (CODBDI 14) — proxy do índice, incluído no COTAHIST diário
+# além do lote do warm-cache (mesmo ticker usado no β aproximado de tese.py).
+_TICKER_BOVA11 = "BOVA11"
+
 
 @dataclass(frozen=True)
 class Job:
@@ -80,11 +84,130 @@ def _job_bootstrap_cadastro() -> object:
         return n
 
 
+def _job_precos_cotahist() -> object:
+    """COTAHIST B3 — preços diários de fim de dia (fase "Tese Profunda", §2.12).
+
+    Ingesta SÓ os tickers RASTREADOS (`cotahist._CODBDI_PERMITIDOS`, correção
+    A9): o mesmo lote do warm-cache (`lote_default()` — top 10 IBOV + exemplos
+    multiativo) + BOVA11 (ETF do Ibovespa, proxy do β aproximado) — NUNCA o
+    mercado inteiro. Feriado/fim de semana = HTTP 404 = 0 linhas gravadas
+    SILENCIOSAMENTE (já tratado dentro de `ingest_arquivo_diario`; nada a
+    fazer aqui). Tabela `precos_diarios` ausente (migração 0006 pendente) ->
+    `DadoNaoEncontrado` (correção A13): absorvida aqui como NO-OP com log
+    estruturado — nunca um "erro" que martele o ledger a cada tick."""
+    from app.db.session import SessionLocal
+    from app.scripts.warm_cache import lote_default
+    from app.services import cotahist
+    from app.services.dados import DadoNaoEncontrado
+
+    tickers = set(lote_default()) | {_TICKER_BOVA11}
+    session = SessionLocal()
+    try:
+        gravados = cotahist.ingest_arquivo_diario(session, dt.date.today(), tickers=tickers)
+        session.commit()
+        return f"gravados={gravados} tickers_rastreados={len(tickers)}"
+    except DadoNaoEncontrado as exc:
+        session.rollback()
+        logger.info("scheduler_precos_cotahist_sem_dado", motivo=str(exc))
+        return "sem_dado"
+    finally:
+        session.close()
+
+
+def _job_anbima_ettj() -> object:
+    """ANBIMA ETTJ — snapshot do dia (fase "Tese Profunda", §2.12).
+
+    SÓ o snapshot mais recente (`ensure_snapshot`, TRAVA ToS: a função nunca
+    aceita intervalo de datas nem monta série histórica). Sem snapshot
+    publicado nos dias úteis regredidos, ou tabela `curva_snapshot` ausente
+    (correção A13) -> `DadoNaoEncontrado`: absorvida aqui como NO-OP com log
+    estruturado, nunca "erro" a cada tick."""
+    from app.db.session import SessionLocal
+    from app.services import anbima_ettj
+    from app.services.dados import DadoNaoEncontrado
+
+    session = SessionLocal()
+    try:
+        linhas = anbima_ettj.ensure_snapshot(session)
+        session.commit()
+        return f"linhas={len(linhas)}"
+    except DadoNaoEncontrado as exc:
+        session.rollback()
+        logger.info("scheduler_anbima_ettj_sem_dado", motivo=str(exc))
+        return "sem_dado"
+    finally:
+        session.close()
+
+
+def _job_ifdata_trimestral() -> object:
+    """IF.data BCB — indicadores prudenciais de bancos (fase "Tese Profunda",
+    §2.12). Itera o MAPA CURADO cd_cvm -> IF.data (`ifdata.MAPA_CVM_IFDATA`),
+    UMA SESSÃO NOVA POR BANCO (evita carregar uma transação abortada por
+    `ProgrammingError`/tabela ausente de um banco para o próximo — Postgres
+    exige ROLLBACK antes de reusar a sessão). `DadoNaoEncontrado` por banco
+    (fonte fora do ar, tabela `banco_indicadores` ausente — correção A13,
+    alarme de schema/remapeamento) é tolerada com log estruturado; os demais
+    bancos do lote seguem."""
+    from app.db.session import SessionLocal
+    from app.services import ifdata
+    from app.services.dados import DadoNaoEncontrado
+
+    ok = 0
+    sem_dado = 0
+    for cd_cvm in ifdata.MAPA_CVM_IFDATA:
+        session = SessionLocal()
+        try:
+            ifdata.ensure_indicadores_banco(session, cd_cvm)
+            session.commit()
+            ok += 1
+        except DadoNaoEncontrado as exc:
+            session.rollback()
+            sem_dado += 1
+            logger.info("scheduler_ifdata_banco_sem_dado", cd_cvm=cd_cvm, motivo=str(exc))
+        finally:
+            session.close()
+    return f"ok={ok} sem_dado={sem_dado} bancos={ok + sem_dado}"
+
+
+def _job_aneel_rap() -> object:
+    """ANEEL RAP — ciclo tarifário de transmissoras (fase "Tese Profunda",
+    §2.12, correção A8). Itera o MAPA CURADO ticker -> grupo econômico
+    (`aneel._GRUPOS_RAP_V1`), UMA SESSÃO NOVA POR TICKER (mesma razão do
+    IF.data: evita transação abortada entre iterações). `DadoNaoEncontrado`
+    por ticker (rede fora do ar sem histórico persistido, anomalia
+    fail-closed nos registros do ciclo-alvo, tabela `setor_indicadores`
+    ausente — correção A13) é tolerada com log estruturado; os demais tickers
+    do lote seguem."""
+    from app.db.session import SessionLocal
+    from app.services import aneel
+    from app.services.dados import DadoNaoEncontrado
+
+    ok = 0
+    sem_dado = 0
+    for ticker in aneel._GRUPOS_RAP_V1:
+        session = SessionLocal()
+        try:
+            resultado = aneel.ensure_rap(session, ticker)
+            session.commit()
+            if resultado is not None:
+                ok += 1
+            else:  # defensivo: nunca deveria ocorrer (iteramos o próprio mapa)
+                sem_dado += 1
+        except DadoNaoEncontrado as exc:
+            session.rollback()
+            sem_dado += 1
+            logger.info("scheduler_aneel_rap_sem_dado", ticker=ticker, motivo=str(exc))
+        finally:
+            session.close()
+    return f"ok={ok} sem_dado={sem_dado} tickers={ok + sem_dado}"
+
+
 def _job_warm_cache() -> object:
-    """Aquece o cache das teses da galeria (top-10 IBOV + exemplos multiativo
-    HGLG11/TD-IPCA-2035 — `lote_default`, o MESMO lote do CLI sem args).
-    GASTA LLM — ver a config `scheduler_warm_cache_horas` (teto de custo
-    diário aplica; cache hit não gasta nada)."""
+    """Aquece o cache das teses da galeria (top-10 IBOV + exemplos adicionais
+    TAEE11/HGLG11/TD-IPCA-2035 — `lote_default`, o MESMO lote do CLI sem
+    args; 13 tickers desde a fase "Tese Profunda"). GASTA LLM — ver a config
+    `scheduler_warm_cache_horas` (teto de custo diário aplica; cache hit não
+    gasta nada)."""
     from app.scripts.warm_cache import aquecer, lote_default
 
     resumo = aquecer(lote_default())
@@ -125,16 +248,62 @@ def jobs_configurados(settings: Settings) -> list[Job]:
                 func=_job_bootstrap_cadastro,
             )
         )
+    # Ingest ampliado (fase "Tese Profunda", §2.12) — ANTES do warm_cache de
+    # propósito: no mesmo tick, preços/curva/indicadores/RAP atualizam PRIMEIRO
+    # para a pré-síntese determinística (técnica/valuation/métricas) usar dado
+    # fresco quando o warm_cache re-gera as teses da galeria logo em seguida.
+    if settings.scheduler_cotahist_horas > 0:
+        jobs.append(
+            Job(
+                nome="precos_cotahist",
+                intervalo=dt.timedelta(hours=settings.scheduler_cotahist_horas),
+                timeout_s=900,
+                func=_job_precos_cotahist,
+            )
+        )
+    if settings.scheduler_anbima_horas > 0:
+        jobs.append(
+            Job(
+                nome="anbima_ettj",
+                intervalo=dt.timedelta(hours=settings.scheduler_anbima_horas),
+                timeout_s=300,
+                func=_job_anbima_ettj,
+            )
+        )
+    if settings.scheduler_ifdata_horas > 0:
+        jobs.append(
+            Job(
+                nome="ifdata_trimestral",
+                intervalo=dt.timedelta(hours=settings.scheduler_ifdata_horas),
+                timeout_s=600,
+                func=_job_ifdata_trimestral,
+            )
+        )
+    if settings.scheduler_aneel_horas > 0:
+        jobs.append(
+            Job(
+                nome="aneel_rap",
+                intervalo=dt.timedelta(hours=settings.scheduler_aneel_horas),
+                timeout_s=300,
+                func=_job_aneel_rap,
+            )
+        )
     if settings.scheduler_warm_cache_horas > 0:
         jobs.append(
-            # POR ÚLTIMO de propósito: num mesmo tick, o refresh_macro roda
-            # antes — as teses re-geradas já saem com as séries atualizadas.
+            # POR ÚLTIMO de propósito: num mesmo tick, o refresh_macro e o
+            # ingest ampliado rodam antes — as teses re-geradas já saem com as
+            # séries/indicadores atualizados.
             Job(
                 nome="warm_cache",
                 intervalo=dt.timedelta(hours=settings.scheduler_warm_cache_horas),
-                # Lote frio = até 12 gerações sequenciais (~1-2 min cada):
-                # top 10 IBOV + exemplos multiativo (HGLG11, TD-IPCA-2035).
-                timeout_s=2400,
+                # Lote frio = até 13 gerações sequenciais: top 10 IBOV +
+                # TAEE11/HGLG11/TD-IPCA-2035 (fase "Tese Profunda" — 12 -> 13,
+                # decisão F6). Teto subiu de 2400s (12 × ~2min) para 3900s
+                # (13 × ~5min de folga): a síntese cresceu (max_tokens 16000)
+                # e ganhou o estágio de consenso (Haiku+web_search) — sem
+                # medição ao vivo neste ambiente offline, o teto é
+                # deliberadamente generoso para não matar o lote no meio.
+                timeout_s=3900,
                 func=_job_warm_cache,
             )
         )

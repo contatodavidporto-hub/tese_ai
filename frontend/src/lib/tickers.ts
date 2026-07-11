@@ -131,9 +131,10 @@ export const ATIVOS_MULTIATIVO: PapelB3[] = [
 ];
 
 // Tickers exibidos como "exemplos prontos" (galeria/teaser/auto-início). Os 10
-// primeiros são o top 10 de pesos do IBOV (TICKERS_IBOV_TOP) e os 2 últimos
-// (HGLG11, TD-IPCA-2035) são a prova viva multiativo (EXEMPLOS_MULTIATIVO).
-// Todos os 12 entram no warm-cache diário do scheduler via lote_default()
+// primeiros são o top 10 de pesos do IBOV (TICKERS_IBOV_TOP) e os 3 últimos
+// (TAEE11 energia/transmissão, HGLG11 FII, TD-IPCA-2035 renda fixa) são a
+// prova viva multiativo (EXEMPLOS_MULTIATIVO). Todos os 13 entram no
+// warm-cache diário do scheduler via lote_default()
 // (backend/app/scripts/warm_cache.py + app/services/scheduler.py) — cache hit
 // garantido, custo US$ 0 no clique. Manter em sincronia com o backend.
 export const EXEMPLOS_PRONTOS = [
@@ -147,6 +148,7 @@ export const EXEMPLOS_PRONTOS = [
   "ITSA4",
   "B3SA3",
   "WEGE3",
+  "TAEE11",
   "HGLG11",
   "TD-IPCA-2035",
 ] as const;
@@ -192,7 +194,7 @@ export function exemplosProntos(): PapelB3[] {
   );
 }
 
-// Slot 1..12 fixo pela ordem de EXEMPLOS_PRONTOS — usado SÓ para o nome do
+// Slot 1..13 fixo pela ordem de EXEMPLOS_PRONTOS — usado SÓ para o nome do
 // shared element CSS da assinatura "Virada de Edição" (motion; ver
 // `.vt-tese-N` em globals.css e DESIGN-BRIEF.md §4.6). Conjunto finito e
 // estático: as classes `.vt-tese-1`…`.vt-tese-12` já existem pré-declaradas

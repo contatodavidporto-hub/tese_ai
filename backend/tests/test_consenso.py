@@ -533,3 +533,69 @@ def test_buscar_sem_tabela_devolve_vazio_sem_excecao(sessao_sem_tabela: Session)
     out, _ = _buscar(sessao_sem_tabela, _obj(RESPOSTA_PETR4))
     assert out == []  # caller declara a lacuna de consenso; nunca 500
     assert list(sessao_sem_tabela.execute(select(Fonte)).scalars().all()) == []
+
+
+# ---------------------------------------------------------------------------
+# ResultadoConsenso.web_search_requests (F6, pendência F3/A14) — custo real
+# exposto ao chamador SEM quebrar o contrato de lista existente acima.
+# ---------------------------------------------------------------------------
+def test_resultado_consenso_e_lista_compativel_com_contrato_existente() -> None:
+    from app.services.consenso import ResultadoConsenso
+
+    vazio = ResultadoConsenso()
+    assert vazio == []
+    assert not vazio
+    assert len(vazio) == 0
+    assert vazio.web_search_requests == 0
+
+    cheio = ResultadoConsenso(["a", "b"], web_search_requests=3)
+    assert cheio == ["a", "b"]
+    assert len(cheio) == 2
+    assert [x for x in cheio] == ["a", "b"]
+    assert cheio.web_search_requests == 3
+
+
+def test_buscar_happy_path_expoe_web_search_requests_da_fixture(sessao: Session) -> None:
+    # RESPOSTA_PETR4.usage.server_tool_use.web_search_requests == 1 (fixture).
+    out, _ = _buscar(sessao, _obj(RESPOSTA_PETR4))
+    assert out.web_search_requests == 1
+
+
+def test_buscar_zero_validados_ainda_expoe_custo_da_chamada_feita(sessao: Session) -> None:
+    # A11 pode reprovar TODOS os itens propostos, mas a busca web já foi paga
+    # (server_tool_use é cobrado por USO) — o custo não pode sumir junto com
+    # os itens descartados, senão a tese subestima o gasto real.
+    dado = _copia(RESPOSTA_PETR4)
+    itens = _itens(dado)
+    for item in itens:
+        item["valor"] = 999.0  # número não consta do cited_text -> tudo descartado
+    _set_itens(dado, itens)
+    out, _ = _buscar(sessao, _obj(dado))
+    assert out == []
+    assert out.web_search_requests == 1
+
+
+def test_buscar_desabilitado_web_search_requests_zero(sessao: Session) -> None:
+    client = _ClientFake(_obj(RESPOSTA_PETR4))
+    out = buscar(
+        client,  # type: ignore[arg-type]
+        sessao,
+        "PETR4",
+        "Petrobras",
+        hoje=HOJE,
+        settings=_settings(consenso_enabled=False),
+    )
+    assert out.web_search_requests == 0
+
+
+def test_buscar_erro_de_api_web_search_requests_zero(sessao: Session) -> None:
+    out, _ = _buscar(sessao, RuntimeError("api fora do ar"))
+    assert out == []
+    assert out.web_search_requests == 0
+
+
+def test_buscar_sem_tabela_ainda_expoe_web_search_requests(sessao_sem_tabela: Session) -> None:
+    # Degradação A13 (tabela ausente) não deve esconder o custo já incorrido.
+    out, _ = _buscar(sessao_sem_tabela, _obj(RESPOSTA_PETR4))
+    assert out == []
+    assert out.web_search_requests == 1

@@ -546,6 +546,12 @@ class _BlocosNovos:
     valuation: valuation_svc.Valuation | None = None
     metricas: list[metricas_svc.MetricaSetor] = field(default_factory=list)
     consenso: list[ConsensoAnalista] = field(default_factory=list)
+    # Nº de chamadas da server tool `web_search` cobradas na busca de consenso
+    # (`consenso_svc.ResultadoConsenso.web_search_requests`, pendência F3/A14)
+    # — somado ao custo da tese em `_estimar_custo`/`_usage_dict`, mesmo
+    # quando `consenso` fica vazio (itens reprovados pela validação A11 não
+    # apagam o custo já incorrido na chamada).
+    web_search_requests: int = 0
     # True quando `_tem_dado_novo` achou QUALQUER fato novo — mesmo que os
     # blocos individuais acima tenham ficado vazios (ex.: histórico curto
     # demais p/ técnica). Reusado p/ decidir se o bloco `consenso` (que pode
@@ -909,7 +915,7 @@ def _montar_blocos_novos(
     if classe in ("acao", "fii"):
         preco_ref = precos[-1].fechamento if precos and precos[-1].fechamento else None
         try:
-            blocos.consenso = consenso_svc.buscar(
+            resultado_consenso = consenso_svc.buscar(
                 client,
                 session,
                 ticker,
@@ -918,6 +924,8 @@ def _montar_blocos_novos(
                 hoje=hoje,
                 settings=settings,
             )
+            blocos.consenso = resultado_consenso
+            blocos.web_search_requests = resultado_consenso.web_search_requests
         except Exception as exc:  # consenso já se protege internamente; defesa extra
             logger.warning("consenso_falhou", ticker=ticker, error_type=type(exc).__name__)
 
@@ -1513,8 +1521,15 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
                 system=system,
                 max_tokens=settings.tese_max_tokens_sintese,
             )
-        # Contabiliza o custo estimado no teto diário (fora do slot: I/O já terminou).
-        CUSTO_DIARIO.registrar(_estimar_custo(settings.tese_model_synthesis, usage))
+        # Contabiliza o custo estimado no teto diário (fora do slot: I/O já
+        # terminou) — inclui o custo do consenso (web_search, correção A14).
+        CUSTO_DIARIO.registrar(
+            _estimar_custo(
+                settings.tese_model_synthesis,
+                usage,
+                web_search_requests=blocos_novos.web_search_requests,
+            )
+        )
         # Garante o disclaimer NO PRÓPRIO conteúdo (não confia só no LLM).
         if "não é recomendação" not in markdown.lower():
             markdown = _DISCLAIMER + "\n\n" + markdown
@@ -1522,7 +1537,11 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         metadata = _extract_metadata_haiku(client, settings.tese_model_extraction, markdown)
         lacunas = _detect_lacunas(markdown)
         fontes = [_fonte_dict(f) for f in index_to_fonte]
-        uso = _usage_dict(settings.tese_model_synthesis, usage)
+        uso = _usage_dict(
+            settings.tese_model_synthesis,
+            usage,
+            web_search_requests=blocos_novos.web_search_requests,
+        )
 
         envelope = {
             "markdown": markdown,

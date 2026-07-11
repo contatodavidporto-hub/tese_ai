@@ -440,6 +440,26 @@ def _persistir(
 # ---------------------------------------------------------------------------
 # API pública
 # ---------------------------------------------------------------------------
+class ResultadoConsenso(list):
+    """Itens VALIDADOS de `buscar()` + custo real da chamada (F6, pendência F3).
+
+    Subclasse de `list` DE PROPÓSITO: o chamador (`tese._montar_blocos_novos`)
+    e os testes existentes tratam o retorno como `list[ConsensoAnalista]` puro
+    (iteração, `len()`, comparação com `[]`, truthiness) — preservar esse
+    contrato evita quebrar `tese.py`/`test_consenso.py`. Quem precisa do custo
+    (síntese de `_estimar_custo`/`_usage_dict`, correção A14) lê o atributo
+    novo `web_search_requests`, extraído de `usage.server_tool_use.
+    web_search_requests` da resposta da API — cobrado por USO mesmo quando
+    zero itens sobrevivem à validação (A11), então o valor é reportado
+    SEMPRE que a chamada à API foi feita (nunca reduzido pela validação)."""
+
+    def __init__(
+        self, itens: list[ConsensoAnalista] | None = None, *, web_search_requests: int = 0
+    ) -> None:
+        super().__init__(itens or [])
+        self.web_search_requests = web_search_requests
+
+
 def _chamar_web_search(
     client: anthropic.Anthropic, settings: Settings, ticker: str, nome: str
 ) -> object:
@@ -473,12 +493,16 @@ def buscar(
     *,
     hoje: dt.date | None = None,
     settings: Settings | None = None,
-) -> list[ConsensoAnalista]:
+) -> ResultadoConsenso:
     """Busca consenso público de analistas para o ticker e persiste os VALIDADOS.
 
     Só roda com `settings.consenso_enabled` (LLM06 — gasto autorizado por env).
-    Zero item validado, erro de API ou tabela ausente -> lista vazia + log (o
-    caller declara a lacuna de consenso); nunca levanta exceção para o caller.
+    Zero item validado, erro de API ou tabela ausente -> `ResultadoConsenso`
+    vazio + log (o caller declara a lacuna de consenso); nunca levanta exceção
+    para o caller. O retorno é uma `list[ConsensoAnalista]` (mesmo contrato de
+    sempre) que também expõe `.web_search_requests` — o nº de chamadas da
+    server tool cobradas nesta busca, para o chamador somar ao custo da tese
+    (`tese._estimar_custo`, correção A14).
     """
     settings = settings or get_settings()
     # O ticker/nome entram no turno do usuário dentro de XML tags: caracteres
@@ -487,7 +511,7 @@ def buscar(
     ticker = re.sub(r"[^A-Z0-9-]", "", (ticker or "").upper())[:16]
     if not settings.consenso_enabled:
         logger.info("consenso_pulado", ticker=ticker, motivo="desabilitado")
-        return []
+        return ResultadoConsenso()
 
     hoje = hoje or dt.date.today()
     nome = _sanitizar((nome_empresa or "").replace("<", " ").replace(">", " "), 80)
@@ -495,7 +519,7 @@ def buscar(
         resposta = _chamar_web_search(client, settings, ticker, nome)
     except Exception as exc:  # nunca derruba a tese por causa do consenso
         logger.warning("consenso_api_falhou", ticker=ticker, error_type=type(exc).__name__)
-        return []
+        return ResultadoConsenso()
 
     resultados = _resultados_busca(resposta)
     citacoes = _citacoes_web(resposta)
@@ -523,7 +547,7 @@ def buscar(
         validados.append(validado)
 
     usage = getattr(resposta, "usage", None)
-    buscas = getattr(getattr(usage, "server_tool_use", None), "web_search_requests", None)
+    buscas = getattr(getattr(usage, "server_tool_use", None), "web_search_requests", None) or 0
     logger.info(
         "consenso_busca_concluida",
         ticker=ticker,
@@ -532,10 +556,11 @@ def buscar(
         web_search_requests=buscas,
     )
     if not validados:
-        return []
+        return ResultadoConsenso(web_search_requests=buscas)
     try:
-        return _persistir(session, ticker, validados, hoje)
+        itens = _persistir(session, ticker, validados, hoje)
+        return ResultadoConsenso(itens, web_search_requests=buscas)
     except DadoNaoEncontrado as exc:
         # Correção A13 absorvida aqui: abstenção rotulada, nunca 500 na tese.
         logger.warning("consenso_tabela_indisponivel", ticker=ticker, motivo=str(exc))
-        return []
+        return ResultadoConsenso(web_search_requests=buscas)
