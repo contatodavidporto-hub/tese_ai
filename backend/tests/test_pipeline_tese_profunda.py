@@ -629,6 +629,141 @@ def test_tese_energia_dy_mercado_gate_real_no_documento_correto(
 
 
 # ---------------------------------------------------------------------------
+# 3c) Regressão VIVA do bug TAEE11 (2026-07-11), 3ª situação — hotfix 3: o
+# modelo reescreve LEGITIMAMENTE no markdown o valor da métrica de DY a
+# mercado que o backend já computou/fontou, SEM anexar citação Anthropic
+# àquela frase (o modelo cita os OUTROS documentos, mas esquece este). Antes
+# do hotfix 3, a isenção A2/A3 exigia citação — sem ela, o termo 100%
+# grounded bloqueava a tese inteira. `_FakeMessagesSemCitacaoMetrica` NUNCA
+# cita o documento cujo marcador é `marcador_doc` (simula o esquecimento),
+# provando que o gate REAL agora aceita a âncora por métrica validada de
+# `envelope['metricas_setor']` (mesmo dado, sem citação nenhuma).
+# ---------------------------------------------------------------------------
+class _FakeMessagesSemCitacaoMetrica:
+    def __init__(self, markdown: str, marcador_doc: str) -> None:
+        self._markdown = markdown
+        self._marcador_doc = marcador_doc
+
+    def stream(self, **kwargs):
+        conteudo = kwargs["messages"][0]["content"]
+        assert any(
+            self._marcador_doc in bloco["source"]["data"]
+            for bloco in conteudo
+            if bloco.get("type") == "document"
+        ), f"documento com marcador {self._marcador_doc!r} não foi montado pelo pipeline"
+        citacoes = []
+        for i, bloco in enumerate(conteudo):
+            if bloco.get("type") != "document":
+                continue
+            if self._marcador_doc in bloco["source"]["data"]:
+                continue  # NUNCA cita o doc de métricas — o cerne do bug (3ª situação)
+            citacoes.append(
+                SimpleNamespace(
+                    document_index=i, cited_text="fato citado", document_title=bloco.get("title")
+                )
+            )
+        block = SimpleNamespace(type="text", text=self._markdown, citations=citacoes)
+        usage = SimpleNamespace(
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
+        message = SimpleNamespace(content=[block], usage=usage)
+        return _FakeStreamDinamico(message)
+
+
+class _FakeClientSemCitacaoMetrica:
+    def __init__(self, markdown: str, marcador_doc: str) -> None:
+        self.messages = _FakeMessagesSemCitacaoMetrica(markdown, marcador_doc)
+
+
+def test_tese_energia_dy_mercado_sem_citacao_ancora_por_metrica_hotfix3(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _empresa(sessao, "TAEE11", setor="Energia Elétrica")
+    _seed_precos(sessao, "TAEE11", dias=60, preco_base=35.0)
+    _seed_precos(sessao, "BOVA11", dias=60, preco_base=120.0)
+    _seed_provento(sessao, "TAEE11", 0.8)
+    sessao.commit()
+
+    # Valor REAL computado pelo pipeline (não uma fixture inventada, item 5
+    # do plano do hotfix) — a mesma chamada que `tese_svc.gerar_tese` faz
+    # internamente, só para poder escrever a frase da 3ª pessoa (o "modelo")
+    # com o número EXATO que `envelope['metricas_setor']` vai conter.
+    ctx = metricas_svc.ContextoMetricas(ticker="TAEE11", setor="Energia Elétrica")
+    metrica_real = next(
+        m
+        for m in metricas_svc.calcular(sessao, ctx, hoje=_HOJE)
+        if m.nome == "Dividend yield 12m a mercado"
+    )
+    assert metrica_real.valor is not None
+    dy_pontos = f"{float(metrica_real.valor) * 100:.2f}".replace(".", ",")
+
+    # As 3 frases VIVAS verbatim do bug ao vivo (TAEE11, 2026-07-11, 3
+    # gerações reais bloqueadas) usavam "8,23%" — aqui o número é o que o
+    # preço/provento seedados acima produzem via `metricas_setor._calc_dy_
+    # 12m_mercado` de fato (prova ponta-a-ponta contra o shape REAL do
+    # envelope, não uma constante hardcoded que poderia divergir do seed).
+    frase_dy = (
+        f"O Dividend yield 12m a mercado é de {dy_pontos}% (Σ proventos por ação/cota "
+        "com data-com nos últimos 12 meses ÷ último preço de fechamento; janela de 12 "
+        "meses; pregão mais recente)."
+    )
+    markdown = (
+        "# Tese — TAEE11 (Empresa TAEE11)\n"
+        "> Não é recomendação de investimento. Tese estruturada a partir de dados públicos.\n"
+        "## 1. Fundamentos\nReceita citada.\n"
+        "## 2. Contexto macro (Brasil e global)\nSelic citada.\n"
+        "## 3. Pares globais do setor\nSem pares.\n"
+        "## 4. Camada geopolítica e correlações (interpretação)\ncenário: juros.\n"
+        f"## 5. Síntese\n{frase_dy}\n"
+        "## 6. Riscos e contra-tese (bull × bear)\n...\n"
+        "## 7. Fontes\n...\n## 8. Lacunas\n- EBITDA: dado não encontrado\n"
+    )
+    client = _FakeClientSemCitacaoMetrica(markdown, "Dividend yield 12m a mercado")
+    monkeypatch.setattr(
+        tese_svc,
+        "get_settings",
+        lambda: SimpleNamespace(
+            anthropic_api_key="chave-de-teste-offline",
+            tese_teto_custo_usd_dia=0,
+            tese_model_synthesis="claude-opus-4-8",
+            tese_model_extraction="claude-haiku-4-5-20251001",
+            tese_max_tokens_sintese=16000,
+            consenso_enabled=False,
+        ),
+    )
+    monkeypatch.setattr(tese_svc.anthropic, "Anthropic", lambda api_key=None: client)
+    monkeypatch.setattr(tese_svc, "_extract_metadata_haiku", lambda *a, **k: None)
+    for perfil in (acao, fii, renda_fixa):
+        monkeypatch.setattr(
+            perfil,
+            "ingest",
+            lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("ingest não deveria rodar")),
+        )
+    # `avaliar_tese` NÃO é stubado aqui — é o gate REAL, o alvo do teste.
+    tese = _criar_tese(sessao, "TAEE11", None)
+
+    tese_svc.gerar_tese(sessao, tese.id)
+
+    sessao.refresh(tese)
+    env = _envelope(sessao, tese)
+    assert tese.status == "ready", env.get("erro")
+    laudo = env["avaliacao"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+    assert not laudo["termos_vetados"], laudo["termos_vetados"]
+    # Confirma o shape REAL do envelope: a métrica que ancorou a isenção
+    # existe de fato em `metricas_setor`, com a MESMA origem B3/COTAHIST.
+    metrica_dy = next(
+        m for m in env["metricas_setor"] if m["nome"] == "Dividend yield 12m a mercado"
+    )
+    assert metrica_dy["valor"] is not None
+    assert metrica_dy["unidade"] == "pct"
+    assert any("cotahist" in (f["descricao"] or "").lower() for f in metrica_dy["fontes"])
+
+
+# ---------------------------------------------------------------------------
 # 4) FII — P/VP e DY a mercado DESTRAVADOS no bloco de métricas
 # ---------------------------------------------------------------------------
 def test_tese_fii_pvp_e_dy_mercado(sessao: Session, monkeypatch: pytest.MonkeyPatch) -> None:

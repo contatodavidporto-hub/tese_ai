@@ -678,3 +678,164 @@ def test_hotfix2_d_basileia_no_texto_livre_novo_aprovado_no_markdown_bloqueia():
     laudo_vermelho = avaliar_tese(env_vermelho, classe="banco")
     assert laudo_vermelho["bloqueante"] is True
     assert laudo_vermelho["termos_vetados"] != []
+
+
+# ===========================================================================
+# Hotfix 3 (2026-07-11) — bug TAEE11 provado ao vivo numa 3ª situação: hotfix
+# 2 corrigiu `texto_livre_novo`, mas as 3 frases abaixo são de autoria do
+# MODELO (markdown) — a superfície certa (`texto_varredura_modelo`) — e
+# continuavam bloqueando porque o modelo reescreve o valor da métrica
+# determinística de `envelope['metricas_setor']` sem anexar citação Anthropic
+# à frase, ou na escala fração. Correção: `_isento_por_citacao` aceita OR uma
+# âncora por métrica VALIDADA da mesma origem (`_numeros_ancora_de_metricas`)
+# — nunca em vez da citação, e só para valores REAIS já no envelope (não
+# controláveis pelo texto do modelo) — então a anti-lavagem (subconjunto,
+# TERMO-03/TERMO-10) permanece intacta.
+# ===========================================================================
+
+
+def _metrica_dy_mercado(
+    valor: float,
+    *,
+    unidade: str = "pct",
+    descricao: str = "B3 — COTAHIST (dados de fim de dia), pregão 2026-07-10",
+) -> dict:
+    """Item de `envelope['metricas_setor']` no shape REAL de
+    `metricas_setor.metricas_para_envelope` (valor em PONTOS quando
+    unidade='pct' — a conversão fração->pontos já aconteceu no backend)."""
+    return {
+        "nome": "Dividend yield 12m a mercado",
+        "valor": valor,
+        "unidade": unidade,
+        "formula": "Σ proventos por ação/cota com data-com nos últimos 12 meses / último "
+        "preço de fechamento",
+        "o_que_mede": "Mede o rendimento distribuído nos últimos 12 meses em relação ao "
+        "preço corrente.",
+        "implicacao": "DY maior descreve distribuição maior relativa ao preço no período "
+        "observado; é retrato do passado, não estimativa de rendimento futuro.",
+        "fontes": [{"descricao": descricao, "url": "https://bvmf.bmfbovespa.com.br/x.zip"}],
+        "rotulos": [],
+        "lacuna": None,
+    }
+
+
+# As 3 frases VIVAS verbatim do bug ao vivo (TAEE11, 2026-07-11) — 3 gerações
+# reais bloqueadas, cada uma com fraseado DIFERENTE do modelo, todas pelo
+# MESMO motivo: 'DY/dividend yield a mercado com número' sem citação COTAHIST
+# correspondente àquela frase específica.
+_FRASES_VIVAS_HOTFIX3 = [
+    pytest.param(
+        "O Dividend yield 12m a mercado é de 8,23% (Σ proventos por ação/cota com "
+        "data-com nos últimos 12 meses ÷ último preço de fechamento;",
+        id="frase_1_pontos",
+    ),
+    pytest.param(
+        "O Dividend yield 12m a mercado foi de 8,23% (fração 0,0823), calculado como "
+        "a soma dos proventos por ação/cota com data-com nos últimos 12 meses dividida "
+        "pelo último preço de fechamento.",
+        id="frase_2_fracao",
+    ),
+    pytest.param(
+        "- Dividend yield 12m a mercado: 8,23% (soma dos proventos por ação/cota com "
+        "data-com nos últimos 12 meses ÷ fechamento do pregão mais recente, janela "
+        "2025-07-11 a 2026-07-11).",
+        id="frase_3_janela_iso",
+    ),
+]
+
+
+@pytest.mark.parametrize("frase", _FRASES_VIVAS_HOTFIX3)
+def test_hotfix3_a_frases_vivas_com_metrica_no_envelope_aprovadas(frase: str):
+    """(a) Verde — as 3 frases VIVAS, verbatim, cada uma numa tese própria,
+    com `envelope['metricas_setor']` contendo a métrica real (8,23 pct,
+    fonte B3/COTAHIST) e SEM nenhuma citação correspondente: aprovadas."""
+    md = f"## 5. Síntese\n{frase}"
+    env = _envelope(md)
+    env["metricas_setor"] = [_metrica_dy_mercado(8.23)]
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["termos_vetados"] == [], laudo["termos_vetados"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+    assert laudo["aprovado"] is True, laudo
+
+
+@pytest.mark.parametrize("frase", _FRASES_VIVAS_HOTFIX3)
+def test_hotfix3_b_mesma_frase_sem_metrica_no_envelope_continua_bloqueando(frase: str):
+    """(b) Vermelho — SEM regressão: a MESMA frase viva, mas
+    `envelope['metricas_setor']` AUSENTE (motor não computou/persistiu a
+    métrica) — nada ancora o número, segue bloqueante (fail-closed)."""
+    md = f"## 5. Síntese\n{frase}"
+    env = _envelope(md)  # sem "metricas_setor" — envelope.get() -> None -> []
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["bloqueante"] is True
+    assert laudo["termos_vetados"] != []
+
+
+def test_hotfix3_c_metrica_com_valor_diferente_nao_ancora():
+    """(c) Vermelho — a métrica REAL do envelope vale 8,23%, mas a frase
+    reivindica 9,99% (número que NÃO é a métrica computada, ex.: estimativa
+    solta/alucinação): a âncora não cobre um valor que ela mesma não tem —
+    continua bloqueando."""
+    md = "## Indicadores\nDY a mercado de 9,99%, segundo estimativa interna."
+    env = _envelope(md)
+    env["metricas_setor"] = [_metrica_dy_mercado(8.23)]
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["bloqueante"] is True
+    assert laudo["termos_vetados"] != []
+
+
+def test_hotfix3_d_valor_fracao_tambem_ancora():
+    """(a-variante) Verde — a métrica do envelope está em PONTOS (8,23, a
+    convenção do envelope v3); o modelo escreve a escala FRAÇÃO ('0,0823')
+    sem nenhum outro número na frase — a âncora cobre AMBAS as escalas
+    (`_numeros_ancora_de_metricas`, ÷100)."""
+    md = "## Indicadores\nO DY a mercado, em fração, é 0,0823 no período mais recente."
+    env = _envelope(md)
+    env["metricas_setor"] = [_metrica_dy_mercado(8.23)]
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["termos_vetados"] == [], laudo["termos_vetados"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+
+
+def test_hotfix3_e_lavagem_com_metrica_real_e_numero_fabricado_continua_bloqueando():
+    """(e) Vermelho — anti-lavagem intacta (espelha TERMO-03/TERMO-10 do
+    red-team v3, agora TAMBÉM com `metricas_setor` presente): a MESMA frase
+    tem o valor REAL ancorável (8,23%) E um valor FABRICADO adjacente
+    (12,00%, que não é nem citado nem métrica nenhuma) — o subconjunto exige
+    TODOS os números cobertos; sobrando o fabricado, a frase inteira segue
+    bloqueante. A âncora não pode "lavar" um número inventado."""
+    md = (
+        "## Indicadores\nDY a mercado de 8,23% no período, projetado a subir para "
+        "12,00% no próximo ano."
+    )
+    env = _envelope(md)
+    env["metricas_setor"] = [_metrica_dy_mercado(8.23)]
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["bloqueante"] is True
+    assert laudo["termos_vetados"] != []
+
+
+def test_hotfix3_f_data_iso_e_janela_nao_contam_como_numero_de_claim():
+    """(f) Investigação do item (c) do relatório do bug: fragmento de data
+    ISO ('2025-07-11') e "janela X a Y" NÃO viram número-de-claim — cada
+    componente da data tokeniza em 2-4 dígitos sem separador decimal/milhar,
+    abaixo do piso de significância de `_tem_numero_de_claim` (M4a). Sem
+    isso, a âncora de métrica (só cobre o valor 8,23) teria de também cobrir
+    fragmentos de data — não reproduziu; este teste documenta o
+    comportamento e previne regressão futura em `_NUMERO_RE`/`_tem_numero_
+    de_claim`."""
+    from app.services.avaliacao import _tem_numero_de_claim, _tokens_numericos_de_claim
+
+    frase = (
+        "Dividend yield 12m a mercado: 8,23% (janela 2025-07-11 a 2026-07-11, "
+        "4 pagamento(s); pregão 2026-07-10)."
+    )
+    # Só o "823" (de 8,23) é número-de-claim — nenhum fragmento de data.
+    assert _tokens_numericos_de_claim(frase) == {"823"}
+    assert _tem_numero_de_claim(frase) is True
+
+    md = f"## Indicadores\n{frase}"
+    env = _envelope(md)
+    env["metricas_setor"] = [_metrica_dy_mercado(8.23)]
+    laudo = avaliar_tese(env, classe="acao")
+    assert laudo["termos_vetados"] == [], laudo["termos_vetados"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
