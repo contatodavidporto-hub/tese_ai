@@ -28,7 +28,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.models.models import FiiCadastro, FiiIndicador, Fonte, PrecoDiario
-from app.services import fii_dados
+from app.services import cotahist, fii_dados
 from app.services.ativos import comum
 from app.services.ativos.base import FII as INFO
 from app.services.correlacao import Elo, elo_co_movimento, elo_interpretativo
@@ -130,8 +130,23 @@ def ensure_ativo(session: Session, codigo: str) -> FiiCadastro:
 
 
 def precisa_ingest(session: Session, fii: FiiCadastro) -> bool:
-    """Ingere quando não há indicador DENTRO da janela de staleness (90d)."""
-    return not fii_dados.indicadores_recentes(session, fii)
+    """Ingere quando falta indicador fresco (90d) OU quando o preço do
+    ticker está stale.
+
+    Correção do bug "tese legada silenciosa" (2026-07-11, mesmo padrão de
+    `acao.precisa_ingest`): um FII com informe recente mas sem NENHUMA
+    linha de `precos_diarios` (ex.: primeira geração falhou só no passo
+    COTAHIST) nunca reingeria — `_tem_dado_novo` nunca achava o preço e a
+    tese saía sem P/VP/DY a mercado, sem erro visível. Reusa a MESMA regra
+    de staleness de `cotahist.ensure_precos`. Sem ticker (heurística de
+    ISIN zerada por colisão) -> checagem de preço é pulada (sem como
+    consultar COTAHIST sem código de negociação)."""
+    if not fii_dados.indicadores_recentes(session, fii):
+        return True
+    ticker = (fii.ticker or "").strip().upper()
+    if not ticker:
+        return False
+    return not cotahist.precos_frescos(session, ticker)
 
 
 def ingest(session: Session, fii: FiiCadastro) -> None:

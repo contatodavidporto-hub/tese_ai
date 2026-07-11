@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.models.models import Empresa
@@ -26,15 +28,44 @@ class _FakeSavepoint:
         return False  # exceção propaga para o `passo` tratar
 
 
+class _FakeResult:
+    """Resultado mínimo que satisfaz `.first()` e `.scalars().all()` — os
+    dois formatos usados pelos guards de reingest (`orquestracao.
+    _tem_fundamento` / `fii_dados.indicadores_recentes`)."""
+
+    def __init__(self, linhas: list | None = None) -> None:
+        self._linhas = linhas or []
+
+    def first(self):
+        return self._linhas[0] if self._linhas else None
+
+    def scalars(self) -> _FakeResult:
+        return self
+
+    def all(self) -> list:
+        return self._linhas
+
+    def scalar_one_or_none(self):
+        return self._linhas[0] if self._linhas else None
+
+
 class _FakeSession:
-    def __init__(self) -> None:
+    def __init__(self, *, linhas_execute: list | None = None) -> None:
         self.commits = 0
         self.savepoints: list[_FakeSavepoint] = []
+        # Linhas devolvidas por QUALQUER `.execute(...)` — usado pelos guards
+        # de reingest (fundamento/indicador já persistido). Vazio por padrão:
+        # espelha "empresa/fundo ainda sem NADA persistido", o cenário destes
+        # testes pré-existentes (ingest roda normalmente).
+        self._linhas_execute = linhas_execute or []
 
     def begin_nested(self) -> _FakeSavepoint:
         sp = _FakeSavepoint()
         self.savepoints.append(sp)
         return sp
+
+    def execute(self, *_a, **_k) -> _FakeResult:
+        return _FakeResult(self._linhas_execute)
 
     def commit(self) -> None:
         self.commits += 1
@@ -276,4 +307,99 @@ def test_ingest_renda_fixa_completo_so_o_titulo_pedido(monkeypatch: pytest.Monke
     assert capturas[0] == ("IPCA", 2035)
     assert set(res) == {"titulo_tesouro", "anbima_ettj", "cdi", "focus"}
     assert all(v == "ok" for v in res.values())
+    assert sess.commits == 1
+
+
+# ---------------------------------------------------------------------------
+# Bug "tese legada silenciosa" (2026-07-11): reingest disparado só por preço
+# stale NÃO pode re-baixar o passo mais caro (DFP/informe) — só os conectores
+# que ainda faltam (que já se auto-noop quando frescos, ver `test_cotahist.py`
+# e `test_fii_dados.py`).
+# ---------------------------------------------------------------------------
+def test_ingest_completo_pula_dfp_quando_empresa_ja_tem_fundamento(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chamadas_dfp = 0
+
+    def _dfp(*_a, **_k):
+        nonlocal chamadas_dfp
+        chamadas_dfp += 1
+
+    def _reg(nome: str):
+        def _fn(*_a, **_k):
+            pass
+
+        return _fn
+
+    monkeypatch.setattr(orquestracao.dados_svc, "ingest_fundamentos", _dfp)
+    monkeypatch.setattr(orquestracao.dados_svc, "ingest_macro", _reg("macro"))
+    monkeypatch.setattr(orquestracao.dados_svc, "ingest_usd_historico", _reg("usd_hist"))
+    monkeypatch.setattr(orquestracao.commodities, "ingest_brent", _reg("brent"))
+    monkeypatch.setattr(orquestracao.commodities, "ingest_brent_historico", _reg("brent_hist"))
+    monkeypatch.setattr(orquestracao.macro_global, "ingest_world_bank", _reg("wb"))
+    monkeypatch.setattr(orquestracao.macro_global, "ingest_treasury_10y", _reg("tr"))
+    monkeypatch.setattr(orquestracao.sec, "ingest_pares", _reg("pares"))
+    monkeypatch.setattr(orquestracao.cotahist, "ensure_precos", _reg("cotahist"))
+    monkeypatch.setattr(orquestracao.proventos_b3, "ensure_proventos", _reg("proventos"))
+
+    # `_linhas_execute` não-vazio -> `_tem_fundamento` acha uma linha (mesmo
+    # formato de `select(Fundamento.id)...first()`).
+    sess = _FakeSession(linhas_execute=[SimpleNamespace(id="fundamento-existente")])
+    empresa = Empresa(nome="VALE3 LTDA", ticker="VALE3", cd_cvm=4170)
+
+    res = orquestracao.ingest_completo(sess, empresa)
+
+    # DFP NUNCA foi chamada (passo mais caro pulado)...
+    assert chamadas_dfp == 0
+    assert res["fundamentos"].startswith("pulado")
+    # ...mas os conectores restantes (COTAHIST/proventos/macro/pares) rodam
+    # normalmente — cada um já se auto-noop quando fresco por conta própria.
+    assert res["cotahist_precos"] == "ok"
+    assert res["cotahist_bova11"] == "ok"
+    assert res["proventos_b3"] == "ok"
+    assert res["pares_globais"] == "ok"
+    assert sess.commits == 1
+
+
+def test_ingest_fii_completo_pula_informe_quando_indicador_ja_fresco(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chamadas_informe: list[str] = []
+
+    def _reg_informe(nome: str):
+        def _fn(*_a, **_k):
+            chamadas_informe.append(nome)
+
+        return _fn
+
+    def _reg(nome: str):
+        def _fn(*_a, **_k):
+            pass
+
+        return _fn
+
+    monkeypatch.setattr(orquestracao.fii_dados, "ingest_indicadores", _reg_informe("indicadores"))
+    monkeypatch.setattr(orquestracao.fii_dados, "ingest_vacancia", _reg_informe("vacancia"))
+    monkeypatch.setattr(orquestracao.dados_svc, "ingest_macro", _reg("macro"))
+    monkeypatch.setattr(orquestracao.focus, "ingest_cdi", _reg("cdi"))
+    monkeypatch.setattr(orquestracao.focus, "ingest_focus", _reg("focus"))
+    monkeypatch.setattr(orquestracao.cotahist, "ensure_precos", _reg("cotahist"))
+    monkeypatch.setattr(orquestracao.proventos_b3, "ensure_proventos", _reg("proventos"))
+
+    # `_linhas_execute` não-vazio -> `fii_dados.indicadores_recentes` acha um
+    # indicador (mesmo formato de `select(FiiIndicador)...scalars().all()`).
+    sess = _FakeSession(linhas_execute=[SimpleNamespace(indicador="VP_COTA")])
+    from app.models.models import FiiCadastro
+
+    fundo = FiiCadastro(cnpj="00", nome="FII Z", ticker="HGLG11")
+
+    res = orquestracao.ingest_fii_completo(sess, fundo)
+
+    # Nenhum passo de informe (mensal/trimestral, os mais caros) foi chamado...
+    assert chamadas_informe == []
+    assert res["fii_indicadores"].startswith("pulado")
+    assert res["fii_vacancia"].startswith("pulado")
+    # ...mas COTAHIST/proventos (o gatilho real do reingest) rodam normalmente.
+    assert res["fii_cotahist_precos"] == "ok"
+    assert res["fii_proventos_b3"] == "ok"
     assert sess.commits == 1

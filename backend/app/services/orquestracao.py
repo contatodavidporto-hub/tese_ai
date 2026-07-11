@@ -11,8 +11,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
+
 from app.core.logging import get_logger
-from app.models.models import Empresa, FiiCadastro
+from app.models.models import Empresa, FiiCadastro, Fundamento
 from app.services import (
     anbima_ettj,
     aneel,
@@ -48,6 +50,25 @@ def _e_setor_energia_transmissao(setor: str | None) -> bool:
     puro), que são camadas diferentes do pipeline (plano §2.1)."""
     s = (setor or "").lower()
     return "energ" in s or "transmiss" in s or "eletric" in s or "elétric" in s
+
+
+def _tem_fundamento(session: Session, empresa: Empresa) -> bool:
+    """Mesma checagem de `acao.precisa_ingest` — duplicação pequena e
+    deliberada (orquestracao é a camada INFERIOR; não importa `ativos.acao`,
+    que já importa `orquestracao`). True quando a empresa já tem QUALQUER
+    fundamento persistido.
+
+    Usada para pular o passo mais caro do re-ingest (download multi-ano da
+    DFP) quando o gatilho foi só preço stale (correção do bug "tese legada
+    silenciosa", 2026-07-11): os demais conectores (COTAHIST/proventos/
+    IF.data/ANEEL) já se auto-noop quando os próprios dados estão frescos —
+    só a DFP baixava tudo de novo incondicionalmente."""
+    return (
+        session.execute(
+            select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
+        ).first()
+        is not None
+    )
 
 
 def _passos_isolados(
@@ -100,9 +121,18 @@ def ingest_completo(session: Session, empresa: Empresa) -> dict[str, str]:
     resultados: dict[str, str] = {}
     passo = _passos_isolados(session, resultados)
 
-    passo("fundamentos", lambda: dados_svc.ingest_fundamentos(session, empresa))
+    if _tem_fundamento(session, empresa):
+        # Reingest disparado só por preço stale (`perfil.precisa_ingest`,
+        # F3): a DFP já foi baixada e persistida — pula o passo mais caro
+        # (download multi-ano da CVM) e deixa os conectores restantes
+        # (COTAHIST/proventos/IF.data/ANEEL/macro/pares) disparar
+        # normalmente, cada um já auto-noop quando fresco.
+        resultados["fundamentos"] = "pulado: empresa já tem fundamento persistido"
+    else:
+        passo("fundamentos", lambda: dados_svc.ingest_fundamentos(session, empresa))
     # A partir daqui `empresa.plano_contas`/`empresa.setor` já refletem o filing
-    # (setados por `ingest_fundamentos`/identidade antes deste ponto).
+    # (setados por `ingest_fundamentos`/identidade antes deste ponto) — SÓ quando
+    # o passo rodou; num reingest pulado, os dois já vêm do filing anterior.
     ticker = (empresa.ticker or "").strip().upper()
     if ticker:
         passo("cotahist_precos", lambda: cotahist.ensure_precos(session, ticker))
@@ -142,8 +172,16 @@ def ingest_fii_completo(session: Session, fii: FiiCadastro) -> dict[str, str]:
     resultados: dict[str, str] = {}
     passo = _passos_isolados(session, resultados)
 
-    passo("fii_indicadores", lambda: fii_dados.ingest_indicadores(session, fii))
-    passo("fii_vacancia", lambda: fii_dados.ingest_vacancia(session, fii))
+    if fii_dados.indicadores_recentes(session, fii):
+        # Reingest disparado só por preço stale (`perfil.precisa_ingest`,
+        # F3): o informe mensal já está fresco — pula os dois passos de
+        # informe (mensal/trimestral, os mais caros: multi-ano da CVM) e
+        # deixa COTAHIST/proventos disparar normalmente.
+        resultados["fii_indicadores"] = "pulado: indicador já fresco"
+        resultados["fii_vacancia"] = "pulado: indicador já fresco"
+    else:
+        passo("fii_indicadores", lambda: fii_dados.ingest_indicadores(session, fii))
+        passo("fii_vacancia", lambda: fii_dados.ingest_vacancia(session, fii))
     ticker = (fii.ticker or "").strip().upper()
     if ticker:
         passo("fii_cotahist_precos", lambda: cotahist.ensure_precos(session, ticker))

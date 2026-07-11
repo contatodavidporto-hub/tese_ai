@@ -236,7 +236,9 @@ def _mensagem_fake(markdown: str):
     return SimpleNamespace(content=[block], usage=usage)
 
 
-def _preparar_motor_fake(monkeypatch: pytest.MonkeyPatch, markdown: str) -> _FakeClient:
+def _preparar_motor_fake(
+    monkeypatch: pytest.MonkeyPatch, markdown: str, *, ingest_deve_rodar: bool = False
+) -> _FakeClient:
     client = _FakeClient(_mensagem_fake(markdown))
     monkeypatch.setattr(
         tese_svc,
@@ -267,15 +269,23 @@ def _preparar_motor_fake(monkeypatch: pytest.MonkeyPatch, markdown: str) -> _Fak
             "cobertura_fontes": 1.0,
         },
     )
-    # ingest() nunca deve ser chamado nestes testes (precisa_ingest=False já
-    # que sempre seedamos um Fundamento) — mas travamos explicitamente para
-    # que uma regressão que dispare rede real falhe alto e claro.
+    # ingest() nunca deve ser chamado nestes testes quando `precisa_ingest`
+    # já é False (fundamento/indicador E preço frescos) — travamos
+    # explicitamente para que uma regressão que dispare rede real falhe alto
+    # e claro. Cenários que seedam fundamento/indicador SEM preço (correção
+    # do bug "tese legada silenciosa", 2026-07-11: `precisa_ingest` passa a
+    # olhar preço também) esperam ingest() rodar — passam
+    # `ingest_deve_rodar=True` e recebem um NO-OP (sem rede, sem gravar
+    # nada) em vez do travamento, preservando o cenário "sem dado novo".
     for perfil in (acao, fii, renda_fixa):
-        monkeypatch.setattr(
-            perfil,
-            "ingest",
-            lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("ingest não deveria rodar")),
-        )
+        if ingest_deve_rodar:
+            monkeypatch.setattr(perfil, "ingest", lambda *_a, **_k: None)
+        else:
+            monkeypatch.setattr(
+                perfil,
+                "ingest",
+                lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("ingest não deveria rodar")),
+            )
     return client
 
 
@@ -395,7 +405,10 @@ def test_tese_banco_ifdata_no_envelope(sessao: Session, monkeypatch: pytest.Monk
         )
     )
     sessao.commit()
-    _preparar_motor_fake(monkeypatch, _MD_ACAO)
+    # Sem COTAHIST seedado: `precisa_ingest` dispara ingest() (correção do
+    # bug "tese legada silenciosa") — NO-OP aqui de propósito, o cenário sob
+    # teste é IF.data-only (sem técnica/valuation).
+    _preparar_motor_fake(monkeypatch, _MD_ACAO, ingest_deve_rodar=True)
     tese = _criar_tese(sessao, "BANC4", None)
 
     tese_svc.gerar_tese(sessao, tese.id)
@@ -430,7 +443,12 @@ def test_tese_energia_rap_no_envelope(sessao: Session, monkeypatch: pytest.Monke
     )
     _seed_provento(sessao, "TAEE11", 0.8)
     sessao.commit()
-    _preparar_motor_fake(monkeypatch, _MD_ACAO)
+    # Sem COTAHIST seedado: `precisa_ingest` dispara ingest() (correção do
+    # bug "tese legada silenciosa") — NO-OP aqui de propósito, o cenário sob
+    # teste é RAP-only (DY a mercado precisa de preço, fora de escopo aqui;
+    # ver `test_tese_energia_dy_mercado_gate_real_no_documento_correto` p/
+    # o cenário completo com o gate REAL).
+    _preparar_motor_fake(monkeypatch, _MD_ACAO, ingest_deve_rodar=True)
     tese = _criar_tese(sessao, "TAEE11", None)
 
     tese_svc.gerar_tese(sessao, tese.id)
@@ -444,6 +462,170 @@ def test_tese_energia_rap_no_envelope(sessao: Session, monkeypatch: pytest.Monke
     # Elo RAP -> dividendos persistido (fonte nas duas pontas).
     elos = sessao.execute(select(Elo)).scalars().all()
     assert any(e.dimensao == "rap→receita→dividendos" for e in elos)
+
+
+# ---------------------------------------------------------------------------
+# 3b) Regressão VIVA do bug TAEE11 (2026-07-11): RAP (ANEEL) + DY a mercado
+# (COTAHIST/B3) no MESMO bloco de métricas — antes, `_documento_metricas`
+# juntava as duas num único documento ancorado na fonte do PRIMEIRO item
+# (RAP/ANEEL, por causa da ordem do registro em `metricas_setor._REGISTRO`),
+# então uma citação do DY a mercado saía com origem ANEEL e o gate REAL
+# bloqueava a frase "DY/dividend yield a mercado com número" por falta de
+# citação COTAHIST/B3 — tese LEGÍTIMA reprovada. Roda `avaliar_tese` DE
+# VERDADE (sem stub) com um envelope montado PELO PRÓPRIO PIPELINE: o fake
+# do Anthropic acha, nos documentos reais que `gerar_tese` monta, aquele que
+# contém a métrica de DY a mercado e cita ELE — não um índice fixo — para
+# prevar que a citação aponta pra Fonte certa fim a fim.
+# ---------------------------------------------------------------------------
+class _FakeStreamDinamico:
+    def __init__(self, message):
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        return self._message
+
+
+class _FakeMessagesDinamico:
+    """Fake que NÃO fixa `document_index=0`: acha, nos documentos REAIS que
+    o pipeline montou (`kwargs["messages"][0]["content"]`), aquele cujo
+    texto contém `marcador_doc` e cita ELE — a citação aponta pra Fonte que
+    o código de produção escolheu, não pra um índice hardcoded."""
+
+    def __init__(self, markdown: str, marcador_doc: str, numero_citado: str) -> None:
+        self._markdown = markdown
+        self._marcador_doc = marcador_doc
+        self._numero_citado = numero_citado
+        self.captured: dict | None = None
+
+    def stream(self, **kwargs):
+        self.captured = kwargs
+        conteudo = kwargs["messages"][0]["content"]
+        # Cita TODOS os documentos (cobertura realista — um LLM real cita a
+        # maioria das fontes que recebe), mas o texto citado do documento
+        # com `marcador_doc` (o de métricas B3/COTAHIST, pós-correção) traz
+        # o MESMO número da frase de DY a mercado — é essa citação que o
+        # gate precisa achar para relaxar o termo vetado.
+        citacoes = []
+        for i, bloco in enumerate(conteudo):
+            if bloco.get("type") != "document":
+                continue
+            texto_citado = (
+                self._numero_citado
+                if self._marcador_doc in bloco["source"]["data"]
+                else "fato citado"
+            )
+            citacoes.append(
+                SimpleNamespace(
+                    document_index=i, cited_text=texto_citado, document_title=bloco.get("title")
+                )
+            )
+        assert any(
+            self._marcador_doc in bloco["source"]["data"]
+            for bloco in conteudo
+            if bloco.get("type") == "document"
+        ), f"documento com marcador {self._marcador_doc!r} não foi montado pelo pipeline"
+        block = SimpleNamespace(type="text", text=self._markdown, citations=citacoes)
+        usage = SimpleNamespace(
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
+        message = SimpleNamespace(content=[block], usage=usage)
+        return _FakeStreamDinamico(message)
+
+
+class _FakeClientDinamico:
+    def __init__(self, markdown: str, marcador_doc: str, numero_citado: str) -> None:
+        self.messages = _FakeMessagesDinamico(markdown, marcador_doc, numero_citado)
+
+
+def test_tese_energia_dy_mercado_gate_real_no_documento_correto(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _empresa(sessao, "TAEE11", setor="Energia Elétrica")
+    f_rap = _fonte(sessao, "ANEEL SIGET — RAP")
+    sessao.add(
+        SetorIndicador(
+            ticker="TAEE11",
+            indicador="RAP_CICLO",
+            valor=1_500_000_000.0,
+            unidade="BRL",
+            competencia=_HOJE,
+            metodologia="RAP agregada das concessões do grupo Taesa — mapa curado v1",
+            fonte_id=f_rap.id,
+        )
+    )
+    # RAP entra ANTES de DY a mercado em `_REGISTRO[("acao", None,
+    # "energia_transmissao")]` — é essa ordem que expôs o bug original.
+    _seed_precos(sessao, "TAEE11", dias=60, preco_base=35.0)
+    _seed_precos(sessao, "BOVA11", dias=60, preco_base=120.0)
+    _seed_provento(sessao, "TAEE11", 0.8)
+    sessao.commit()
+
+    frase_dy = (
+        "O dividend yield 12m a mercado de TAEE11 soma 9,00%, apurado sobre o "
+        "fechamento mais recente do pregão."
+    )
+    markdown = (
+        "# Tese — TAEE11 (Empresa TAEE11)\n"
+        "> Não é recomendação de investimento. Tese estruturada a partir de dados públicos.\n"
+        "## 1. Fundamentos\nReceita citada.\n"
+        "## 2. Contexto macro (Brasil e global)\nSelic citada.\n"
+        "## 3. Pares globais do setor\nSem pares.\n"
+        "## 4. Camada geopolítica e correlações (interpretação)\ncenário: juros.\n"
+        f"## 5. Síntese\n{frase_dy}\n"
+        "## 6. Riscos e contra-tese (bull × bear)\n...\n"
+        "## 7. Fontes\n...\n## 8. Lacunas\n- EBITDA: dado não encontrado\n"
+    )
+    client = _FakeClientDinamico(
+        markdown,
+        "Dividend yield 12m a mercado",  # marcador único do doc de métricas B3/COTAHIST
+        "dividend yield 12m a mercado de 9,00%",  # cited_text com o MESMO número da frase
+    )
+    monkeypatch.setattr(
+        tese_svc,
+        "get_settings",
+        lambda: SimpleNamespace(
+            anthropic_api_key="chave-de-teste-offline",
+            tese_teto_custo_usd_dia=0,
+            tese_model_synthesis="claude-opus-4-8",
+            tese_model_extraction="claude-haiku-4-5-20251001",
+            tese_max_tokens_sintese=16000,
+            consenso_enabled=False,
+        ),
+    )
+    monkeypatch.setattr(tese_svc.anthropic, "Anthropic", lambda api_key=None: client)
+    monkeypatch.setattr(tese_svc, "_extract_metadata_haiku", lambda *a, **k: None)
+    for perfil in (acao, fii, renda_fixa):
+        monkeypatch.setattr(
+            perfil,
+            "ingest",
+            lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("ingest não deveria rodar")),
+        )
+    # `avaliar_tese` NÃO é stubado aqui — é o gate REAL, o alvo do teste.
+    tese = _criar_tese(sessao, "TAEE11", None)
+
+    tese_svc.gerar_tese(sessao, tese.id)
+
+    sessao.refresh(tese)
+    assert tese.status == "ready", _envelope(sessao, tese).get("erro")
+    env = _envelope(sessao, tese)
+    laudo = env["avaliacao"]
+    assert laudo["bloqueante"] is False, laudo["motivos"]
+    assert not laudo["termos_vetados"], laudo["termos_vetados"]
+    assert laudo["aprovado"] is True, laudo
+    # Confirma que RAP e DY seguem AMBAS no bloco de métricas (a correção não
+    # perdeu nenhuma métrica — só separou os documentos por origem).
+    nomes = {m["nome"] for m in env["metricas_setor"]}
+    assert "RAP (Receita Anual Permitida)" in nomes
+    assert "Dividend yield 12m a mercado" in nomes
 
 
 # ---------------------------------------------------------------------------
@@ -576,7 +758,13 @@ def test_tese_legada_sem_dado_novo_envelope_sem_blocos_novos(
     sessao: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _empresa(sessao, "LEGA4")
-    client = _preparar_motor_fake(monkeypatch, _MD_ACAO)
+    # Sem COTAHIST seedado: `precisa_ingest` agora dispara ingest() mesmo com
+    # fundamento presente (correção do bug "tese legada silenciosa",
+    # 2026-07-11) — NO-OP aqui de propósito, simulando "ingest tentou e não
+    # achou nada novo" (ticker sem cobertura/rede indisponível), o único
+    # jeito real de preservar o caminho LEGADO (`_tem_dado_novo=False`) para
+    # um ticker que já existe.
+    client = _preparar_motor_fake(monkeypatch, _MD_ACAO, ingest_deve_rodar=True)
     tese = _criar_tese(sessao, "LEGA4", None)
 
     tese_svc.gerar_tese(sessao, tese.id)

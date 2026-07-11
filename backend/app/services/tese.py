@@ -20,6 +20,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 
@@ -1003,22 +1004,86 @@ def _documento_valuation(
     return fonte, "\n".join(linhas)
 
 
-def _documento_metricas(
+# Bug "gate bloqueia tese legítima por métrica ancorada na fonte errada"
+# (2026-07-11, TAEE11 ao vivo): a versão antiga juntava TODAS as métricas
+# (RAP/ANEEL + DY a mercado/COTAHIST + Basileia/IF.data + ...) num ÚNICO
+# documento, ancorado na Fonte do PRIMEIRO item da lista — para TAEE11, a
+# RAP (ANEEL). Quando o LLM citava o DY a mercado desse mesmo documento, a
+# citação saía com origem ANEEL; o relaxamento-por-citação do gate
+# (`avaliacao._RELAXAMENTO_POR_CITACAO`) exige origem COTAHIST/B3 para esse
+# termo — não casava, e a tese LEGÍTIMA era bloqueada.
+#
+# Correção: um documento POR ORIGEM (grupo abaixo, em ORDEM de prioridade —
+# a mesma que o gate reconhece, `avaliacao._ORIGEM_*_RE`, duplicada aqui
+# DELIBERADAMENTE — `tese.py` não importa símbolos privados de `avaliacao`,
+# camada de AVALIAÇÃO, não de MONTAGEM). Métrica com fontes de origens
+# diferentes (ex.: P/VP ação = preço/COTAHIST + patrimônio/DFP) ancora na
+# origem de MAIOR prioridade — para os termos vetados-com-citação (P/VP FII,
+# DY a mercado, Basileia, inflação implícita), essa é SEMPRE a origem que o
+# gate exige (preço/COTAHIST vence DFP; ver `_calc_pvp_acao`/`_calc_dy_12m_
+# mercado`/`_calc_pvp_fii` em `metricas_setor.py`, todas com a fonte de
+# mercado/prudencial na posição que casa primeiro).
+_GRUPOS_ORIGEM_METRICA: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bcotahist\b|\bb3\b", re.IGNORECASE), "Métricas — B3/COTAHIST"),
+    (re.compile(r"\baneel\b", re.IGNORECASE), "Métricas — ANEEL"),
+    (re.compile(r"if\.?\s?data|\bbcb\b", re.IGNORECASE), "Métricas — BCB IF.data"),
+    (re.compile(r"\banbima\b|\bettj\b", re.IGNORECASE), "Métricas — ANBIMA/ETTJ"),
+    (re.compile(r"\binforme\b", re.IGNORECASE), "Métricas — CVM (informe)"),
+    (re.compile(r"\bdfp\b", re.IGNORECASE), "Métricas — CVM/DFP"),
+)
+_GRUPO_METRICA_OUTRAS = "Métricas — outras fontes"
+
+
+def _grupo_e_ancora_metrica(
+    m: metricas_svc.MetricaSetor,
+) -> tuple[str, metricas_svc.FonteMetrica]:
+    """(título do documento, `FonteMetrica` âncora) da métrica — a fonte de
+    MAIOR prioridade em `_GRUPOS_ORIGEM_METRICA` entre `m.fontes`; sem
+    nenhuma origem reconhecida, cai no grupo/fonte genéricos (primeira
+    fonte)."""
+    melhor: tuple[int, str, metricas_svc.FonteMetrica] | None = None
+    for fm in m.fontes:
+        alvo = f"{fm.url or ''} {fm.descricao or ''}"
+        for prioridade, (regex, titulo) in enumerate(_GRUPOS_ORIGEM_METRICA):
+            if regex.search(alvo):
+                if melhor is None or prioridade < melhor[0]:
+                    melhor = (prioridade, titulo, fm)
+                break
+    if melhor is not None:
+        return melhor[1], melhor[2]
+    return _GRUPO_METRICA_OUTRAS, m.fontes[0]
+
+
+def _documentos_metricas(
     session: Session, metricas: list[metricas_svc.MetricaSetor]
-) -> tuple[Fonte, str] | None:
+) -> list[tuple[Fonte, str]]:
+    """Um documento citável POR ORIGEM (ver `_GRUPOS_ORIGEM_METRICA`), cada
+    um ancorado numa `Fonte` REAL (com URL) da própria origem — nunca uma
+    única Fonte "emprestada" para métricas de origens diferentes (correção
+    do bug TAEE11, 2026-07-11)."""
     com_valor = [m for m in metricas if m.valor is not None and m.fontes]
     if not com_valor:
-        return None
-    fonte = _fonte_de_metrica(session, com_valor[0].fontes[0])
-    if fonte is None or not fonte.url:
-        return None
-    linhas = ["Métricas do setor/classe:"]
+        return []
+    grupos: dict[str, list[metricas_svc.MetricaSetor]] = {}
+    ancoras: dict[str, metricas_svc.FonteMetrica] = {}
     for m in com_valor:
-        rotulos_txt = f" [{', '.join(m.rotulos)}]" if m.rotulos else ""
-        linhas.append(
-            f"- {m.nome}: {m.valor} {m.unidade} ({m.formula}). {m.implicacao}{rotulos_txt}"
-        )
-    return fonte, "\n".join(linhas)
+        titulo, ancora = _grupo_e_ancora_metrica(m)
+        grupos.setdefault(titulo, []).append(m)
+        ancoras.setdefault(titulo, ancora)  # 1ª métrica do grupo decide a Fonte do doc
+
+    docs: list[tuple[Fonte, str]] = []
+    for titulo, itens in grupos.items():
+        fonte = _fonte_de_metrica(session, ancoras[titulo])
+        if fonte is None or not fonte.url:
+            continue  # sem Fonte real (URL) não é documento citável — abstém
+        linhas = [f"{titulo}:"]
+        for m in itens:
+            rotulos_txt = f" [{', '.join(m.rotulos)}]" if m.rotulos else ""
+            linhas.append(
+                f"- {m.nome}: {m.valor} {m.unidade} ({m.formula}). {m.implicacao}{rotulos_txt}"
+            )
+        docs.append((fonte, "\n".join(linhas)))
+    return docs
 
 
 def _documento_consenso(
@@ -1063,9 +1128,7 @@ def _documentos_extras(
         if doc is not None:
             docs.append(doc)
     if blocos.metricas:
-        doc = _documento_metricas(session, blocos.metricas)
-        if doc is not None:
-            docs.append(doc)
+        docs.extend(_documentos_metricas(session, blocos.metricas))
     if blocos.consenso:
         doc = _documento_consenso(session, blocos.consenso)
         if doc is not None:
