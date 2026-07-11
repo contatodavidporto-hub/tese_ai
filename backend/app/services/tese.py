@@ -1034,9 +1034,13 @@ def _documento_consenso(
     for item in validos:
         casa_txt = item.casa or "o consenso consultado"
         data_txt = _data_materia_de_page_age(item.page_age) or "data não informada"
+        # O título vem da página web (canal controlável por terceiros): entra
+        # entre aspas como DADO, com aspas internas removidas — nunca como
+        # texto solto que pareça instrução ao modelo (hardening L1).
+        titulo_dado = (item.titulo or "").replace('"', "'").strip()
         linhas.append(
             f"- Segundo {item.veiculo} ({data_txt}), {casa_txt} tem preço-alvo de "
-            f"{_fmt_reais(float(item.valor))} ({item.titulo}, {item.url})."
+            f'{_fmt_reais(float(item.valor))} (matéria: "{titulo_dado}", {item.url}).'
         )
     return fonte, "\n".join(linhas)
 

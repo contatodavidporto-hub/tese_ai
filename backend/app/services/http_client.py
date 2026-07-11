@@ -85,7 +85,13 @@ def _resolve_publico(host: str) -> None:
         return
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
             raise HostNaoPermitido(f"{host} -> IP interno {ip}")
 
 
