@@ -38,7 +38,7 @@ from app.models.models import (
     Provento,
     SetorIndicador,
 )
-from app.services import correlacao, planos_contas
+from app.services import correlacao, cotahist, planos_contas
 from app.services import dados as dados_svc
 from app.services.ativos.base import ACAO as INFO
 from app.services.correlacao import Elo, elo_co_movimento, elo_interpretativo
@@ -81,13 +81,28 @@ def ensure_ativo(session: Session, codigo: str) -> Empresa:
 
 
 def precisa_ingest(session: Session, empresa: Empresa) -> bool:
-    """Mesmo gatilho do fluxo legado: ingere só se a empresa não tem fundamento."""
-    return (
+    """Ingere quando falta fundamento OU quando o preço do ticker está stale.
+
+    Correção do bug "tese legada silenciosa" (2026-07-11): antes, uma
+    empresa com fundamentos já persistidos nunca reingeria, mesmo sem
+    NENHUMA linha de `precos_diarios` — `_tem_dado_novo` (tese.py) então
+    nunca achava o preço novo e a tese saía com o prompt/blocos legados,
+    sem erro nem lacuna visível. Reusa a MESMA regra de staleness de
+    `cotahist.ensure_precos` (`cotahist.precos_frescos`) em vez de duplicá-
+    la — sem ticker, a checagem de preço é pulada (nada a ingerir por essa
+    via)."""
+    sem_fundamento = (
         session.execute(
             select(Fundamento.id).where(Fundamento.empresa_id == empresa.id).limit(1)
         ).first()
         is None
     )
+    if sem_fundamento:
+        return True
+    ticker = (empresa.ticker or "").strip().upper()
+    if not ticker:
+        return False
+    return not cotahist.precos_frescos(session, ticker)
 
 
 def ingest(session: Session, empresa: Empresa) -> None:

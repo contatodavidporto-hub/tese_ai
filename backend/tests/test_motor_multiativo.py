@@ -567,6 +567,15 @@ def _preparar_motor_fake(
     # paralelo — aqui provamos que o MOTOR chama com o kwarg, sem acoplar o
     # teste à assinatura final de avaliacao.py.
     monkeypatch.setattr(tese_svc, "avaliar_tese", _gate_stub)
+    # Este arquivo não cria `precos_diarios`/`curva_snapshot` (fora do escopo
+    # do BLOCO F) — desde a correção do bug "tese legada silenciosa"
+    # (2026-07-11), `precisa_ingest` passa a considerar TAMBÉM o preço/
+    # snapshot do ticker, então uma empresa/FII/título já com fundamento/
+    # indicador ainda assim dispara `ingest()` aqui (tabela ausente = preço
+    # nunca fresco). No-op explícito por classe: mantém estes testes
+    # focados em template/gate/elos, sem rede real.
+    for perfil in (acao, fii, renda_fixa):
+        monkeypatch.setattr(perfil, "ingest", lambda *_a, **_k: None)
     return client, captura_gate
 
 

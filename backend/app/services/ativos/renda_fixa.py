@@ -35,7 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.models import Fonte, TituloPublico
-from app.services import tesouro
+from app.services import anbima_ettj, tesouro
 from app.services.ativos import comum
 from app.services.ativos.base import RENDA_FIXA as INFO
 from app.services.correlacao import Elo, elo_co_movimento, elo_interpretativo
@@ -185,11 +185,22 @@ def ensure_ativo(session: Session, codigo: str) -> TituloRef:
 
 
 def precisa_ingest(session: Session, ref: TituloRef, *, hoje: dt.date | None = None) -> bool:
-    """Ingere quando não há leitura ATUAL do título (sem linhas OU stale >30d)."""
+    """Ingere quando não há leitura ATUAL do título (sem linhas OU stale >30d)
+    OU quando falta o snapshot ANBIMA ETTJ do dia (dentro da janela de
+    regressão aceita).
+
+    Correção do bug "tese legada silenciosa" (2026-07-11, mesmo padrão de
+    `acao.precisa_ingest`/`fii.precisa_ingest`): o snapshot ANBIMA é
+    alimentado principalmente pelo job diário do scheduler
+    (`scheduler._job_anbima_ettj`) — esta segunda checagem é só o FALLBACK
+    on-demand para o caso raro de o job ainda não ter rodado hoje."""
     try:
-        return tesouro.titulo_atual(session, ref.familia, ref.ano, hoje) is None
+        titulo_stale = tesouro.titulo_atual(session, ref.familia, ref.ano, hoje) is None
     except DadoNaoEncontrado:
+        titulo_stale = True
+    if titulo_stale:
         return True
+    return not anbima_ettj.snapshot_recente(session, hoje=hoje)
 
 
 def ingest(session: Session, ref: TituloRef) -> None:

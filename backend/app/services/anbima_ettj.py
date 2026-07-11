@@ -195,6 +195,30 @@ def _dias_uteis_candidatos(hoje: dt.date) -> list[dt.date]:
     return candidatos
 
 
+def snapshot_recente(session: Session, *, hoje: dt.date | None = None) -> bool:
+    """True quando já existe snapshot ANBIMA ETTJ dentro da MESMA janela de
+    regressão aceita por `ensure_snapshot` (`MAX_REGRESSAO_DIAS_UTEIS` dias
+    úteis) — reusa `_dias_uteis_candidatos` em vez de duplicar a regra.
+
+    Exposta para `renda_fixa.precisa_ingest` (correção do bug "tese legada
+    silenciosa", 2026-07-11): o snapshot do dia é alimentado principalmente
+    pelo job diário do scheduler (`scheduler._job_anbima_ettj`) — esta
+    checagem é o FALLBACK on-demand para o caso raro de o job ainda não ter
+    rodado. Tabela ausente (migração 0006 pendente/teste offline) -> False
+    (degrada para "precisa ingerir", nunca derruba o chamador)."""
+    candidatos = _dias_uteis_candidatos(hoje or dt.date.today())
+    corte = min(candidatos)
+    try:
+        return (
+            session.execute(
+                select(CurvaSnapshot.id).where(CurvaSnapshot.data_ref >= corte).limit(1)
+            ).first()
+            is not None
+        )
+    except (ProgrammingError, OperationalError):
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Persistência — upsert idempotente por (data_ref, curva, vertice_du)
 # ---------------------------------------------------------------------------

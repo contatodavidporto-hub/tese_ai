@@ -32,7 +32,7 @@ from typing import NamedTuple, NoReturn
 
 import httpx
 from sqlalchemy import func, select
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -305,6 +305,27 @@ def _todos_frescos(session: Session, alvo: set[str], hoje: dt.date) -> bool:
         if ultimo is None or ultimo < corte:
             return False
     return True
+
+
+def precos_frescos(session: Session, ticker: str, *, hoje: dt.date | None = None) -> bool:
+    """True quando o ticker tem série de preço com o pregão mais recente
+    DENTRO da janela de staleness (`STALENESS_DIAS_UTEIS` dias úteis) — MESMA
+    regra usada por `ensure_precos` para decidir se dispara o backfill.
+
+    Exposta para os perfis de classe (`acao.precisa_ingest`/`fii.precisa_
+    ingest`, correção do bug 'tese legada silenciosa', 2026-07-11): sem
+    linha alguma OU pregão mais velho que o corte -> False (precisa
+    ingerir), mesmo que fundamentos/indicadores da empresa já existam —
+    reusa a MESMA regra em vez de duplicá-la. Tabela ausente (migração 0006
+    pendente/teste offline) -> False (degrada para "precisa ingerir", nunca
+    derruba o chamador com um erro de schema)."""
+    ticker = (ticker or "").upper().strip()
+    if not ticker:
+        return False
+    try:
+        return _todos_frescos(session, {ticker}, hoje or dt.date.today())
+    except (ProgrammingError, OperationalError):
+        return False
 
 
 def _meses_para_tras(hoje: dt.date, n: int) -> Iterator[tuple[int, int]]:
