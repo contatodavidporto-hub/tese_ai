@@ -63,6 +63,22 @@
   /* Realce de citação — o "salmão FT" guardado só para evidência */
   --quote-wash: #f9ece2; /* + borda esquerda 2px var(--accent-action) */
 
+  /* Paleta de gráficos (dados) — 6 cores FIXAS, "Tese Profunda" (contrato do
+     envelope v3, correção A16 do red-team). Nunca decorativa: cada cor
+     identifica uma série/linha de referência num gráfico factual (preço,
+     indicadores técnicos). Verde é proibido pela identidade (ver guard-rails
+     abaixo) — a escala evita por completo a faixa amarelo-esverdeada/verde/
+     ciano-esverdeada (~70°–200° de matiz) para nunca ser lida como "verde".
+     Contraste verificado (luminância relativa, script ad-hoc) ≥4.9:1 contra
+     --bg-page/--bg-card nos dois temas — acima do mínimo de 3:1 exigido para
+     objetos gráficos (WCAG 1.4.11), com folga para também rotular texto. */
+  --grafico-1: #a03a06; /* reaproveita a brasa — série primária (preço/linha principal) */
+  --grafico-2: #2d3f7a; /* índigo — série secundária (sinal MACD, média móvel) */
+  --grafico-3: #8a6415; /* ouro — série terciária (2ª média móvel, histograma positivo) */
+  --grafico-4: #7a2340; /* vinho — série quaternária (histograma negativo) */
+  --grafico-5: #5b3f8a; /* violeta-aço — faixa de Bollinger / 5ª série */
+  --grafico-6: #565b66; /* grafite — linhas de referência tracejadas (RSI 30/70 etc.) */
+
   /* ---------- Motion — "a edição sendo impressa" ---------- */
   /* Durações: puramente CSS, sem lib runtime; usar via classes utilitárias
      abaixo ou `duration-[var(--dur-*)]` do Tailwind (arbitrary value). */
@@ -105,6 +121,15 @@
     --error-text: #f2938a; /* 7.62:1 */
 
     --quote-wash: #251a12; /* carvão quente + borda esq. 2px accent */
+
+    /* Paleta de gráficos — mesma identidade de cada série, recalibrada para
+       ≥4.9:1 no fundo escuro (mesmo script de verificação do claro). */
+    --grafico-1: #e97b3c;
+    --grafico-2: #93a6e6;
+    --grafico-3: #d9b354;
+    --grafico-4: #e28aa8;
+    --grafico-5: #b6a0e6;
+    --grafico-6: #9aa0ad;
   }
 }
 
@@ -147,6 +172,25 @@
 
   /* Realce de citação */
   --color-realce: var(--quote-wash);
+
+  /* Paleta de gráficos — habilita `stroke-grafico-1..6` / `fill-grafico-1..6`
+     (+ opacidade, ex.: `fill-grafico-5/15`) como classes Tailwind ESTÁTICAS,
+     pré-declaradas (correção A16, plano-correcoes-redteam.md). Os
+     componentes de gráfico (GraficoLinha/Macd/Oscilador) só usam classes
+     LITERAIS destas 6 — nunca uma string tipo `stroke-grafico-${n}` montada
+     em runtime: o JIT do Tailwind v4 escaneia texto literal do código-fonte
+     em build-time, então uma classe interpolada nunca é gerada (fica
+     "invisível" no CSS final — purgada por definição, não por engano). A
+     seleção "dinâmica" de cor por índice de série usa um ARRAY de strings
+     literais (`CLASSES_GRAFICO` em `formatacao.ts`) — o literal aparece no
+     código-fonte, só a ESCOLHA do índice é dinâmica; a classe em si nunca é.
+  */
+  --color-grafico-1: var(--grafico-1);
+  --color-grafico-2: var(--grafico-2);
+  --color-grafico-3: var(--grafico-3);
+  --color-grafico-4: var(--grafico-4);
+  --color-grafico-5: var(--grafico-5);
+  --color-grafico-6: var(--grafico-6);
 
   /* Fontes (next/font — ver layout.tsx) */
   --font-display: var(--font-newsreader);

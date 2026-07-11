@@ -1,9 +1,10 @@
 // Vista estruturada da tese: seções por dimensão (h2 do markdown do motor) com
 // sumário e âncoras, citações com preview de fonte, lacunas destacadas e o
 // registro auditável de fontes ao fim. Presentacional — sem estado próprio
-// (só `useReveal` local para orquestrar a assinatura "Impressão de Régua").
+// (o `useReveal`/Impressão de Régua agora mora em `SecaoChrome.tsx`, que
+// também serve as 4 seções novas do envelope — ver import abaixo).
 
-import { classesReveal, Reveal, useReveal } from "@/components/motion/Reveal";
+import { Reveal } from "@/components/motion/Reveal";
 import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
 import { papelPorTicker, slotVirada, type ClasseAtivo } from "@/lib/tickers";
 import {
@@ -13,6 +14,11 @@ import {
   type CitacaoRef,
   type Secao,
 } from "./Markdown";
+import { AvisoBanner, BadgeLacuna, CabecalhoSecao, SecaoEnvelope } from "./SecaoChrome";
+import { SecaoConsenso } from "./SecaoConsenso";
+import { SecaoMetricasSetor } from "./SecaoMetricasSetor";
+import { SecaoTecnica } from "./SecaoTecnica";
+import { SecaoValuation } from "./SecaoValuation";
 import type { Fonte, TeseOut } from "./types";
 
 function formatDataHora(iso: string): string {
@@ -39,41 +45,6 @@ function urlHttp(url: string | null | undefined): url is string {
 function splitClausula(titulo: string): { numero: string | null; texto: string } {
   const m = /^(\d{1,2})\.\s*(.*)$/.exec(titulo.trim());
   return m ? { numero: m[1], texto: m[2] } : { numero: null, texto: titulo };
-}
-
-export function AvisoBanner({ aviso }: { aviso: string }) {
-  // Disclaimer regulatório de NÃO-recomendação. NUNCA pode sumir: se o backend
-  // não enviar o aviso, caímos numa constante fixa no front (conformidade).
-  const texto =
-    aviso?.trim() ||
-    "Não é recomendação de investimento. Tese estruturada a partir de dados públicos; a decisão é do leitor.";
-  return (
-    <div role="note" className="flex items-start gap-3 border-l-4 border-aviso-borda bg-aviso-fundo px-5 py-4">
-      <span className="mt-0.5 shrink-0 font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
-        Aviso
-      </span>
-      <p className="text-ui text-aviso-texto">{texto}</p>
-    </div>
-  );
-}
-
-function BadgeLacuna({ texto }: { texto: string }) {
-  // Lacuna Declarada (assinatura de motion): outline tracejado expande e
-  // dissolve 1x — mesma hierarquia de uma citação, nunca a de erro.
-  const { ref, armado, revelado } = useReveal<HTMLSpanElement>();
-  return (
-    <span
-      ref={ref}
-      className={classesReveal(
-        "lacuna-declarada",
-        armado,
-        revelado,
-        "inline-flex w-fit items-center bg-aviso-fundo px-2 py-1 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-aviso-texto",
-      )}
-    >
-      {texto}
-    </span>
-  );
 }
 
 function FonteLink({ fonte }: { fonte: Fonte }) {
@@ -146,14 +117,19 @@ function TextoCitado({ texto, url }: { texto: string; url: string | null | undef
   );
 }
 
-function Sumario({ secoes }: { secoes: Secao[] }) {
+// Âncora extra do sumário para as 4 seções novas do envelope — não vêm do
+// markdown (sem "N." de cláusula), por isso `numero` fica sempre `null`.
+type AncoraExtra = { id: string; titulo: string };
+
+function Sumario({ secoes, extras = [] }: { secoes: Secao[]; extras?: AncoraExtra[] }) {
   // D2 (CORRECOES-RODADA-1.md): hook extraído para módulo compartilhado
   // (src/components/motion/useSecaoAtiva.ts) — o mesmo scrollspy também
   // move o IndiceNav de /como-funciona. "citacoes" é a âncora fixa da
   // página (fora de `secoes`, ver JSX de TeseView) — inclui-se sempre; se o
   // bloco não existir nesta tese, `getElementById` só devolve `null` e o
-  // hook descarta.
-  const ativo = useSecaoAtiva([...secoes.map((s) => s.id), "citacoes"]);
+  // hook descarta. `extras` (Métricas do setor/Valuation/Técnica/Consenso)
+  // segue a mesma lógica: só existem no DOM se o bloco veio no envelope.
+  const ativo = useSecaoAtiva([...secoes.map((s) => s.id), ...extras.map((e) => e.id), "citacoes"]);
   return (
     <nav aria-label="Sumário da tese">
       <p className="mb-3 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -181,6 +157,22 @@ function Sumario({ secoes }: { secoes: Secao[] }) {
             </li>
           );
         })}
+        {extras.map((e) => {
+          const ehAtivo = ativo === e.id;
+          return (
+            <li key={e.id}>
+              <a
+                href={`#${e.id}`}
+                aria-current={ehAtivo ? "location" : undefined}
+                className={`flex items-baseline gap-2 border-l-2 py-1 pl-3 text-ui leading-snug transition-colors duration-[var(--dur-tick)] hover:border-brasa-texto hover:text-ink ${
+                  ehAtivo ? "border-brasa-texto text-ink" : "border-transparent text-ink-2"
+                }`}
+              >
+                <span>{e.titulo}</span>
+              </a>
+            </li>
+          );
+        })}
         <li>
           <a
             href="#citacoes"
@@ -197,56 +189,6 @@ function Sumario({ secoes }: { secoes: Secao[] }) {
         </li>
       </ol>
     </nav>
-  );
-}
-
-// Impressão de Régua + cláusula numerada mono: abre cada seção do report.
-// `useReveal` único (em vez de dois <Reveal>) para a régua e o título
-// dispararem exatamente juntos, com o título assentando 80ms depois
-// (`.atraso-regua`) — ver DESIGN-TOKENS.md §3.
-function CabecalhoSecao({
-  tituloId,
-  numero,
-  texto,
-  lacunas,
-}: {
-  tituloId: string;
-  numero: string | null;
-  texto: string;
-  lacunas: boolean;
-}) {
-  const { ref, armado, revelado } = useReveal<HTMLDivElement>();
-  return (
-    <div ref={ref} className="flex flex-col gap-4">
-      <div
-        className={classesReveal(
-          "reveal-regua",
-          armado,
-          revelado,
-          lacunas ? "h-1 w-full origin-left bg-aviso-borda" : "h-1 w-full origin-left bg-line-strong",
-        )}
-      />
-      <h3
-        id={tituloId}
-        className={classesReveal(
-          undefined,
-          armado,
-          revelado,
-          `atraso-regua flex flex-wrap items-baseline gap-x-3 font-display text-h2 font-semibold tracking-tight ${
-            lacunas ? "text-aviso-texto" : "text-ink"
-          }`,
-        )}
-      >
-        {numero && (
-          <span
-            className={`font-mono text-ui font-semibold ${lacunas ? "text-aviso-texto" : "text-brasa-texto"}`}
-          >
-            {numero}.
-          </span>
-        )}
-        {texto}
-      </h3>
-    </div>
   );
 }
 
@@ -281,6 +223,17 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   const slotEdicao = slotVirada(tese.ticker);
   // `null` = classe indeterminável -> nenhum selo (fail-closed, ver acima).
   const seloClasse = rotuloClasse(tese);
+  // Âncoras extras do sumário — mesma condição de renderização das seções
+  // novas mais abaixo no JSX (mantidas em sincronia manualmente: um bloco só
+  // entra aqui se a seção correspondente realmente for renderizar).
+  const extrasSumario: AncoraExtra[] = [
+    ...(tese.metricas_setor && tese.metricas_setor.length > 0
+      ? [{ id: "metricas-setor", titulo: "Métricas do setor" }]
+      : []),
+    ...(tese.valuation ? [{ id: "valuation", titulo: "Valuation" }] : []),
+    ...(tese.tecnica ? [{ id: "analise-tecnica", titulo: "Análise técnica" }] : []),
+    ...(tese.consenso ? [{ id: "consenso", titulo: "Consenso de analistas" }] : []),
+  ];
 
   return (
     <article className="flex w-full flex-col gap-10">
@@ -396,11 +349,11 @@ export function TeseView({ tese }: { tese: TeseOut }) {
                 Sumário
               </summary>
               <div className="pb-3">
-                <Sumario secoes={documento.secoes} />
+                <Sumario secoes={documento.secoes} extras={extrasSumario} />
               </div>
             </details>
             <div className="hidden lg:block">
-              <Sumario secoes={documento.secoes} />
+              <Sumario secoes={documento.secoes} extras={extrasSumario} />
             </div>
           </div>
 
@@ -438,6 +391,39 @@ export function TeseView({ tese }: { tese: TeseOut }) {
             })}
           </div>
         </div>
+      )}
+
+      {/* Blocos novos do envelope ("Tese Profunda" — contrato do envelope v3,
+          .maestro/contrato-envelope-v3.md): ordem canônica fixada no
+          contrato — Métricas do setor → Valuation → Análise técnica →
+          Consenso. Cada seção só aparece se o backend enviou o bloco
+          (ausência = tese legada válida ou fail-closed de gate bloqueado —
+          o router não serve bloco novo nenhum nesse caso); dentro de cada
+          seção presente, o aviso/nota correspondente fica SEMPRE visível e
+          listas vazias (indicadores/modelos/itens) degradam para as
+          lacunas declaradas, nunca para "seção sumiu". */}
+      {tese.metricas_setor && tese.metricas_setor.length > 0 && (
+        <SecaoEnvelope id="metricas-setor" titulo="Métricas do setor">
+          <SecaoMetricasSetor metricas={tese.metricas_setor} />
+        </SecaoEnvelope>
+      )}
+
+      {tese.valuation && (
+        <SecaoEnvelope id="valuation" titulo="Valuation">
+          <SecaoValuation valuation={tese.valuation} />
+        </SecaoEnvelope>
+      )}
+
+      {tese.tecnica && (
+        <SecaoEnvelope id="analise-tecnica" titulo="Análise técnica">
+          <SecaoTecnica tecnica={tese.tecnica} graficos={tese.graficos ?? []} />
+        </SecaoEnvelope>
+      )}
+
+      {tese.consenso && (
+        <SecaoEnvelope id="consenso" titulo="Consenso de analistas">
+          <SecaoConsenso consenso={tese.consenso} />
+        </SecaoEnvelope>
       )}
 
       {/* Trilha auditável: citações numeradas + registro de fontes */}
