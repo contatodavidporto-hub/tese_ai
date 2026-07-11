@@ -151,8 +151,12 @@ export function GraficoLinha({ grafico }: { grafico: Grafico }) {
       <NotaFixa texto={grafico.nota} />
       <FonteChip fonte={grafico.fonte} />
 
-      {/* Tabela oculta (WCAG): os mesmos dados desenhados acima, em texto. */}
-      <table className="sr-only">
+      {/* Tabela oculta (WCAG): os mesmos dados desenhados acima, em texto.
+          O wrapper <div className="sr-only"> é obrigatório: `sr-only` direto
+          na <table> não contém a largura (table-layout auto ignora width:1px)
+          e a caixa fantasma vaza para o scrollWidth do documento no mobile. */}
+      <div className="sr-only">
+        <table>
         <caption>{grafico.titulo} — dados por data</caption>
         <thead>
           <tr>
@@ -186,7 +190,8 @@ export function GraficoLinha({ grafico }: { grafico: Grafico }) {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </figure>
   );
 }

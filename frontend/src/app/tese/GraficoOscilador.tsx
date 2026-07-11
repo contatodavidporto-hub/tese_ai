@@ -123,7 +123,11 @@ export function GraficoOscilador({ grafico }: { grafico: Grafico }) {
       <NotaFixa texto={grafico.nota} />
       <FonteChip fonte={grafico.fonte} />
 
-      <table className="sr-only">
+      {/* Wrapper sr-only obrigatorio: `sr-only` direto na <table> nao contem
+          a largura (table-layout auto ignora width:1px) e vaza para o
+          scrollWidth do documento no mobile. */}
+      <div className="sr-only">
+        <table>
         <caption>{grafico.titulo} — dados por data</caption>
         <thead>
           <tr>
@@ -154,7 +158,8 @@ export function GraficoOscilador({ grafico }: { grafico: Grafico }) {
             </tr>
           </tfoot>
         )}
-      </table>
+        </table>
+      </div>
     </figure>
   );
 }
