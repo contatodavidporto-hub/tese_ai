@@ -47,6 +47,17 @@ type OpcoesPonteiro = {
    * superfície única, ex. o hero).
    */
   seletorAlvo?: string;
+  /**
+   * Elemento que RECEBE a escrita de `--mx`/`--my` (perf, gate 3.2): custom
+   * property herdada escrita num container invalida o estilo da subárvore
+   * inteira a cada quadro; escrever direto na folha que consome a var (o
+   * sprite `.foco-luz`) invalida 1 elemento (~-80% de custo de recálculo
+   * medido no hero). A GEOMETRIA continua medida no alvo/container (é a
+   * referência de centro). Só faz sentido no modo de superfície única —
+   * ignorado quando `seletorAlvo` está presente (nos cards o `::after`
+   * precisa da var no próprio card).
+   */
+  escreverEm?: RefObject<HTMLElement | null>;
 };
 
 /**
@@ -70,7 +81,7 @@ type OpcoesPonteiro = {
  */
 export function usePonteiro<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
-  { seletorAlvo }: OpcoesPonteiro = {},
+  { seletorAlvo, escreverEm }: OpcoesPonteiro = {},
 ): void {
   const prefereReduzido = usePrefereReduzidoLocal();
 
@@ -90,8 +101,10 @@ export function usePonteiro<T extends HTMLElement>(
     let idQuadro = 0;
 
     function limpar(alvo: HTMLElement | null) {
-      alvo?.style.removeProperty("--mx");
-      alvo?.style.removeProperty("--my");
+      if (!alvo) return;
+      const destino = alvoDeEscrita(alvo);
+      destino.style.removeProperty("--mx");
+      destino.style.removeProperty("--my");
     }
 
     // Roda no máximo 1x por quadro (rAF): lê a geometria do alvo e escreve
@@ -99,13 +112,22 @@ export function usePonteiro<T extends HTMLElement>(
     // centralizada — ver `calc(var(--mx) - 60vmax)` em globals.css — então
     // um deslocamento a partir do centro é exatamente o que a mantém sob o
     // ponteiro).
+    // Onde escrever: na delegação, sempre o card sob o cursor (o `::after`
+    // dele precisa da var); em superfície única, a folha indicada por
+    // `escreverEm` (perf) ou o próprio container como fallback.
+    function alvoDeEscrita(alvo: HTMLElement): HTMLElement {
+      if (seletorAlvo) return alvo;
+      return escreverEm?.current ?? alvo;
+    }
+
     function aplicar() {
       quadroAgendado = false;
       if (!pendente) return;
       const { x, y, alvo } = pendente;
       const r = alvo.getBoundingClientRect();
-      alvo.style.setProperty("--mx", `${x - (r.left + r.width / 2)}px`);
-      alvo.style.setProperty("--my", `${y - (r.top + r.height / 2)}px`);
+      const destino = alvoDeEscrita(alvo);
+      destino.style.setProperty("--mx", `${x - (r.left + r.width / 2)}px`);
+      destino.style.setProperty("--my", `${y - (r.top + r.height / 2)}px`);
     }
 
     function aoMover(ev: PointerEvent) {
@@ -157,5 +179,5 @@ export function usePonteiro<T extends HTMLElement>(
       window.cancelAnimationFrame(idQuadro);
       limpar(alvoAtual);
     };
-  }, [containerRef, seletorAlvo, prefereReduzido]);
+  }, [containerRef, seletorAlvo, escreverEm, prefereReduzido]);
 }
