@@ -25,6 +25,14 @@ const securityHeaders = [
   },
   // Sem prefetch de DNS para terceiros.
   { key: "X-DNS-Prefetch-Control", value: "off" },
+  // Isola o browsing context (mitiga Spectre/side-channel entre origens);
+  // não interfere em popups OAuth pois o app não usa `window.opener`.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Só a própria origem pode carregar (embed/fetch) os recursos deste site.
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  // COEP (`require-corp`) NÃO entra ainda: exigiria CORP/CORS em toda imagem/
+  // asset de terceiro (ex.: preview de OG image) e pode quebrar sem teste
+  // dedicado. Follow-up: testar isoladamente antes de habilitar.
 ];
 
 const nextConfig: NextConfig = {

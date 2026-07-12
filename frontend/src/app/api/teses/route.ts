@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { backendUrl } from "@/lib/backend";
 import { TICKER_RE } from "@/lib/tickers";
 
+// Resposta carrega o resultado (ou erro) de UMA submissão específica —
+// nunca deve ser guardada por cache de navegador/CDN.
+const SEM_CACHE: Record<string, string> = { "Cache-Control": "no-store" };
+
 // Proxy SERVER-SIDE para o backend FastAPI.
 // O CSP do app (src/proxy.ts) tem `connect-src 'self'`, então o NAVEGADOR só pode
 // chamar a MESMA origem. O cliente chama /api/teses; este handler repassa ao backend.
@@ -17,7 +21,7 @@ export async function POST(request: NextRequest) {
     console.error("api/teses: API_URL ausente no ambiente do servidor");
     return NextResponse.json(
       { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
-      { status: 502 },
+      { status: 502, headers: SEM_CACHE },
     );
   }
 
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { detail: "Corpo da requisição inválido (JSON esperado)." },
-      { status: 400 },
+      { status: 400, headers: SEM_CACHE },
     );
   }
 
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (typeof ticker !== "string" || ticker.trim() === "") {
     return NextResponse.json(
       { detail: "Campo 'ticker' é obrigatório." },
-      { status: 400 },
+      { status: 400, headers: SEM_CACHE },
     );
   }
 
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
         detail:
           "Ticker fora do formato aceito (ex.: PETR4, HGLG11, ou código do Tesouro Direto como TD-IPCA-2035).",
       },
-      { status: 400 },
+      { status: 400, headers: SEM_CACHE },
     );
   }
 
@@ -85,11 +89,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data ?? { detail: text }, {
       status: upstream.status,
+      headers: SEM_CACHE,
     });
   } catch {
     return NextResponse.json(
       { detail: "Não foi possível contatar o backend de teses." },
-      { status: 502 },
+      { status: 502, headers: SEM_CACHE },
     );
   }
 }

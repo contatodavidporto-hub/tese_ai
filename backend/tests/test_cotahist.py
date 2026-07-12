@@ -250,6 +250,54 @@ def test_ingest_diario_zip_corrompido_retorna_zero(sessao: Session) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Correção L1 — teto de tamanho DESCOMPRIMIDO do membro do ZIP (zip-bomb)
+# ---------------------------------------------------------------------------
+def test_checar_tamanho_membro_levanta_quando_excede_o_teto() -> None:
+    # Zip pequeno (poucos bytes comprimidos), mas cujo `file_size` (tamanho REAL
+    # descomprimido) excede um teto de teste baixo -> levanta.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("COTAHIST.TXT", b"x" * 500)
+    with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+        info = z.getinfo("COTAHIST.TXT")
+    assert info.file_size == 500
+    with pytest.raises(cotahist.ZipDescompactadoGrandeDemais, match="500"):
+        cotahist._checar_tamanho_membro(info, teto=100)
+
+
+def test_checar_tamanho_membro_nao_levanta_dentro_do_teto() -> None:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("COTAHIST.TXT", b"x" * 50)
+    with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+        info = z.getinfo("COTAHIST.TXT")
+    cotahist._checar_tamanho_membro(info, teto=100)  # não levanta
+
+
+def test_texto_do_zip_degrada_para_none_quando_membro_excede_o_teto(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Fim a fim: com o teto de módulo baixado (monkeypatch), um ZIP cujo membro
+    # excede o teto nunca chega a `z.read()` — degrada como zip inválido
+    # (mesmo padrão de abstenção de `_texto_do_zip`), nunca estoura RAM/500.
+    monkeypatch.setattr(cotahist, "_MAX_DESCOMPRIMIDO", 100)
+    zip_bytes = _zip_cotahist("x" * 500)
+    assert cotahist._texto_do_zip(zip_bytes) is None
+
+
+def test_ingest_diario_zip_bomba_degrada_como_zip_invalido_sem_gravar(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Prova ponta a ponta pelo caminho público: um "zip-bomb" simulado (membro
+    # descomprimido > teto) não grava nenhum preço, sem 500.
+    monkeypatch.setattr(cotahist, "_MAX_DESCOMPRIMIDO", 100)
+    mapa = {_url_diario(PREGAO_AMOSTRA): _zip_cotahist(AMOSTRA)}
+    n = ingest_arquivo_diario(sessao, PREGAO_AMOSTRA, tickers={"PETR4"}, transport=_transport(mapa))
+    assert n == 0
+    assert _precos_db(sessao, "PETR4") == []
+
+
+# ---------------------------------------------------------------------------
 # ingest_backfill — arquivos MENSAIS para trás até cobrir a janela de pregões
 # ---------------------------------------------------------------------------
 def test_backfill_para_ao_cobrir_a_janela_sem_baixar_meses_extras(sessao: Session) -> None:
