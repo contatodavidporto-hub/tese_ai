@@ -10,6 +10,7 @@ import { FonteChip, GraficoIndisponivel, NotaFixa } from "./EnvelopeNovo";
 import { areaUtil, LegendaGrafico, MolduraGrafico } from "./GraficoEixos";
 import {
   caminhoLinha,
+  classeEntradaSerie,
   corFundo,
   corTraco,
   criarEscala,
@@ -96,6 +97,13 @@ export function GraficoMacd({ grafico }: { grafico: Grafico }) {
             indicador: positivo acima, negativo abaixo). */}
         <line x1={x0} x2={x1} y1={yZero} y2={yZero} className="stroke-line-strong" strokeWidth={1} />
 
+        {/* `.traco-grafico-barra`: fade-only (§5, MOLDE MACIO) — retângulo
+            sólido sem stroke, `stroke-dashoffset` não se aplicaria; a altura/
+            posição é assinada (positivo cresce para cima, negativo para
+            baixo a partir do zero), então um `scaleY` compositor-safe
+            precisaria de `transform-origin` distinto por sinal — a favor da
+            fidelidade factual sobre o espetáculo, opacity simples evita
+            qualquer risco de geometria errada num dado financeiro. */}
         {histograma?.pontos.map((p, i) => {
           const xCentro = escalaX(p.t);
           const yValor = escalaY(p.v);
@@ -110,13 +118,22 @@ export function GraficoMacd({ grafico }: { grafico: Grafico }) {
               y={yTopo}
               width={LARGURA_BARRA}
               height={Math.max(altura, 0.5)}
-              className={positivo ? "fill-grafico-3" : "fill-grafico-4"}
+              className={`${positivo ? "fill-grafico-3" : "fill-grafico-4"} traco-grafico-barra`}
             />
           );
         })}
 
-        {caminhosLinhas.map((s) =>
-          s.d ? <path key={s.indice} d={s.d} fill="none" className={corTraco(s.indice)} strokeWidth={1.75} /> : null,
+        {caminhosLinhas.map((s, pos) =>
+          s.d ? (
+            <path
+              key={s.indice}
+              d={s.d}
+              fill="none"
+              pathLength={1}
+              className={`${corTraco(s.indice)} ${classeEntradaSerie(pos)}`}
+              strokeWidth={1.75}
+            />
+          ) : null,
         )}
       </MolduraGrafico>
 

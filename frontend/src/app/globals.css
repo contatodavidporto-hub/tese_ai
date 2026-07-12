@@ -1108,6 +1108,195 @@ details[open] > .menu-mobile-resumo::after {
   }
 }
 
+/* 18. TINTA DESENHANDO NO PAPEL — entrada em cena dos 6 gráficos SVG da
+       Análise técnica (§5, .maestro/direcao-de-arte-cinema.md;
+       SecaoTecnica.tsx/GraficoLinha.tsx/GraficoMacd.tsx/GraficoOscilador.tsx).
+       Gatilho: `.entrada-grafico` é uma variante do `Reveal` que, ao
+       contrário de `.reveal`/`.reveal-ticker` (que estilizam o PRÓPRIO
+       wrapper), fica deliberadamente MUDA — o wrapper nunca ganha
+       opacity/transform; ele só existe para alternar `.is-armed`/
+       `.is-revealed` (IntersectionObserver, Reveal.tsx) e GATEAR os
+       seletores descendentes abaixo, que são quem de fato anima. Sem
+       `.is-armed` (JS não carregou, ou reduced-motion — ver bloco de
+       redução mais abaixo), nenhuma regra aqui se aplica: os SVGs renderizam
+       exatamente como hoje, pixel-idênticos.
+
+       Ordem de leitura (papel → tese → apoio), 1x por gráfico ao entrar em
+       view — nunca os 6 juntos, cada `<Reveal variant="entrada-grafico">`
+       tem seu próprio observer (SecaoTecnica.tsx):
+         1. eixos/grade — fade, --dur-set, ease-rule ("papel pautado"):
+            reaproveita as classes ESTÁTICAS já usadas pela grade/eixo/tick
+            de `GraficoEixos.tsx` (`stroke-line`/`stroke-line-strong`/
+            `fill-ink-3`) — zero classe nova nesses elementos, só o seletor
+            descendente abaixo os alcança quando estão dentro de
+            `.entrada-grafico`. `:not(.traco-grafico-ref)` exclui o rótulo
+            de linha de referência do Oscilador (mesma classe `fill-ink-3`
+            de um tick comum, mas semanticamente pertence à etapa 4, abaixo).
+         2. série primária (`.traco-grafico` sem `.i-N`: a 1ª série
+            renderizada, `classeEntradaSerie(0)` em formatacao.ts) —
+            `stroke-dashoffset` 1→0 via `pathLength={1}` (JSX) +
+            `stroke-dasharray:1` (aqui), --dur-edition, ease-rule;
+         3. séries secundárias (`.traco-grafico.i-2`…`.i-6`, MESMO
+            vocabulário `.i-N` do stagger de citações/cláusulas — nenhum
+            mecanismo novo) + apoio que a geometria NÃO deixa tracejar
+            (`.traco-grafico-area`: faixa de Bollinger, `fill` sem `stroke`;
+            `.traco-grafico-barra`: histograma do MACD, retângulos sólidos
+            de altura assinada) — stagger 120ms, --dur-press cada, FADE (não
+            dash: sem stroke, `stroke-dashoffset` não teria efeito visual —
+            MOLDE MACIO, fidelidade factual antes do espetáculo);
+         4. referências tracejadas (`.traco-grafico-ref`: linhas 30/70 do
+            RSI/estocástico/Williams %R + seu rótulo mono) — por último,
+            --dur-set, FADE: a linha já usa `strokeDasharray="4 4"` fixo
+            como o PRÓPRIO desenho do tracejado — normalizar o path com
+            `pathLength`/`stroke-dashoffset` (que reinterpreta TODO
+            `stroke-dasharray` em unidades de 0–1) quebraria esse padrão em
+            repouso (o "4 4" passaria a valer sobre um comprimento
+            normalizado de 1, virando quase um traço sólido) — MOLDE MACIO,
+            fade preserva o tracejado intocado.
+
+       Timings compostos via `calc()` com os tokens de duração existentes
+       (zero valor mágico): --dur-set=240ms + --dur-edition=700ms = 940ms é
+       quando a 1ª série secundária/apoio começa; a etapa 4 assume um teto
+       fixo (940ms + --dur-press + 240ms de folga ≈ 1,6s) generoso o
+       bastante para os casos reais do produto (no máximo 2–3 séries por
+       gráfico) — não tenta sincronizar com um Nº de séries desconhecido em
+       tempo de build, mesmo raciocínio de "delay fixo aproximado" já usado
+       em `.pin-hero`/`.citacao-pin-hero` acima. */
+.entrada-grafico.is-armed svg .stroke-line,
+.entrada-grafico.is-armed svg .stroke-line-strong,
+.entrada-grafico.is-armed svg .fill-ink-3:not(.traco-grafico-ref) {
+  opacity: 0;
+  transition: opacity var(--dur-set) var(--ease-rule);
+}
+.entrada-grafico.is-armed.is-revealed svg .stroke-line,
+.entrada-grafico.is-armed.is-revealed svg .stroke-line-strong,
+.entrada-grafico.is-armed.is-revealed svg .fill-ink-3:not(.traco-grafico-ref) {
+  opacity: 1;
+}
+
+/* Série primária. */
+.entrada-grafico.is-armed svg .traco-grafico {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition-property: stroke-dashoffset;
+  transition-timing-function: var(--ease-rule);
+  transition-duration: var(--dur-edition);
+  transition-delay: var(--dur-set);
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico {
+  stroke-dashoffset: 0;
+}
+/* Séries secundárias — só sobrescrevem duração/delay (longhand); a
+   propriedade/easing acima seguem valendo (cascade por propriedade, não
+   precisa repetir). Especificidade de `.traco-grafico.i-N` (2 classes) já
+   vence `.traco-grafico` (1 classe) sem depender de ordem no arquivo. */
+.entrada-grafico.is-armed svg .traco-grafico.i-2,
+.entrada-grafico.is-armed svg .traco-grafico.i-3,
+.entrada-grafico.is-armed svg .traco-grafico.i-4,
+.entrada-grafico.is-armed svg .traco-grafico.i-5,
+.entrada-grafico.is-armed svg .traco-grafico.i-6 {
+  transition-duration: var(--dur-press);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-2 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition));
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-3 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 120ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-4 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 240ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-5 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 360ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-6 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 480ms);
+}
+
+/* Apoio fade-only (Bollinger / histograma do MACD) — alinhado ao início da
+   etapa 3 (mesmo instante da 1ª série secundária). */
+.entrada-grafico.is-armed svg .traco-grafico-area,
+.entrada-grafico.is-armed svg .traco-grafico-barra {
+  opacity: 0;
+  transition: opacity var(--dur-press) var(--ease-rule)
+    calc(var(--dur-set) + var(--dur-edition));
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-area,
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-barra {
+  opacity: 1;
+}
+
+/* Referências tracejadas — por último. */
+.entrada-grafico.is-armed svg .traco-grafico-ref {
+  opacity: 0;
+  transition: opacity var(--dur-set) var(--ease-rule)
+    calc(var(--dur-set) + var(--dur-edition) + var(--dur-press) + 240ms);
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-ref {
+  opacity: 1;
+}
+
+/* 19. DROPDOWN DO COMBOBOX — fade curto na abertura (M6 #18,
+       TickerCombobox.tsx). O `<ul>` de sugestões é MONTADO pelo React a
+       cada abertura (condicional `{aberto && ... && (<ul>...)}`), não uma
+       classe alternada num elemento que já existe no DOM — `@starting-style`
+       cobre exatamente este caso sem observer/JS extra: um elemento recém-
+       inserido assume o estado "starting" no 1º frame e transiciona dali
+       para o estado normal. Sem suporte (Safari <17.4/Firefox <129): a
+       regra é só ignorada e o dropdown aparece direto, sem transição —
+       nunca invisível (mesmo espírito do fallback de scroll-driven do
+       resto deste arquivo). `prefers-reduced-motion` não precisa de
+       tratamento extra: a regra genérica `*{transition-duration:.01ms}` no
+       bloco de redução abaixo já cobre esta transição simples de opacidade
+       (mesmo raciocínio do cross-fade de tema em `.bg-card`/`.bg-elevated`,
+       topo deste arquivo). */
+.dropdown-combobox {
+  opacity: 1;
+  transition: opacity var(--dur-set) var(--ease-ink);
+}
+@starting-style {
+  .dropdown-combobox {
+    opacity: 0;
+  }
+}
+
+/* 20. AURORA DO MASTHEAD DA TESE — pool de luz local atrás do título do
+       research report (§4, direcao-de-arte-cinema.md: "/tese: aurora SÓ no
+       masthead, corpo LIMPO"). O masthead (TeseView.tsx) é um card
+       `bg-card` OPACO — a aurora global do body (`body::before`, item 11
+       acima) fica inteiramente atrás dele e nunca aparece ali; em vez de
+       tornar o card translúcido (arriscaria o AA de `text-ink-3`/badges
+       sobre ele — M5), esta é uma camada PRÓPRIA, pintada ACIMA do
+       `bg-card` e ABAIXO do conteúdo (texto/badges), só dentro da caixa do
+       próprio masthead. TRAVA C2: `::before` do PRÓPRIO masthead (nunca um
+       wrapper novo envolvendo-o) — o masthead é IRMÃO de `.regua-leitura`
+       na árvore (TeseView.tsx: ambos filhos diretos de `<article>`), nunca
+       ancestral dela, então `position:relative`/`isolation:isolate` aqui
+       não tocam o containing block do `position:fixed` da régua. Estática
+       (sem drift/scroll-timeline): o masthead é lido rápido, no topo da
+       página — a "espinha" de motion desta página é a Impressão de Régua
+       (scroll) + os reveals de seção, não mais uma luz em movimento. Sem
+       foco de ponteiro aqui nem no resto do corpo — decisão explícita da
+       direção de arte para leitura longa (M7 nota Buchner/Baumgartner/
+       Piepenbrock: luz reativa ao lado de texto extenso distrai). */
+.aurora-masthead {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.aurora-masthead::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 80% at 50% 0%,
+    rgb(var(--luz-tinta) / var(--luz-aurora-alfa)) 0%,
+    transparent 65%
+  );
+}
+
 /* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -1174,6 +1363,29 @@ details[open] > .menu-mobile-resumo::after {
   }
   .ponto-elo {
     animation: none !important;
+  }
+
+  /* Tinta desenhando no papel (item 18 acima): estado final instantâneo —
+     mesmo raciocínio do Traço do Elo (o guard genérico já zera a duração;
+     isto cobre o caso raro de `.is-armed` já ter sido setado antes do
+     usuário ligar "reduzir movimento" em pleno uso, e garante o estado
+     final mesmo se o elemento nunca chegou a ganhar `.is-revealed`). */
+  .traco-grafico {
+    stroke-dashoffset: 0 !important;
+  }
+  .traco-grafico-area,
+  .traco-grafico-barra,
+  .traco-grafico-ref {
+    opacity: 1 !important;
+  }
+  /* Grade/eixos do gráfico (`GraficoEixos.tsx`) — mesmas classes ESTÁTICAS
+     `stroke-line`/`stroke-line-strong`/`fill-ink-3` que só existem dentro
+     dos 3 componentes de gráfico (ver comentário do item 18): seguro
+     forçar visível sem escopo extra. */
+  .stroke-line,
+  .stroke-line-strong,
+  svg .fill-ink-3 {
+    opacity: 1 !important;
   }
 
   /* Virada de Edição: corte seco + fade curto (≤120ms) no lugar do véu que

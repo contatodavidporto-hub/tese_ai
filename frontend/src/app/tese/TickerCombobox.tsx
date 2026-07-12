@@ -150,7 +150,7 @@ export function TickerCombobox({ value, onChange, disabled, inputId, erroId }: P
           id={listboxId}
           role="listbox"
           aria-label="Sugestões de ticker"
-          className="sombra-elevada absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto border border-line-strong bg-elevated py-1"
+          className="dropdown-combobox sombra-elevada absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto border border-line-strong bg-elevated py-1"
         >
           {sugestoes.map((papel, i) => (
             <li

@@ -17,6 +17,7 @@ import {
 import {
   caminhoFaixa,
   caminhoLinha,
+  classeEntradaSerie,
   corFundo,
   corTraco,
   criarEscala,
@@ -112,11 +113,20 @@ export function GraficoLinha({ grafico }: { grafico: Grafico }) {
         ticksY={ticksY}
         ticksX={ticksX}
       >
-        {/* Faixa de Bollinger — área entre `sup` e `inf`, ATRÁS das linhas. */}
-        {caminhoBanda && <path d={caminhoBanda} className="fill-grafico-5/15 stroke-none" />}
+        {/* Faixa de Bollinger — área entre `sup` e `inf`, ATRÁS das linhas.
+            `.traco-grafico-area`: fade-only (§5) — é um preenchimento sem
+            stroke, `stroke-dashoffset` não teria efeito visual nenhum aqui
+            (MOLDE MACIO: geometria não comporta dash-reveal). */}
+        {caminhoBanda && (
+          <path d={caminhoBanda} className="fill-grafico-5/15 stroke-none traco-grafico-area" />
+        )}
 
         {/* Linhas de referência (se vierem num gráfico de linha — raro, mas
-            o tipo permite; ex.: níveis de Fibonacci sobre o preço). */}
+            o tipo permite; ex.: níveis de Fibonacci sobre o preço).
+            `.traco-grafico-ref`: fade-only (§5) — já usa `strokeDasharray`
+            fixo ("4 4") como o próprio desenho do tracejado; normalizar com
+            `pathLength`/dashoffset entraria em conflito com esse padrão
+            (MOLDE MACIO, documentado em globals.css). */}
         {linhasRef.map((l, i) => {
           const y = escalaY(l.valor);
           if (!Number.isFinite(y)) return null;
@@ -127,16 +137,23 @@ export function GraficoLinha({ grafico }: { grafico: Grafico }) {
               x2={x1}
               y1={y}
               y2={y}
-              className="stroke-grafico-6"
+              className="stroke-grafico-6 traco-grafico-ref"
               strokeWidth={1}
               strokeDasharray="4 4"
             />
           );
         })}
 
-        {caminhosSeries.map((s) =>
+        {caminhosSeries.map((s, pos) =>
           s.d ? (
-            <path key={s.indice} d={s.d} fill="none" className={corTraco(s.indice)} strokeWidth={1.75} />
+            <path
+              key={s.indice}
+              d={s.d}
+              fill="none"
+              pathLength={1}
+              className={`${corTraco(s.indice)} ${classeEntradaSerie(pos)}`}
+              strokeWidth={1.75}
+            />
           ) : null,
         )}
       </MolduraGrafico>

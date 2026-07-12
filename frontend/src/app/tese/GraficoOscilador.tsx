@@ -9,6 +9,7 @@ import { FonteChip, GraficoIndisponivel, NotaFixa } from "./EnvelopeNovo";
 import { areaUtil, LegendaGrafico, MolduraGrafico } from "./GraficoEixos";
 import {
   caminhoLinha,
+  classeEntradaSerie,
   corFundo,
   corTraco,
   criarEscala,
@@ -83,6 +84,13 @@ export function GraficoOscilador({ grafico }: { grafico: Grafico }) {
       <figcaption className="font-display text-lede font-semibold text-ink">{grafico.titulo}</figcaption>
 
       <MolduraGrafico idBase={grafico.id} titulo={grafico.titulo} descricao={descricao} ticksY={ticksY} ticksX={ticksX}>
+        {/* `.traco-grafico-ref` na linha E no rótulo: fade-only, por último
+            (§5) — a linha já usa `strokeDasharray` fixo ("4 4") como o
+            próprio desenho do tracejado; normalizar com `pathLength`/
+            dashoffset entraria em conflito com esse padrão (MOLDE MACIO,
+            documentado em globals.css). O rótulo herda a MESMA classe (em
+            vez do `fill-ink-3` genérico de eixo) para entrar junto da linha
+            que anota, não junto da grade. */}
         {linhasRef.map((l, i) => {
           const y = escalaY(l.valor);
           if (!Number.isFinite(y)) return null;
@@ -93,19 +101,28 @@ export function GraficoOscilador({ grafico }: { grafico: Grafico }) {
                 x2={x1}
                 y1={y}
                 y2={y}
-                className="stroke-grafico-6"
+                className="stroke-grafico-6 traco-grafico-ref"
                 strokeWidth={1}
                 strokeDasharray="4 4"
               />
-              <text x={x1} y={y - 4} textAnchor="end" className="fill-ink-3 font-mono text-label">
+              <text x={x1} y={y - 4} textAnchor="end" className="fill-ink-3 traco-grafico-ref font-mono text-label">
                 {l.nome}
               </text>
             </g>
           );
         })}
 
-        {caminhosSeries.map((s) =>
-          s.d ? <path key={s.indice} d={s.d} fill="none" className={corTraco(s.indice)} strokeWidth={1.75} /> : null,
+        {caminhosSeries.map((s, pos) =>
+          s.d ? (
+            <path
+              key={s.indice}
+              d={s.d}
+              fill="none"
+              pathLength={1}
+              className={`${corTraco(s.indice)} ${classeEntradaSerie(pos)}`}
+              strokeWidth={1.75}
+            />
+          ) : null,
         )}
       </MolduraGrafico>
 

@@ -42,10 +42,28 @@ respondem 502 com mensagem clara; em dev cai em `http://localhost:8000`.
 
 ## Identidade visual
 
-"Relatório institucional": papel/tinta/verde-cédula, serif Fraunces para títulos,
-Geist para texto, mono para números e tickers. Tokens semânticos em
-`src/app/globals.css` (`--papel`, `--tinta`, `--selo`, `--aviso-*`…), dark mode por
-`prefers-color-scheme`, contrastes WCAG AA nos dois temas.
+**BRASA EDITORIAL** — "relatório institucional com uma luminária": papel/tinta
+sobre fundo frio, um único acento (brasa, cobre queimado — ação ou evidência,
+nunca decoração; verde proibido). Newsreader (serif) para títulos e argumento,
+Archivo (grotesca) para chrome de UI, IBM Plex Mono para todo número
+factual/ticker/timestamp — se está em mono, tem fonte; sem fonte, não vai para
+a tela. Tokens semânticos (3 camadas: primitivo → semântico → componente) em
+`src/app/globals.css`, dark mode por `prefers-color-scheme`, contrastes WCAG AA
+verificados nos dois temas.
+
+**Emenda 2026-07-11 (missão cinematográfica) — luz ambiente fria.** Camada
+aditiva sobre a identidade acima (nenhum hex de conteúdo/tinta/brasa muda):
+uma luz monocromática azul-tinta (~222°, croma baixo), NUNCA acionável e
+nunca um 2º acento — só profundidade. Dois registros com teto fixo: aurora
+ambiente (leito sempre presente, ≤6%) e foco interativo (segue o ponteiro só
+em `hover:hover`+`pointer:fine`, ≤10% claro/≤12% escuro), movidos exclusivamente
+por `transform: translate3d(...)` via CSSOM (`el.style.setProperty`, nunca
+`style=`/`setAttribute('style', …)` — CSP intacta). A luz jamais banha número
+factual, citação ou `bg-realce` (trava M3), e nenhum ancestral de
+`.regua-leitura` recebe `transform`/`filter`/`will-change`/`contain` (trava
+C2 — quebraria o `position: fixed` da régua de leitura). Tabela completa de
+tokens/regras de consumo: `DESIGN-TOKENS.md` §1 (emenda) — é a fonte de
+verdade para qualquer novo uso desta camada, não este README.
 
 **Decisão (Fase 5 do build de UX): não adotar shadcn/ui por ora.** Zero dependência
 de UI mantém a superfície de supply-chain e o CSP simples; a identidade própria já

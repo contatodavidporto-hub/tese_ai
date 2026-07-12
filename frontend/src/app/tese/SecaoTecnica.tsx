@@ -6,6 +6,8 @@
 // redundância intencional: um leitor que só rola até um gráfico específico
 // ainda vê o aviso sem precisar subir a página.
 
+import { Reveal } from "@/components/motion/Reveal";
+
 import { FonteChip, NotaFixa, RotuloChip } from "./EnvelopeNovo";
 import { formatarValor } from "./formatacao";
 import { GraficoTese } from "./GraficoTese";
@@ -53,8 +55,19 @@ export function SecaoTecnica({ tecnica, graficos }: { tecnica: Tecnica; graficos
 
       {graficosOrdenados.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* `.entrada-grafico` (§5, direcao-de-arte-cinema.md): variante do
+              Reveal que NÃO estiliza o wrapper em si (ao contrário de
+              `.reveal`/`.reveal-ticker` — aqui é só um GATE de is-armed/
+              is-revealed para os seletores `.traco-grafico*` dentro do SVG,
+              globals.css). Cada gráfico entra em cena 1x, sozinho, quando o
+              PRÓPRIO card alcança o scroll — nunca os 6 juntos: por isso
+              cada um recebe seu próprio `<Reveal>` aqui, em vez de herdar
+              só o fade único de `SecaoEnvelope` (que cobre a seção inteira,
+              não teria como escopar por gráfico individual). */}
           {graficosOrdenados.map((g) => (
-            <GraficoTese key={g.id} grafico={g} />
+            <Reveal key={g.id} variant="entrada-grafico">
+              <GraficoTese grafico={g} />
+            </Reveal>
           ))}
         </div>
       )}
