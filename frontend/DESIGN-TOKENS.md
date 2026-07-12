@@ -62,8 +62,8 @@ Fonte: `.maestro/direcao-de-arte-cinema.md` §1 (M1, LEI da missão) · lastro c
 | Token CSS | Papel | Claro | Escuro | Teto |
 |---|---|---|---|---|
 | `--luz-tinta` | cor da luz (RGB space-separated p/ `rgb(var(...)/alfa)`) | `42 54 84` (`#2A3654`) | `132 148 178` (`#8494B2`) | matiz ~222° fixo, croma baixo — não muda |
-| `--luz-aurora-alfa` | opacidade do leito ambiente (sempre presente, difuso, estático/scroll) | `0.04` | `0.055` | **≤0.06** nos dois temas |
-| `--luz-foco-alfa` | opacidade da luminária que segue o ponteiro | `0.07` | `0.10` | **≤0.10 claro / ≤0.12 escuro** |
+| `--luz-aurora-alfa` | opacidade do leito ambiente (sempre presente, difuso, estático/scroll) | `0.05` (0.04 reprovou perceptibilidade no wow-gate) | `0.055` | **≤0.06** nos dois temas |
+| `--luz-foco-alfa` | opacidade da luminária que segue o ponteiro | `0.09` (0.07 reprovou perceptibilidade no wow-gate) | `0.10` | **≤0.10 claro / ≤0.12 escuro** |
 | `--mx`, `--my` | posição do sprite de foco (px), default neutro | `0px` | `0px` | setado só via CSSOM, nunca em CSS estático |
 | `--grao-alfa` | opacidade da textura de grão (opcional, só `bg-page`) | `0.025` | `0.04` | **≤0.03 claro / ≤0.04 escuro** |
 | `--ease-cena` | easing do glide de luz (follow do foco + drift da aurora) | `cubic-bezier(0.4, 0, 0.2, 1)` | idem | escopo estrito: só a luz — nunca reusar `ease-ink`/`ease-rule`/`ease-settle` nela, nem usar `--ease-cena` fora da luz |
