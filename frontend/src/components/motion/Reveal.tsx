@@ -271,7 +271,16 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>({
     // Reduced motion: nunca arma a transição nem observa — a assinatura
     // simplesmente não roda (o booleano final vira `true` por derivação,
     // logo abaixo, sem passar por setState dentro do efeito).
-    if (!elemento || prefereReduzido) return;
+    // QA 2026-07-12: além de não armar, DESARMA um `armado` que tenha
+    // "grudado" na corrida de hidratação — o snapshot SSR-safe do
+    // useSyncExternalStore devolve `false` no 1º render mesmo com
+    // reduced-motion ativo; o efeito roda e arma, e quando reroda com o
+    // valor real precisa reverter (senão a garantia "reduced-motion nunca
+    // tem .is-armed" fica dependendo só da rede de segurança do CSS).
+    if (!elemento || prefereReduzido) {
+      setArmado(false);
+      return;
+    }
 
     setArmado(true);
 
