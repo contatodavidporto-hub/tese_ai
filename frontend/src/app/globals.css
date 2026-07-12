@@ -98,8 +98,8 @@
      token novo desta implementação (fora do apêndice original) para o pico
      mais baixo do foco frio dos CartaoTese (§4). */
   --luz-tinta: 42 54 84; /* #2A3654, ~222° dessaturado */
-  --luz-aurora-alfa: 0.04; /* teto 0.06 */
-  --luz-foco-alfa: 0.07; /* teto 0.10 */
+  --luz-aurora-alfa: 0.05; /* teto 0.06 — 0.04 reprovou perceptibilidade no wow-gate (claro) */
+  --luz-foco-alfa: 0.09; /* teto 0.10 — 0.07 reprovou perceptibilidade no wow-gate (claro) */
   --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) */
   --mx: 0px; /* ponteiro — X; default neutro */
   --my: 0px; /* ponteiro — Y; default neutro */
@@ -862,7 +862,14 @@ body::after {
        da página, já que `position:relative` sozinho não cria stacking
        context). `isolation` NÃO está na lista de propriedades que viram
        containing block de `position:fixed` (transform/filter/will-change/
-       contain) — não reabre a trava C2. */
+       contain) — não reabre a trava C2. ATENÇÃO (guarda de propagação): o
+       stacking context de `.tem-foco` APRISIONA o z-index dos descendentes —
+       `.tem-foco` NUNCA pode envolver a Tarja CVM (z-50) nem a
+       `.regua-leitura` (z-55), senão esses z-index passam a valer só dentro
+       do contexto e as camadas podem render abaixo de seções irmãs; e o
+       `overflow:hidden` clipa qualquer descendente que precise transbordar
+       (ex.: anel de foco rente à borda). Luz no corpo de /tese segue
+       proibida pela direção de arte (§4). */
 .tem-foco {
   position: relative;
   overflow: hidden;

@@ -87,6 +87,7 @@ export function usePonteiro<T extends HTMLElement>(
     // Última leitura de pointermove pendente de aplicar no próximo quadro.
     let pendente: { x: number; y: number; alvo: HTMLElement } | null = null;
     let quadroAgendado = false;
+    let idQuadro = 0;
 
     function limpar(alvo: HTMLElement | null) {
       alvo?.style.removeProperty("--mx");
@@ -131,7 +132,7 @@ export function usePonteiro<T extends HTMLElement>(
       pendente = { x: ev.clientX, y: ev.clientY, alvo };
       if (!quadroAgendado) {
         quadroAgendado = true;
-        window.requestAnimationFrame(aplicar);
+        idQuadro = window.requestAnimationFrame(aplicar);
       }
     }
 
@@ -143,10 +144,17 @@ export function usePonteiro<T extends HTMLElement>(
 
     container.addEventListener("pointermove", aoMover, { passive: true });
     container.addEventListener("pointerleave", aoSair, { passive: true });
+    // pointercancel (raro com mouse/caneta, possível em híbridos): mesmo
+    // tratamento de saída — limpa e volta ao neutro via transition CSS.
+    container.addEventListener("pointercancel", aoSair, { passive: true });
 
     return () => {
       container.removeEventListener("pointermove", aoMover);
       container.removeEventListener("pointerleave", aoSair);
+      container.removeEventListener("pointercancel", aoSair);
+      // Cancela quadro pendente para nenhum `aplicar()` órfão escrever em nó
+      // desmontado após o cleanup.
+      window.cancelAnimationFrame(idQuadro);
       limpar(alvoAtual);
     };
   }, [containerRef, seletorAlvo, prefereReduzido]);

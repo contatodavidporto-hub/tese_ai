@@ -136,7 +136,10 @@ export default function Home() {
                     CSS puro incondicional (.pin-hero), nunca gate de IO (o
                     hero é LCP). O mesmo [1] reaparece na linha de fonte viva
                     abaixo dos CTAs — é a mesma citação. */}
-                <sup className="pin-hero font-mono text-ui text-brasa-texto">[1]</sup>{" "}
+                {/* aria-hidden: o pin é reforço visual — sem ele o título
+                    acessível viraria "…com a fonte um de cada número"; a
+                    citação legível está na linha de fonte logo abaixo. */}
+                <sup aria-hidden="true" className="pin-hero font-mono text-ui text-brasa-texto">[1]</sup>{" "}
                 de cada número.
               </h1>
             </div>
@@ -170,8 +173,8 @@ export default function Home() {
                 fonte/data que a prova viva já usa (DATA_CARTEIRA_IBOV) —
                 nenhum número novo. */}
             <p className="citacao-pin-hero w-fit bg-realce py-2 pl-4 pr-4 font-mono text-meta text-ink-2">
-              <sup className="text-brasa-texto">[1]</sup> Fonte: B3 · Carteira teórica do
-              Ibovespa · {dataCarteira}
+              <sup aria-hidden="true" className="text-brasa-texto">[1]</sup> Fonte: B3 · Carteira
+              teórica do Ibovespa · {dataCarteira}
             </p>
             <div className="entrada-hero i-5">
               <p className="text-ui text-ink-3">
