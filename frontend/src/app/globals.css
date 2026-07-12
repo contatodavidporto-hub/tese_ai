@@ -575,6 +575,14 @@ html {
 .reveal-ticker.is-armed .traco-elo:nth-of-type(3) {
   transition-delay: 240ms;
 }
+/* 4º elo (propagação Onda 1, FilmstripDimensoes.tsx — o conector vertical do
+   painel D5 tem 5 pontos/4 segmentos, um a mais que TracoDoElo original de
+   como-funciona/page.tsx, que só usa 3). Mesmo ritmo (+120ms por segmento),
+   simples extensão da sequência acima — TracoDoElo continua com só 3
+   segmentos, então esta regra fica ociosa lá, sem efeito colateral. */
+.reveal-ticker.is-armed .traco-elo:nth-of-type(4) {
+  transition-delay: 360ms;
+}
 
 /* Pulso único do ponto de origem ao conectar (scale 1→1.4→1, 400ms) — NÃO é
    o spring do sistema (usa `--ease-ink`, não `--ease-settle`: o único spring
@@ -598,6 +606,11 @@ html {
 }
 .reveal-ticker.is-armed.is-revealed .ponto-elo-4 {
   animation-delay: 440ms;
+}
+/* 5º ponto (mesmo motivo do 4º elo acima: o conector do painel D5 tem 5
+   estratos/pontos, um a mais que TracoDoElo). */
+.reveal-ticker.is-armed.is-revealed .ponto-elo-5 {
+  animation-delay: 560ms;
 }
 @keyframes pulso-elo {
   0% {
@@ -998,6 +1011,103 @@ body::after {
   }
 }
 
+/* 15. SETAS DO FILMSTRIP — propagação Onda 1 (§3/§6 item 14,
+       .maestro/direcao-de-arte-cinema.md; FilmstripDimensoes.tsx). Mesmo CTA
+       secundário do resto do site (borda `--border-field` → `--accent-text`
+       em `--dur-tick`, ex.: "Ver exemplo" no hero) + o glifo mono ←/→ desloca
+       2px na direção do movimento ao hover/focus — compositor-only
+       (`transform`), sem escala. `disabled` (ponta do filmstrip) usa o
+       utilitário `disabled:opacity-60` do Tailwind direto no componente. */
+.seta-filmstrip {
+  transition: border-color var(--dur-tick) var(--ease-ink);
+}
+.seta-filmstrip:hover:not(:disabled),
+.seta-filmstrip:focus-visible {
+  border-color: var(--accent-text);
+}
+.seta-filmstrip__glifo {
+  display: inline-block;
+  transition: transform var(--dur-tick) var(--ease-ink);
+}
+.seta-filmstrip--prev:hover:not(:disabled) .seta-filmstrip__glifo,
+.seta-filmstrip--prev:focus-visible .seta-filmstrip__glifo {
+  transform: translateX(-2px);
+}
+.seta-filmstrip--next:hover:not(:disabled) .seta-filmstrip__glifo,
+.seta-filmstrip--next:focus-visible .seta-filmstrip__glifo {
+  transform: translateX(2px);
+}
+
+/* 16. HAIRLINE SOB O SUMMARY DO MENU MOBILE ABERTO — item 6 do inventário
+       (§6 M6; Header.tsx). `<details>`/`<summary>` nativo, sem JS: o
+       `<summary>` NUNCA sai do DOM (só o menu abaixo dele aparece/some), então
+       `[open]` é só mais um estado CSS de um elemento que já existia — a
+       transição roda normal, sem precisar de `@starting-style` (que só
+       importaria se o PRÓPRIO `.menu-mobile-resumo` entrasse/saísse do DOM,
+       o que não é o caso). Mesma silhueta da Impressão de Régua (scaleX a
+       partir da esquerda, `--ease-rule`), só que presa ao rodapé do
+       `<summary>` via `::after` em vez de um IntersectionObserver — o gatilho
+       aqui é o próprio menu abrir, não um scroll. */
+.menu-mobile-resumo {
+  position: relative;
+}
+.menu-mobile-resumo::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--line-strong);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-tick) var(--ease-rule);
+}
+details[open] > .menu-mobile-resumo::after {
+  transform: scaleX(1);
+}
+
+/* 17. PARALAXE TIPOGRÁFICO — números de seção grandes (2.4, propagação Onda
+       1D: /cobertura e /como-funciona). Profundidade de camadas da edição —
+       o PRÓPRIO glifo do número desloca uns poucos pixels num ritmo
+       levemente distinto do resto do texto ao rolar; NÃO é paralaxe de
+       agência (nenhum bloco inteiro, imagem ou seção se move — só o glifo).
+       Compositor-only (`transform`), amplitude 8px de cada lado (16px de
+       curso total), scroll-driven nativo (`animation-timeline: view()`) com
+       `@supports` + fallback estático — sem suporte, o número fica parado no
+       lugar, nunca invisível (mesmo padrão de `.regua-leitura`/aurora
+       acima). Escopo deliberadamente restrito ao GLIFO do número — nunca a
+       régua-hairline (`.reveal-regua`) irmã de seção: aquela já anima
+       `transform: scaleX()` via transição de entrada (uma vez, ao entrar em
+       view); empilhar TAMBÉM uma `animation` de `transform` no MESMO
+       elemento substituiria o scaleX em vez de compor com ele (animação
+       sempre vence sobre transição na mesma propriedade — regra do cascade),
+       quebrando a Impressão de Régua. Decisão consciente registrada aqui,
+       não omissão (ver relatório da missão). Cobertura de
+       `prefers-reduced-motion` no bloco de redução abaixo (some por completo
+       — não é scroll-progress puro como a Régua de Leitura, é um
+       deslocamento decorativo, então recebe o mesmo tratamento de
+       desligamento total que `.foco-luz`). */
+.paralaxe-numero {
+  transform: translateY(0);
+}
+@supports (animation-timeline: view()) {
+  .paralaxe-numero {
+    animation-name: paralaxe-numero-desloca;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline, não pelo tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+  }
+}
+@keyframes paralaxe-numero-desloca {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(8px);
+  }
+}
+
 /* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -1045,6 +1155,14 @@ body::after {
   .foco-luz,
   .cartao-ticker.tem-foco::after {
     display: none !important;
+  }
+
+  /* Paralaxe tipográfico (item 17 acima, propagação Onda 1D): desliga por
+     completo — decorativo, não scroll-progress puro, então não se beneficia
+     do mesmo raciocínio de isenção da Régua de Leitura/aurora. */
+  .paralaxe-numero {
+    animation: none !important;
+    transform: none !important;
   }
 
   /* Traço do Elo: sem desenho progressivo nem pulso — traço e pontos ficam

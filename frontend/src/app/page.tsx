@@ -9,6 +9,7 @@ import { GradeFoco } from "@/components/motion/GradeFoco";
 import { Reveal } from "@/components/motion/Reveal";
 import { CartaoTese } from "@/components/teses/CartaoTese";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
+import { FilmstripDimensoes } from "./FilmstripDimensoes";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
@@ -281,7 +282,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* As cinco dimensões */}
+        {/* As cinco dimensões — Filmstrip D1→D5 (§3, direcao-de-arte-cinema.md):
+            "a tese se monta, camada por camada". Componente próprio
+            (FilmstripDimensoes.tsx) porque carrega estado (painel ativo,
+            trilho de progresso, teclado) — page.tsx segue Server Component,
+            só passa DIMENSOES (dado já resolvido) como prop. */}
         <section aria-labelledby="dimensoes-titulo" className="border-b border-line">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-14 sm:px-6">
             <Reveal>
@@ -301,32 +306,7 @@ export default function Home() {
                 </p>
               </div>
             </Reveal>
-            <ol className="stagger flex flex-col">
-              {DIMENSOES.map((d, i) => (
-                <li key={d.numero} className="flex flex-col gap-3 py-6">
-                  <Reveal
-                    variant="reveal-regua"
-                    className={`i-${i + 1} h-px w-full bg-line-strong`}
-                    aria-hidden
-                  >
-                    {null}
-                  </Reveal>
-                  <Reveal className={`i-${i + 1} atraso-regua flex flex-col gap-1.5`}>
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="font-mono text-h3 text-line-strong">{d.numero}</span>
-                      <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink">
-                        {d.titulo}
-                      </span>
-                      <span aria-hidden className="text-ink-3">
-                        ·
-                      </span>
-                      <span className="font-mono text-meta text-brasa-texto">{d.fonte}</span>
-                    </div>
-                    <p className="max-w-2xl text-body leading-relaxed text-ink-2">{d.texto}</p>
-                  </Reveal>
-                </li>
-              ))}
-            </ol>
+            <FilmstripDimensoes dimensoes={DIMENSOES} />
             <Reveal>
               <Link
                 href="/como-funciona"

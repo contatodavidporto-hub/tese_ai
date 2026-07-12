@@ -77,9 +77,11 @@ export function Header() {
 
         {/* Nav mobile: details/summary nativo (sem JS, sem lib) */}
         <details className="group md:hidden">
+          {/* `.menu-mobile-resumo` (item 6, §6 M6 — propagação Onda 1): hairline
+              que "imprime" sob o summary quando o menu abre (globals.css). */}
           <summary
             aria-label="Abrir menu de navegação"
-            className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center gap-1 border border-line-strong px-3 py-2 font-sans text-ui text-ink [&::-webkit-details-marker]:hidden"
+            className="menu-mobile-resumo flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center gap-1 border border-line-strong px-3 py-2 font-sans text-ui text-ink [&::-webkit-details-marker]:hidden"
           >
             <span className="group-open:hidden">Menu</span>
             <span className="hidden group-open:inline">Fechar</span>
