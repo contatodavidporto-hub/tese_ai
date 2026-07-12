@@ -476,6 +476,34 @@ def _extract_metadata_haiku(client: anthropic.Anthropic, model: str, markdown: s
         return None
 
 
+# Sintaxe de imagem markdown: inline `![alt](url)`, reference-style `![alt][ref]`
+# e o atalho `![alt]` (CommonMark resolve pelo próprio texto como ref id). NÃO
+# casa com link normal `[texto](url)` — a exclamação `!` antes do colchete é o
+# que distingue imagem de link (o allowlist de host do link fica no frontend).
+_RE_IMAGEM_MARKDOWN = re.compile(
+    r"!\[[^\]]*\]\([^)]*\)"  # ![alt](url "title")
+    r"|!\[[^\]]*\]\[[^\]]*\]"  # ![alt][ref]
+    r"|!\[[^\]]*\](?!\(|\[)"  # ![alt] (atalho, sem ( ou [ na sequência)
+)
+
+
+def _remover_imagens_markdown(md: str) -> str:
+    """Remove sintaxe de imagem markdown do envelope (correção M3 — LLM02).
+
+    As teses usam gráficos SVG renderizados pelo FRONTEND (bloco `graficos` do
+    envelope, gerado deterministicamente) — nunca imagem markdown embutida no
+    texto do LLM. Uma `![alt](url)` no corpo é um vetor de exfiltração passiva:
+    o cliente que renderiza o markdown dispara automaticamente um GET para a
+    URL ao EXIBIR a tese (sem clique do usuário), podendo vazar dado (via
+    query string) para um host arbitrário. Como o produto não usa essa sintaxe
+    legitimamente, remover é no-op para conteúdo real gerado pelo pipeline.
+
+    NÃO toca em link normal `[texto](url)` — o frontend já faz allowlist de
+    host para esses (a exclamação `!` é o único diferencial de sintaxe).
+    """
+    return _RE_IMAGEM_MARKDOWN.sub("", md)
+
+
 _MARCADOR_LACUNA = "dado não encontrado"
 # Recorte são (correção do bug tese.py:447): uma linha mais longa que isto
 # não vira lacuna inteira — extrai só uma JANELA em torno do marcador, para
@@ -1600,6 +1628,13 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         # Garante o disclaimer NO PRÓPRIO conteúdo (não confia só no LLM).
         if "não é recomendação" not in markdown.lower():
             markdown = _DISCLAIMER + "\n\n" + markdown
+
+        # Correção M3 (LLM02): remove sintaxe de imagem markdown ANTES de
+        # persistir — o produto usa gráficos SVG do frontend, nunca imagem
+        # embutida no texto do LLM; um `![alt](url)` aqui seria exfil-on-render.
+        # Roda antes da extração de metadados/lacunas para que a trilha de
+        # auditoria (Haiku, detecção de lacuna) veja o MESMO texto que é servido.
+        markdown = _remover_imagens_markdown(markdown)
 
         metadata = _extract_metadata_haiku(client, settings.tese_model_extraction, markdown)
         lacunas = _detect_lacunas(markdown)

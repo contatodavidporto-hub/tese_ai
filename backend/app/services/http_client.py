@@ -75,9 +75,16 @@ def _host_permitido(host: str) -> bool:
 def _resolve_publico(host: str) -> None:
     """Bloqueia hosts que resolvem para IP privado/loopback/link-local (SSRF).
 
-    Complementa a allowlist: mesmo um host permitido não pode apontar para rede
-    interna (defesa contra DNS rebinding/registros envenenados). Falha de resolução
-    não bloqueia aqui (o request seguirá e falhará por rede, tratado no retry).
+    A ALLOWLIST (`_HOSTS_PERMITIDOS`) é o controle PRIMÁRIO anti-SSRF: só hosts
+    conhecidos/curados podem ser buscados, e isso já barra a maior parte do
+    risco (nenhuma URL de host arbitrário sai). Esta checagem de IP resolvido é
+    um complemento BEST-EFFORT — reduz o risco de um host permitido apontar
+    para rede interna hoje (registro envenenado) — mas NÃO previne DNS
+    rebinding de forma completa: o `httpx.Client` RE-RESOLVE o DNS no momento
+    do connect (não usa o IP checado aqui), então um TTL baixo que troque a
+    resposta DNS entre esta checagem e o connect real ainda escaparia. Falha de
+    resolução não bloqueia aqui (o request seguirá e falhará por rede, tratado
+    no retry).
     """
     try:
         infos = socket.getaddrinfo(host, None)

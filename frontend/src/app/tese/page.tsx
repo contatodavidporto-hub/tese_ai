@@ -2,6 +2,7 @@ import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
 import { newsreaderItalico } from "@/lib/fontes";
+import { UUID_RE } from "@/lib/ids";
 import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
@@ -14,8 +15,6 @@ export const metadata = {
   description:
     "Gere a tese estruturada de uma companhia aberta da B3, um FII ou um título do Tesouro Direto: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
 };
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // No Next 16, `searchParams` de páginas é uma Promise — precisa de await.
 // Doc instalada: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md

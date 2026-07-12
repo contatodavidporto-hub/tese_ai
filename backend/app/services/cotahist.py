@@ -58,6 +58,29 @@ _TAMANHO_REGISTRO = 245  # bytes fixos do registro tipo 01 (layout oficial)
 # Mensal ~9 MB cabe com folga; o ANUAL (~89 MB) NÃO cabe — nunca usar o anual.
 _MAX_BYTES_ZIP = 64 * 1024 * 1024
 
+# Teto do tamanho DESCOMPRIMIDO de um membro do ZIP (correção L1). O teto de
+# `http_client.download_zip` só cobre o stream COMPRIMIDO — um zip-bomb (poucos
+# KB comprimidos, GBs descomprimidos) passaria por ele e estouraria a RAM em
+# `z.read()`. 1 GiB é folgado (o mensal real tem ~9 MB descomprimidos).
+_MAX_DESCOMPRIMIDO = 1024 * 1024 * 1024
+
+
+class ZipDescompactadoGrandeDemais(zipfile.BadZipFile):
+    """Membro do ZIP excederia o teto descomprimido — tratado como zip inválido
+    (subclasse de `BadZipFile`: o `except` que já existe em `_texto_do_zip`
+    degrada para abstenção rotulada, nunca materializa o payload em RAM)."""
+
+
+def _checar_tamanho_membro(info: zipfile.ZipInfo, *, teto: int = _MAX_DESCOMPRIMIDO) -> None:
+    """Levanta `ZipDescompactadoGrandeDemais` se `info.file_size` (tamanho REAL
+    após descompressão) exceder `teto`. Chamar ANTES de `z.read(...)` — checar
+    depois já teria materializado o payload gigante em memória."""
+    if info.file_size > teto:
+        raise ZipDescompactadoGrandeDemais(
+            f"{info.filename}: {info.file_size} bytes descomprimidos > teto {teto}"
+        )
+
+
 STALENESS_DIAS_UTEIS = 5  # série mais velha que 5 dias úteis = stale -> backfill
 MESES_BACKFILL_DEFAULT = 14  # ~14 meses cobrem >=252 pregões com folga
 JANELA_PREGOES_DEFAULT = 252
@@ -154,7 +177,11 @@ def _baixar_zip(url: str, transport: httpx.BaseTransport | None) -> bytes | None
 
 
 def _texto_do_zip(conteudo: bytes) -> str | None:
-    """Conteúdo latin-1 do membro .TXT do ZIP; ZIP corrompido/vazio -> None."""
+    """Conteúdo latin-1 do membro .TXT do ZIP; ZIP corrompido/vazio -> None.
+
+    Correção L1: checa `ZipInfo.file_size` (tamanho descomprimido) contra o
+    teto ANTES de `z.read()` — um zip-bomb nunca chega a ser materializado.
+    """
     try:
         with zipfile.ZipFile(io.BytesIO(conteudo)) as z:
             nomes = z.namelist()
@@ -162,7 +189,15 @@ def _texto_do_zip(conteudo: bytes) -> str | None:
                 logger.warning("cotahist_zip_vazio")
                 return None
             alvo = next((n for n in nomes if n.upper().endswith(".TXT")), nomes[0])
+            # `teto=` explícito (não o default do parâmetro): lê `_MAX_DESCOMPRIMIDO`
+            # do módulo NO MOMENTO da chamada, para que testes (monkeypatch) e uma
+            # eventual config futura enxerguem o valor atual, não o congelado na
+            # definição da função.
+            _checar_tamanho_membro(z.getinfo(alvo), teto=_MAX_DESCOMPRIMIDO)
             return z.read(alvo).decode("latin-1")
+    except ZipDescompactadoGrandeDemais as exc:
+        logger.warning("cotahist_zip_bomba", detalhe=str(exc))
+        return None
     except zipfile.BadZipFile:
         logger.warning("cotahist_zip_corrompido")
         return None

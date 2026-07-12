@@ -25,6 +25,12 @@
 - RLS ON em toda tabela exposta; policies `(select auth.uid()) is not null and (select auth.uid()) = user_id`.
 - `service_role` **só no backend**, nunca no frontend (sem `NEXT_PUBLIC_`).
 - Segredos só em `.env`/secret manager. Rode a skill `revisao-seguranca` antes de PR/commit/deploy.
+- ⚠️ **Backend conecta ao Postgres com papel owner que BYPASSA RLS** (`db/session.py`). Sem login, a autorização por usuário é feita (ou não) na aplicação — RLS **não** protege o caminho backend. Ao ligar login: filtrar `user_id` do JWT em todo read/write (ver `docs/security/threat-model.md`, achado H1).
+
+## Segurança contínua (nível bancário)
+- **Artefatos versionados** em `docs/security/`: `threat-model.md` (STRIDE), `compliance-asvs-owasp-nist.md`, `plano-resposta-incidentes-lgpd.md` (IR + ANPD 3 dias úteis), `observabilidade-seguranca.md`, `relatorio-seguranca-*.md`. Política de divulgação: `SECURITY.md`.
+- **CI:** `ci.yml` (push/PR) + `security-scheduled.yml` (cron diário — pega CVE nova em código inalterado; abre issue `security`). Ambos falham em HIGH/CRÍTICO. Actions **pinadas por SHA**.
+- **Agentes:** red-team (`red-team-lead`, `red-team-llm`) + blue-team (`blue-team-deteccao-resposta`, `gestao-vulnerabilidades`) — ver `../AGENTS.md`.
 
 ## Não faça
 Recomendação personalizada de investimento · dado sem fonte · segredo no código ·

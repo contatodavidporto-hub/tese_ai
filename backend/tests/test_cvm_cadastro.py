@@ -7,8 +7,12 @@ cd_cvm, e multi-classe (PETR3/PETR4) resolve para o mesmo cd_cvm sem colisão.
 
 from __future__ import annotations
 
+import io
+import zipfile
+
 import pytest
 
+from app.services import cvm_cadastro
 from app.services.cvm_cadastro import (
     montar_linhas_cadastro,
     parse_cad_cia_aberta,
@@ -253,3 +257,46 @@ def test_ensure_empresa_ticker_desconhecido_abstem_antes_da_sessao() -> None:
     # Regressão: continua abstendo (agora via resolve_ticker) sem tocar o banco.
     with pytest.raises(DadoNaoEncontrado):
         ensure_empresa(None, "ZZZZ9")  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Correção L1 — teto de tamanho DESCOMPRIMIDO do membro do ZIP (zip-bomb)
+# ---------------------------------------------------------------------------
+def _info_membro(nome: str, conteudo: bytes) -> zipfile.ZipInfo:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(nome, conteudo)
+    with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as z:
+        return z.getinfo(nome)
+
+
+def test_checar_tamanho_membro_levanta_quando_excede_o_teto() -> None:
+    # Zip pequeno (poucos bytes comprimidos), mas cujo `file_size` (tamanho REAL
+    # descomprimido) excede um teto de teste baixo -> levanta.
+    info = _info_membro("membro.csv", b"x" * 500)
+    assert info.file_size == 500
+    with pytest.raises(cvm_cadastro.ZipDescompactadoGrandeDemais, match="500"):
+        cvm_cadastro._checar_tamanho_membro(info, teto=100)
+
+
+def test_checar_tamanho_membro_nao_levanta_dentro_do_teto() -> None:
+    info = _info_membro("membro.csv", b"x" * 50)
+    cvm_cadastro._checar_tamanho_membro(info, teto=100)  # não levanta
+
+
+def test_baixar_fca_vm_zip_bomba_propaga_sem_materializar_o_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`_baixar_fca_vm` não envolve o parsing do ZIP num try/except (mesmo
+    comportamento pré-existente para `BadZipFile` corrompido) — o subclasse
+    `ZipDescompactadoGrandeDemais` propaga da mesma forma, e o `z.read()` do
+    membro gigante NUNCA é executado (a checagem acontece antes)."""
+    ano = cvm_cadastro._ANOS_FCA[0]
+    membro = cvm_cadastro.FCA_VM_MEMBRO.format(ano=ano)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(membro, b"x" * 500)
+    monkeypatch.setattr(cvm_cadastro, "_MAX_DESCOMPRIMIDO", 100)
+    monkeypatch.setattr(cvm_cadastro.http_client, "download_zip", lambda *a, **k: buf.getvalue())
+    with pytest.raises(cvm_cadastro.ZipDescompactadoGrandeDemais):
+        cvm_cadastro._baixar_fca_vm()

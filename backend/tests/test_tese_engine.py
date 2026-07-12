@@ -16,6 +16,7 @@ from app.services.tese import (
     _detect_lacunas,
     _estimar_custo,
     _fmt_reais,
+    _remover_imagens_markdown,
     _usage_dict,
 )
 
@@ -243,3 +244,45 @@ def test_build_documents_context_inclui_url_e_dt_referencia() -> None:
     documents, _ = _build_documents([(f1, "texto")])
     assert "https://exemplo/x" in documents[0]["context"]
     assert "2024-12-31" in documents[0]["context"]
+
+
+# ---------------------------------------------------------------------------
+# _remover_imagens_markdown — correção M3 (LLM02, exfil-on-render)
+# ---------------------------------------------------------------------------
+
+
+def test_remove_imagem_inline_mantem_link_normal() -> None:
+    md = "texto ![x](https://evil.example/track?q=1) meio [fonte](https://cvm.gov.br/x) fim"
+    limpo = _remover_imagens_markdown(md)
+    assert "![x]" not in limpo
+    assert "evil.example" not in limpo
+    assert "[fonte](https://cvm.gov.br/x)" in limpo
+
+
+def test_remove_imagem_reference_style() -> None:
+    md = "abre ![alt][ref] fecha"
+    assert _remover_imagens_markdown(md) == "abre  fecha"
+
+
+def test_remove_imagem_shortcut_sem_parenteses_ou_colchetes() -> None:
+    md = "abre ![alt-sozinho] fecha"
+    assert _remover_imagens_markdown(md) == "abre  fecha"
+
+
+def test_remove_imagem_multiplas_no_mesmo_texto() -> None:
+    md = "![a](u1) meio ![b](u2) fim"
+    assert _remover_imagens_markdown(md) == " meio  fim"
+
+
+def test_remove_imagem_nao_toca_link_sozinho() -> None:
+    md = "veja [o relatório](https://dados.cvm.gov.br/relatorio.pdf) para detalhes"
+    assert _remover_imagens_markdown(md) == md
+
+
+def test_remove_imagem_string_sem_imagem_e_no_op() -> None:
+    md = "# Tese\nSem nenhuma imagem aqui, só [links](https://exemplo.gov) normais."
+    assert _remover_imagens_markdown(md) == md
+
+
+def test_remove_imagem_vazia_devolve_vazia() -> None:
+    assert _remover_imagens_markdown("") == ""

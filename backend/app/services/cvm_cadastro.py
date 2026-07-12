@@ -48,6 +48,30 @@ FCA_VM_MEMBRO = "fca_cia_aberta_valor_mobiliario_{ano}.csv"
 # Anos a tentar para o FCA (mais recente primeiro).
 _ANOS_FCA = (2026, 2025, 2024)
 
+# Teto do tamanho DESCOMPRIMIDO de um membro do ZIP (correção L1, espelha
+# cotahist.py). O teto de `http_client.download_zip` só cobre o stream
+# COMPRIMIDO — um zip-bomb (poucos KB comprimidos, GBs descomprimidos)
+# passaria por ele e estouraria a RAM em `z.read()`. 1 GiB é folgado (o FCA
+# valor_mobiliario real tem alguns MB descomprimidos).
+_MAX_DESCOMPRIMIDO = 1024 * 1024 * 1024
+
+
+class ZipDescompactadoGrandeDemais(zipfile.BadZipFile):
+    """Membro do ZIP excederia o teto descomprimido — subclasse de `BadZipFile`
+    (zip-bomb tratado como zip inválido pelo mesmo tipo de erro que o
+    conector já lida)."""
+
+
+def _checar_tamanho_membro(info: zipfile.ZipInfo, *, teto: int = _MAX_DESCOMPRIMIDO) -> None:
+    """Levanta `ZipDescompactadoGrandeDemais` se `info.file_size` (tamanho REAL
+    após descompressão) exceder `teto`. Chamar ANTES de `z.read(...)` — checar
+    depois já teria materializado o payload gigante em memória."""
+    if info.file_size > teto:
+        raise ZipDescompactadoGrandeDemais(
+            f"{info.filename}: {info.file_size} bytes descomprimidos > teto {teto}"
+        )
+
+
 # Colunas-candidatas (case-insensitive) — tolerante a variações de layout da CVM.
 _COL_TICKER = ("CODIGO_NEGOCIACAO", "COMNEG", "CD_NEGOCIACAO")
 _COL_ESPECIE = ("VALOR_MOBILIARIO", "ESPECIE", "TP_VALOR_MOBILIARIO")
@@ -232,6 +256,11 @@ def _baixar_fca_vm() -> tuple[bytes, int] | None:
         membro = FCA_VM_MEMBRO.format(ano=ano)
         with zipfile.ZipFile(io.BytesIO(conteudo)) as z:
             if membro in z.namelist():
+                # Correção L1: checa o tamanho DESCOMPRIMIDO antes do z.read (o
+                # teto de download_zip só cobre o stream comprimido). `teto=`
+                # explícito (não o default do parâmetro) para que monkeypatch de
+                # `_MAX_DESCOMPRIMIDO` em teste valha nesta chamada.
+                _checar_tamanho_membro(z.getinfo(membro), teto=_MAX_DESCOMPRIMIDO)
                 return z.read(membro), ano
     return None
 

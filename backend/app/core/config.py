@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     # contido pelo cap de concorrência + teto de custo diário abaixo.
     rate_limit_criar_tese: str = "30/hour"
     rate_limit_global: str = "120/minute"
+    # Nº de hops de proxy CONFIÁVEL entre o cliente e a app — controla qual entrada
+    # do X-Forwarded-For vira a chave do rate-limit (ver ratelimit._chave_por_ip).
+    # Default 1 = comportamento anterior (valor mais à direita; produção inalterada
+    # sem alterar o .env). Configurável para topologias com mais de um proxy
+    # confiável na frente (ex.: CDN + load balancer) sem exigir deploy de código.
+    rate_limit_trusted_proxy_hops: int = 1
     # Cap de gerações de tese concorrentes no processo (protege pool de conexões e
     # custo). BackgroundTask além do teto abstém com "sistema ocupado".
     tese_max_concorrencia: int = 2

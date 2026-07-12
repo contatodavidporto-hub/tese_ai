@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { backendUrl } from "@/lib/backend";
+import { UUID_RE } from "@/lib/ids";
+
+// Resposta é sempre sensível a instante-a-instante (status da tese em
+// processamento) e pode conter dado individualizado por requisição —
+// nunca deve ser guardada por cache de navegador/CDN.
+const SEM_CACHE: Record<string, string> = { "Cache-Control": "no-store" };
 
 // Proxy SERVER-SIDE para GET /teses/{id} do backend FastAPI.
 // No Next 16, `params` do Route Handler é uma Promise — precisa de await.
@@ -17,14 +23,26 @@ export async function GET(
     console.error("api/teses/[id]: API_URL ausente no ambiente do servidor");
     return NextResponse.json(
       { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
-      { status: 502 },
+      { status: 502, headers: SEM_CACHE },
     );
   }
 
   const { id } = await params;
 
   if (!id) {
-    return NextResponse.json({ detail: "id ausente." }, { status: 400 });
+    return NextResponse.json(
+      { detail: "id ausente." },
+      { status: 400, headers: SEM_CACHE },
+    );
+  }
+
+  // Defesa em profundidade: só repassa ao backend algo com formato de UUID —
+  // corta aqui tráfego lixo/varredura antes de amplificar contra o FastAPI.
+  if (!UUID_RE.test(id)) {
+    return NextResponse.json(
+      { detail: "id fora do formato esperado (UUID)." },
+      { status: 400, headers: SEM_CACHE },
+    );
   }
 
   // Repassa o x-forwarded-for para log/auditoria no backend (a chave do
@@ -47,11 +65,12 @@ export async function GET(
 
     return NextResponse.json(data ?? { detail: text }, {
       status: upstream.status,
+      headers: SEM_CACHE,
     });
   } catch {
     return NextResponse.json(
       { detail: "Não foi possível contatar o backend de teses." },
-      { status: 502 },
+      { status: 502, headers: SEM_CACHE },
     );
   }
 }

@@ -759,6 +759,54 @@ def test_gerar_tese_acao_financeira_gate_recebe_classe_do_plano_m2(
     assert client.messages.captured["system"][0]["text"] == acao.system_prompt(empresa)
 
 
+_MD_ACAO_COM_IMAGEM_EXFIL = (
+    "# Tese — PETR4 (PETROBRAS)\n"
+    "> Não é recomendação de investimento. Tese estruturada a partir de dados públicos.\n"
+    "## 1. Fundamentos\nReceita citada. Ver [fonte oficial](https://dados.cvm.gov.br/x).\n"
+    "![x](https://evil.example/track?q=1)\n"
+    "## 8. Lacunas\n- EBITDA: dado não encontrado\n"
+)
+
+
+def test_gerar_tese_remove_imagem_markdown_antes_de_persistir_m3(
+    sessao: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Correção M3 (LLM02): imagem markdown no envelope do LLM é um vetor de
+    exfil-on-render (o cliente que renderiza dispara um GET automático para a
+    URL ao EXIBIR a tese, sem clique) — o produto usa gráficos SVG do
+    frontend, nunca imagem embutida no texto. `gerar_tese` remove a sintaxe de
+    imagem ANTES de persistir; um link normal (`[texto](url)`, allowlist de
+    host no frontend) permanece intacto."""
+    f = _fonte(sessao, "CVM DFP 2025 (consolidado) — PETROBRAS")
+    empresa = Empresa(cd_cvm=9512, ticker="PETR4", nome="PETROLEO BRASILEIRO S.A.", cnpj=None)
+    sessao.add(empresa)
+    sessao.flush()
+    sessao.add(
+        Fundamento(
+            empresa_id=empresa.id,
+            conta="Receita de Venda de Bens e/ou Serviços (3.01)",
+            valor=100.0,
+            dt_refer=dt.date(2025, 12, 31),
+            fonte_id=f.id,
+        )
+    )
+    sessao.commit()
+    _preparar_motor_fake(monkeypatch, _MD_ACAO_COM_IMAGEM_EXFIL)
+    tese = _criar_tese(sessao, "PETR4", None)  # NULL = 'acao' (legado)
+
+    tese_svc.gerar_tese(sessao, tese.id)
+
+    sessao.refresh(tese)
+    assert tese.status == "ready"
+    env = _envelope(sessao, tese)
+    # A imagem (e o host de exfil) NÃO chega ao envelope persistido — logo
+    # nunca chega a `TeseOut.markdown` (routers/teses.py espelha `env["markdown"]`).
+    assert "![x]" not in env["markdown"]
+    assert "evil.example" not in env["markdown"]
+    # Link normal intacto — só a sintaxe de IMAGEM (`!`) é removida.
+    assert "[fonte oficial](https://dados.cvm.gov.br/x)" in env["markdown"]
+
+
 def test_gerar_tese_fii_sem_dados_abstem_total(
     sessao: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
