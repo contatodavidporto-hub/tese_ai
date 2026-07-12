@@ -87,6 +87,23 @@
   --dur-press: 420ms; /* entradas de conteúdo, reveals        */
   --dur-edition: 700ms; /* hero, página/tema (1x por view)      */
   --stagger-step: 60ms; /* passo do stagger .i-1…i-12 */
+
+  /* ---------- Luz — "luminária sobre o papel" (spike cinema, gate C1) ----------
+     Registro FRIO (M1, .maestro/direcao-de-arte-cinema.md §1): azul-tinta
+     dessaturado ~222°, NUNCA acionável — não é 2º acento, nunca senta em
+     controle, nunca comunica estado/ação. Aurora = leito ambiente sempre
+     presente (teto 0.06); Foco = luminária que responde ao ponteiro (teto
+     0.10 claro/0.12 escuro). `--mx`/`--my` = posição do ponteiro relativa ao
+     elemento que os recebe (default neutro). `--luz-foco-card-alfa` é um
+     token novo desta implementação (fora do apêndice original) para o pico
+     mais baixo do foco frio dos CartaoTese (§4). */
+  --luz-tinta: 42 54 84; /* #2A3654, ~222° dessaturado */
+  --luz-aurora-alfa: 0.04; /* teto 0.06 */
+  --luz-foco-alfa: 0.07; /* teto 0.10 */
+  --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) */
+  --mx: 0px; /* ponteiro — X; default neutro */
+  --my: 0px; /* ponteiro — Y; default neutro */
+  --grao-alfa: 0.025; /* textura opcional do papel (§7); teto 0.03 */
 }
 
 /* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
@@ -130,6 +147,12 @@
     --grafico-4: #e28aa8;
     --grafico-5: #b6a0e6;
     --grafico-6: #9aa0ad;
+
+    /* Luz — mesma identidade (§1), recalibrada para o papel escuro. */
+    --luz-tinta: 132 148 178; /* #8494B2 */
+    --luz-aurora-alfa: 0.055; /* teto 0.06 */
+    --luz-foco-alfa: 0.1; /* teto 0.12 */
+    --grao-alfa: 0.04; /* teto 0.04 */
   }
 }
 
@@ -212,6 +235,7 @@
   --ease-ink: cubic-bezier(0.22, 1, 0.36, 1); /* padrão da casa: sai rápido, assenta longo */
   --ease-rule: cubic-bezier(0.65, 0, 0.35, 1); /* simétrico: réguas/barras que se imprimem  */
   --ease-settle: linear(0, 0.53 18%, 0.92 38%, 1.02 58%, 0.99 78%, 1); /* ÚNICO spring: citação */
+  --ease-cena: cubic-bezier(0.4, 0, 0.2, 1); /* glide contínuo da luz — só aurora drift + foco follow; nunca entradas/réguas/evidência */
 
   /* Escala tipográfica editorial (seção 3 do brief) — nomes próprios para não
      colidir com a escala default do Tailwind (xs/sm/base/lg...); usar
@@ -759,6 +783,214 @@ html {
   }
 }
 
+/* 11. AURORA — leito de luz ambiente (A6, base de coesão global: este
+       arquivo carrega em TODA rota via layout.tsx). Registro FRIO (M1):
+       azul-tinta dessaturado, NUNCA acionável, nunca 2º acento — só
+       profundidade. Pseudo-elemento IRMÃO do conteúdo (nunca wrapper):
+       trava C2 (redteam-frontend-cinema.md) — `body` não recebe transform/
+       filter/will-change/contain; só o PRÓPRIO `::before` anima seu
+       transform abaixo, preservando o containing block de `position:fixed`
+       para descendentes como `.regua-leitura` (mesmo raciocínio do
+       comentário de `.virada-edicao::after` acima). z-index -1: fica atrás
+       de todo o conteúdo (nada mais no arquivo usa z-index negativo, só
+       positivos — regua-leitura/virada-edicao/skip-link). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% -10%,
+    rgb(var(--luz-tinta) / var(--luz-aurora-alfa)) 0%,
+    transparent 60%
+  );
+}
+/* Drift ~12px ao rolar — compositor-only, só `transform` do PRÓPRIO
+   pseudo-elemento. `@supports` com fallback estático (B2 do red-team): sem
+   o recurso, a aurora fica parada no radial acima, nunca invisível.
+   `animation-duration: 1ms` é irrelevante (mesmo padrão de
+   `.regua-leitura`): o progresso vem da scroll-timeline, não do tempo — e
+   por refletir o scroll que o próprio leitor decidiu fazer (não é
+   movimento autônomo), não precisa de tratamento extra em
+   `prefers-reduced-motion` (mesma nota de `.regua-leitura` acima). */
+@supports (animation-timeline: scroll(root block)) {
+  body::before {
+    animation-name: aurora-drift;
+    animation-duration: 1ms;
+    animation-timing-function: var(--ease-cena);
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+/* 12. GRÃO — textura opcional do papel (§7, decisão estética SEM lastro
+       científico — declarado assim de propósito). Só sobre `bg-page` (nunca
+       cards/texto): SVG feTurbulence ESTÁTICO em data-URI, permitido pela
+       CSP do projeto via `img-src 'self' blob: data:` (src/proxy.ts) — é
+       uma URL de `background-image` dentro do CSS, não `style=` inline.
+       Nunca animado (proibido pela direção de arte). */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grao-alfa);
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 13. FOCO — luminária que responde ao ponteiro (§2/§4, M7). Opt-in por
+       superfície via classe `.tem-foco` + hook `usePonteiro`
+       (src/components/motion/usePonteiro.ts): o hook seta `--mx`/`--my`
+       (relativos ao elemento que os recebe) via `el.style.setProperty` —
+       nunca `setAttribute('style', …)`, nunca `style=` em JSX (CSP).
+       Container: `position:relative` (ancora a camada absoluta) +
+       `overflow:hidden` (clip da luz nas bordas) + `isolation:isolate` —
+       cria um stacking context PRÓPRIO só para conter o z-index negativo da
+       luz nesta superfície (sem isso, a luz vazaria atrás de outras seções
+       da página, já que `position:relative` sozinho não cria stacking
+       context). `isolation` NÃO está na lista de propriedades que viram
+       containing block de `position:fixed` (transform/filter/will-change/
+       contain) — não reabre a trava C2. */
+.tem-foco {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Camada-sprite do hero (componente `FocoLuz.tsx`) — sprite radial
+   PRÉ-PINTADO movido só por `transform: translate3d(...)` (compositor-only,
+   C2 do red-team); o `calc(... - 60vmax)` é só a centralização estática do
+   sprite de 120vmax dentro do container, somada ao deslocamento dinâmico de
+   `--mx`/`--my` — nenhuma outra propriedade anima por frame.
+   `will-change: transform` fica só nesta camada-folha (nunca ancestral de
+   `.regua-leitura`). Invisível por padrão: só aparece com ponteiro fino +
+   hover (M7); some de novo em `prefers-reduced-motion` (bloco de redução no
+   fim do arquivo). */
+.foco-luz {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 120vmax;
+  height: 120vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-foco-alfa)) 0%,
+    transparent 60%
+  );
+  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
+  transition:
+    transform var(--dur-set) var(--ease-cena),
+    opacity var(--dur-set) var(--ease-ink);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) {
+  .foco-luz {
+    opacity: 1;
+  }
+}
+
+/* Foco frio dos CartaoTese (§4, M3) — mesmo mecanismo, `::after` do próprio
+   card (a hairline de `.cartao-ticker::before` continua intocada) e pico
+   mais baixo (`--luz-foco-card-alfa`). `--mx`/`--my` chegam por delegação:
+   UM listener de pointermove na grade inteira (`GradeFoco.tsx`) seta as
+   variáveis no card sob o cursor — mais barato em listeners que um hook por
+   card. */
+.cartao-ticker.tem-foco::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 120vmax;
+  height: 120vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-foco-card-alfa)) 0%,
+    transparent 60%
+  );
+  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
+  transition: transform var(--dur-set) var(--ease-cena);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cartao-ticker.tem-foco::after {
+    opacity: 1;
+  }
+}
+
+/* 14. PIN DE CITAÇÃO — variantes LCP-safe do hero (§2, cenas 3/4). Mesma
+       silhueta do Pin de Citação (item 4 acima: spring `--ease-settle`
+       único + borda que se imprime), mas disparadas por `animation`
+       INCONDICIONAL no load — nunca `.is-armed`/`.is-revealed`
+       (IntersectionObserver): o hero está acima da dobra desde o load, um
+       gate de IO atrasaria a citação à toa (mesmo motivo do P2/
+       `.entrada-hero` acima). Reservadas para o hero; abaixo da dobra use
+       `Reveal variant="citacao-pin"` (já existente). */
+.pin-hero {
+  display: inline-block;
+  opacity: 0;
+  transform: scale(0.92);
+  animation: pin-hero-resolve var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 2 + var(--dur-press)) both;
+}
+@keyframes pin-hero-resolve {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Linha de fonte viva do hero (chip `bg-realce`, cena 4): mesma anatomia do
+   `.citacao-pin` (borda esquerda 2px que se imprime), versão LCP-safe. */
+.citacao-pin-hero {
+  position: relative;
+  opacity: 0;
+  transform: scale(0.96);
+  animation: citacao-pin-hero-resolve var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 6) both;
+}
+@keyframes citacao-pin-hero-resolve {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.citacao-pin-hero::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent-action);
+  transform: scaleY(0);
+  transform-origin: top;
+  animation: citacao-pin-hero-borda var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 6) both;
+}
+@keyframes citacao-pin-hero-borda {
+  to {
+    transform: scaleY(1);
+  }
+}
+
 /* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -788,6 +1020,24 @@ html {
   }
   .citacao-pin::before {
     transition-duration: 120ms !important;
+  }
+
+  /* Luz (spike cinema, C1): sem luminária/spring sob reduced-motion — pin e
+     chip do hero nascem já no estado final (o guard genérico acima zera
+     `animation-duration`, mas não `animation-delay`; sem isto ficariam
+     invisíveis presos no delay). Foco de ponteiro (hero e cards) some por
+     completo — instrução explícita da direção de arte, além do que o hook
+     `usePonteiro` já nem liga o listener com reduced-motion ativo. */
+  .pin-hero,
+  .citacao-pin-hero,
+  .citacao-pin-hero::before {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .foco-luz,
+  .cartao-ticker.tem-foco::after {
+    display: none !important;
   }
 
   /* Traço do Elo: sem desenho progressivo nem pulso — traço e pontos ficam

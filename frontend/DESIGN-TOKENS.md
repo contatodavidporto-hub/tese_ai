@@ -47,6 +47,35 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 - Um único acento. Proibido segundo acento, gradiente multicolor, glassmorphism, blobs.
 - Dark: nunca `#000` chapado, nunca branco puro de corpo, **nunca `text-white` sobre `bg-brasa`**.
 
+### Emenda 2026-07-11 (missão cinematográfica) — luz ambiente fria (carve-out)
+
+> **Luz ambiente fria (carve-out).** É permitida UMA luz monocromática azul-tinta (matiz ~222°, croma baixo) como profundidade/atmosfera, em duas intensidades: aurora ambiente ≤6% e foco interativo ≤10% claro / ≤12% escuro. A luz não é acento: nunca senta em controle, nunca comunica ação/estado/dado, nunca é quente. A brasa segue o único acento. Seguem PROIBIDOS: gradiente multicolor, glassmorphism, blobs, segundo acento, verde. A luz jamais banha número factual, citação, chip bg-realce ou região brasa/salmão (trava M3 — Bazley). Registro frio ≠ rebrand: nenhum hex de conteúdo/tinta/brasa muda; só entram as camadas de luz e o grão.
+
+**O que NÃO muda:** paleta de conteúdo inteira (tinta, superfícies, brasa, aviso, erro, bg-realce, gráficos 1–6), tipografia, escala, contraste AA, dark por prefers-color-scheme. A luz é aditiva.
+
+Fonte: `.maestro/direcao-de-arte-cinema.md` §1 (M1, LEI da missão) · lastro científico completo, estudo por estudo, com força de evidência declarada: `Design - Brief de Cor (Ciência).md` no Vault (`08 - Produto/`).
+
+**Decisão arquitetural (emenda 2026-07-11) — Via A.** CSS puro evoluído + micro-hooks CSSOM para o follow do ponteiro e o drift da aurora. Libs de animação runtime (Framer Motion, GSAP etc.) **rejeitadas** para esta camada — motivo: bundle (zero dep npm nova), CSP (nonce, zero `style=` inline de terceiro) e estética (a casa já resolve reveal/motion em CSS-first; ver §3). A luz é sempre um sprite radial pré-pintado, movido só por `transform`.
+
+#### Tokens novos — luz ambiente e grão
+
+| Token CSS | Papel | Claro | Escuro | Teto |
+|---|---|---|---|---|
+| `--luz-tinta` | cor da luz (RGB space-separated p/ `rgb(var(...)/alfa)`) | `42 54 84` (`#2A3654`) | `132 148 178` (`#8494B2`) | matiz ~222° fixo, croma baixo — não muda |
+| `--luz-aurora-alfa` | opacidade do leito ambiente (sempre presente, difuso, estático/scroll) | `0.04` | `0.055` | **≤0.06** nos dois temas |
+| `--luz-foco-alfa` | opacidade da luminária que segue o ponteiro | `0.07` | `0.10` | **≤0.10 claro / ≤0.12 escuro** |
+| `--mx`, `--my` | posição do sprite de foco (px), default neutro | `0px` | `0px` | setado só via CSSOM, nunca em CSS estático |
+| `--grao-alfa` | opacidade da textura de grão (opcional, só `bg-page`) | `0.025` | `0.04` | **≤0.03 claro / ≤0.04 escuro** |
+| `--ease-cena` | easing do glide de luz (follow do foco + drift da aurora) | `cubic-bezier(0.4, 0, 0.2, 1)` | idem | escopo estrito: só a luz — nunca reusar `ease-ink`/`ease-rule`/`ease-settle` nela, nem usar `--ease-cena` fora da luz |
+
+Sprite do foco (referência de implementação): `radial-gradient(circle at center, rgb(var(--luz-tinta)/var(--luz-foco-alfa)) 0%, transparent 60%)` em camada ~120vmax, movida SÓ por `transform: translate3d(var(--mx),var(--my),0)`.
+
+**Regra de consumo — CSSOM carve-out (não negociável):**
+- **PERMITIDO:** `el.style.setProperty('--mx', …)` / `el.style.setProperty('--my', …)`, client-side, **pós-mount**, dentro de `pointermove` coalescido por `requestAnimationFrame`, listener `passive`, só sob `@media (hover:hover) and (pointer:fine)`.
+- **PROIBIDO:** `el.setAttribute('style', …)`, prop `style={}` em JSX (SSR ou client), tag `<style>` solta, `styled-jsx`, qualquer `style=` inline literal. `.style.setProperty` é a ÚNICA porta permitida — governada por `script-src` sob nonce, não por `style-src` (CSP permanece intacta).
+
+**TRAVA C2 (containing-block da Régua de Leitura) — inegociável:** PROIBIDO `transform`/`filter`/`will-change`/`contain` em `body`, `main` ou **qualquer ancestral** de `.regua-leitura`. As camadas de luz (aurora + foco) são SEMPRE pseudo-elementos ou `<div>` **irmãs** — nunca wrappers. O drift/follow anima o `transform` da própria camada de luz (o irmão), nunca de um ancestral. Motivo: `position: fixed` da régua depende do containing block do viewport; um ancestral com `transform` quebra isso silenciosamente (precedente: globals.css ~601–628/705–711). QA prova zero regressão visual da régua antes de qualquer merge.
+
 ---
 
 ## 2. Tipografia
@@ -184,6 +213,11 @@ cada uma.
 Citação); nada quica/flutua em cards ou botões; reveals rodam 1x; zero
 `style=` inline (CSP com nonce); zero lib de animação runtime; zero parallax
 decorativo, shimmer em loop, `filter: blur` animado em grade.
+
+**Emenda 2026-07-11 (missão cinematográfica):** `--ease-cena` é o único
+easing do follow/drift da luz ambiente — nunca reusar `ease-ink`/`ease-rule`/
+`ease-settle` nela, nem `--ease-cena` fora da luz. Camadas de luz nunca em
+ancestral de `.regua-leitura` (TRAVA C2, detalhe completo em §1).
 
 ---
 

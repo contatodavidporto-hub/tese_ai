@@ -4,6 +4,8 @@ import { Suspense } from "react";
 
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
+import { FocoLuz } from "@/components/motion/FocoLuz";
+import { GradeFoco } from "@/components/motion/GradeFoco";
 import { Reveal } from "@/components/motion/Reveal";
 import { CartaoTese } from "@/components/teses/CartaoTese";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
@@ -109,7 +111,14 @@ export default function Home() {
             nasce pintável (opacity:1) no primeiro frame. Reveal (com fade de
             opacidade) fica reservado para as seções abaixo da dobra, logo a
             seguir. */}
-        <section className="border-b border-line" aria-labelledby="hero-titulo">
+        {/* `.tem-foco` + <FocoLuz/> (spike cinema, §2): luminária fria que
+            segue o ponteiro dentro do hero — pico 7% claro/10% escuro
+            (--luz-foco-alfa), só pointer:fine+hover (M7), invisível em
+            reduced-motion/touch. Camada puramente decorativa, `z-index`
+            abaixo de todo o conteúdo (globals.css `.foco-luz`) — nunca toca
+            o chip de citação (M3). */}
+        <section className="tem-foco border-b border-line" aria-labelledby="hero-titulo">
+          <FocoLuz />
           <div className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
             <div className="entrada-hero i-1">
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -121,8 +130,14 @@ export default function Home() {
                 id="hero-titulo"
                 className="max-w-3xl font-display text-hero font-semibold tracking-tight text-ink"
               >
-                A tese inteira, com a <span className="text-brasa-texto">fonte</span> de cada
-                número.
+                A tese inteira, com a <span className="text-brasa-texto">fonte</span>
+                {/* Pin de citação sobrescrito (§2, cena 3): resolve scale+opacity
+                    com o spring --ease-settle 1 beat depois do H1 assentar —
+                    CSS puro incondicional (.pin-hero), nunca gate de IO (o
+                    hero é LCP). O mesmo [1] reaparece na linha de fonte viva
+                    abaixo dos CTAs — é a mesma citação. */}
+                <sup className="pin-hero font-mono text-ui text-brasa-texto">[1]</sup>{" "}
+                de cada número.
               </h1>
             </div>
             <div className="entrada-hero i-3">
@@ -149,6 +164,15 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+            {/* Linha de fonte viva (§2, cena 4): mesma anatomia de citação da
+                "prova viva" abaixo — chip bg-realce OPACO, acima da luz (M3),
+                borda-esquerda 2px brasa imprimindo. Mesmo [1] do H1, mesma
+                fonte/data que a prova viva já usa (DATA_CARTEIRA_IBOV) —
+                nenhum número novo. */}
+            <p className="citacao-pin-hero w-fit bg-realce py-2 pl-4 pr-4 font-mono text-meta text-ink-2">
+              <sup className="text-brasa-texto">[1]</sup> Fonte: B3 · Carteira teórica do
+              Ibovespa · {dataCarteira}
+            </p>
             <div className="entrada-hero i-5">
               <p className="text-ui text-ink-3">
                 Ferramenta de estruturação — não é recomendação de compra ou venda.
@@ -229,7 +253,15 @@ export default function Home() {
                 galeria — reusa <CartaoTese> em vez de uma segunda anatomia
                 inline (o diretor de design reprovou as duas versões
                 divergentes). */}
-            <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {/* GradeFoco (spike cinema, §4): delegação de pointermove — 1
+                listener para a grade inteira liga --mx/--my no
+                `.cartao-ticker` sob o cursor (mais barato que 1 hook por
+                card). Server Component da grade continua page.tsx; só esta
+                borda vira client. */}
+            <GradeFoco
+              seletorAlvo=".cartao-ticker"
+              className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+            >
               {exemplos.map((papel, i) => (
                 <li key={papel.ticker}>
                   <Reveal variant="reveal-ticker" className={i < 12 ? `i-${i + 1}` : undefined}>
@@ -237,7 +269,7 @@ export default function Home() {
                   </Reveal>
                 </li>
               ))}
-            </ul>
+            </GradeFoco>
             <Reveal>
               <Link href="/teses" className="sublinhado-brasa w-fit font-sans text-ui font-semibold text-brasa-texto">
                 Ver todas as teses de exemplo →
