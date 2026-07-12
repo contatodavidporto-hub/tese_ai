@@ -237,11 +237,25 @@ export default function ComoFuncionaPage() {
                     O pipeline
                   </h2>
                   <ol className="stagger grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+                    {/* #24 do inventário (§6 M6): estas 4 células eram
+                        `className="reveal-ticker i-N ..."` FIXO no `<li>` —
+                        sem passar por `<Reveal>`/`useReveal`, `.is-armed`/
+                        `.is-revealed` nunca eram adicionadas, então a
+                        assinatura de entrada nunca rodava de verdade (as
+                        células só ficavam sempre visíveis, sem revelar).
+                        `<Reveal variant="reveal-ticker">` (mesmo padrão de
+                        PRINCIPIOS em page.tsx e das CLAUSULAS logo abaixo)
+                        corrige. */}
                     {ETAPAS.map((etapa, i) => (
-                      <li key={etapa.rotulo} className={`reveal-ticker i-${i + 1} flex flex-col gap-2 bg-card p-5`}>
-                        <span className="font-mono text-meta text-ink-3">{`0${i + 1}`}</span>
-                        <span className="font-sans text-ui font-semibold text-ink">{etapa.rotulo}</span>
-                        <p className="text-ui leading-relaxed text-ink-2">{etapa.texto}</p>
+                      <li key={etapa.rotulo}>
+                        <Reveal
+                          variant="reveal-ticker"
+                          className={`i-${i + 1} flex h-full flex-col gap-2 bg-card p-5`}
+                        >
+                          <span className="font-mono text-meta text-ink-3">{`0${i + 1}`}</span>
+                          <span className="font-sans text-ui font-semibold text-ink">{etapa.rotulo}</span>
+                          <p className="text-ui leading-relaxed text-ink-2">{etapa.texto}</p>
+                        </Reveal>
                       </li>
                     ))}
                   </ol>
@@ -277,7 +291,10 @@ export default function ComoFuncionaPage() {
                         aria-labelledby={`clausula-${c.numero}-titulo`}
                         className="contents"
                       >
-                        <span aria-hidden className="font-mono text-h1 font-semibold text-line-strong">
+                        {/* `.paralaxe-numero` (2.4, propagação Onda 1D): mesmo
+                            tratamento de /cobertura — profundidade de
+                            camadas no folio grande da cláusula. */}
+                        <span aria-hidden className="paralaxe-numero font-mono text-h1 font-semibold text-line-strong">
                           {c.numero}
                         </span>
                         <div className="flex flex-col gap-2">

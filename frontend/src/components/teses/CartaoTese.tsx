@@ -57,7 +57,11 @@ export function CartaoTese({ papel, dataCarteira }: CartaoTeseProps) {
   return (
     <Link
       href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
-      className="cartao-ticker group flex h-full flex-col gap-3 border border-line bg-card p-5 transition-colors duration-[var(--dur-tick)] hover:border-field"
+      // `tem-foco` (spike cinema, §4): foco frio de ponteiro escopado ao
+      // card (`.cartao-ticker.tem-foco::after`, globals.css) — pico ~5%,
+      // só com pointer:fine+hover; `--mx`/`--my` chegam por delegação do
+      // grid (ver GradeFoco.tsx). Hairline `::before` existente intacta.
+      className="cartao-ticker tem-foco group flex h-full flex-col gap-3 border border-line bg-card p-5 transition-colors duration-[var(--dur-tick)] hover:border-field"
     >
       <span
         className={`font-mono text-h2 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}

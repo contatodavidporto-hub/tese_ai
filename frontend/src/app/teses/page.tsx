@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { GradeFoco } from "@/components/motion/GradeFoco";
 import { Reveal } from "@/components/motion/Reveal";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
@@ -77,7 +78,15 @@ export default function TesesPage() {
             <h2 id="grade-titulo" className="sr-only">
               Grade de teses pré-geradas
             </h2>
-            <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {/* GradeFoco (spike cinema, §4): mesma luz fria por delegação da
+                galeria teaser da home (page.tsx) — 1 listener de pointermove
+                para a grade inteira liga --mx/--my no `.cartao-ticker` sob o
+                cursor. Continua GRADE DENSA (lei A1 do red-team: comparação
+                de 13 teses lado a lado, nunca um carrossel). */}
+            <GradeFoco
+              seletorAlvo=".cartao-ticker"
+              className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+            >
               {exemplos.map((papel, indice) => (
                 <li key={papel.ticker}>
                   <Reveal
@@ -88,7 +97,7 @@ export default function TesesPage() {
                   </Reveal>
                 </li>
               ))}
-            </ul>
+            </GradeFoco>
           </div>
         </section>
 

@@ -244,8 +244,14 @@ export function TeseView({ tese }: { tese: TeseOut }) {
 
       <AvisoBanner aviso={tese.aviso} />
 
-      {/* Masthead do documento: cabeçalho de research report */}
-      <Reveal className="flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
+      {/* Masthead do documento: cabeçalho de research report. `.aurora-
+          masthead` (§4, direcao-de-arte-cinema.md — "aurora SÓ no
+          masthead") pinta um pool de luz local atrás do título, ACIMA do
+          `bg-card` opaco do card e ABAIXO do conteúdo — ver globals.css
+          item 20. O masthead é IRMÃO de `.regua-leitura` (não ancestral),
+          então `position:relative`/`isolation:isolate` da classe não
+          reabrem a trava C2. */}
+      <Reveal className="aurora-masthead flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="flex flex-col gap-1">
             <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">

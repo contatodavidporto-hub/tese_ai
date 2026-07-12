@@ -37,12 +37,20 @@
   /* Tinta */
   --ink-primary: #16181d; /* corpo e títulos — 16.40:1 na página         */
   --ink-secondary: #4a4f58; /* subtítulos, descrições — 7.60:1             */
-  --ink-tertiary: #686d76; /* metadados, timestamps — 4.80:1 (AA)         */
+  --ink-tertiary: #5b5f67; /* metadados, timestamps — 5.92:1 página (plano) ·
+    4.66:1 no PICO da luz (recalibrado 2026-07-12: aurora ∪ foco = alfa
+    0.1355 sobre --bg-page reprovava AA a 3.78:1 com o #686d76 anterior).
+    Continua mais claro que --ink-secondary (hierarquia de 3 níveis OK);
+    matiz/temperatura intocados, só a lightness desceu. Ver
+    scratchpad/contraste-tokens/calibra_tokens.py para a auditoria completa. */
 
   /* Estrutura */
   --line-subtle: #e6e5df; /* hairlines, réguas, zebra (decorativa)       */
   --line-strong: #c7c6bf; /* réguas de cabeçalho de seção (decorativa)   */
-  --border-field: #8f8e86; /* inputs/selects — 3.04:1 página (UI ≥3)      */
+  --border-field: #7b7a72; /* inputs/selects — 3.98:1 página (plano) · 3.14:1
+    no PICO da luz (UI ≥3; recalibrado 2026-07-12 — #8f8e86 caía a 2.39:1
+    no pico e reprovava). Caráter greige de campo preservado (H/S intocados,
+    só L desceu). */
 
   /* Acento — BRASA (cobre queimado). ÚNICO acento da identidade */
   --accent-action: #a03a06; /* botão primário, toggle ativo — 6.25:1 UI */
@@ -87,6 +95,23 @@
   --dur-press: 420ms; /* entradas de conteúdo, reveals        */
   --dur-edition: 700ms; /* hero, página/tema (1x por view)      */
   --stagger-step: 60ms; /* passo do stagger .i-1…i-12 */
+
+  /* ---------- Luz — "luminária sobre o papel" (spike cinema, gate C1) ----------
+     Registro FRIO (M1, .maestro/direcao-de-arte-cinema.md §1): azul-tinta
+     dessaturado ~222°, NUNCA acionável — não é 2º acento, nunca senta em
+     controle, nunca comunica estado/ação. Aurora = leito ambiente sempre
+     presente (teto 0.06); Foco = luminária que responde ao ponteiro (teto
+     0.10 claro/0.12 escuro). `--mx`/`--my` = posição do ponteiro relativa ao
+     elemento que os recebe (default neutro). `--luz-foco-card-alfa` é um
+     token novo desta implementação (fora do apêndice original) para o pico
+     mais baixo do foco frio dos CartaoTese (§4). */
+  --luz-tinta: 42 54 84; /* #2A3654, ~222° dessaturado */
+  --luz-aurora-alfa: 0.05; /* teto 0.06 — 0.04 reprovou perceptibilidade no wow-gate (claro) */
+  --luz-foco-alfa: 0.09; /* teto 0.10 — 0.07 reprovou perceptibilidade no wow-gate (claro) */
+  --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) */
+  --mx: 0px; /* ponteiro — X; default neutro */
+  --my: 0px; /* ponteiro — Y; default neutro */
+  --grao-alfa: 0.025; /* textura opcional do papel (§7); teto 0.03 */
 }
 
 /* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
@@ -100,11 +125,15 @@
 
     --ink-primary: #ebe9e4; /* off-white de papel — 15.45:1 na página      */
     --ink-secondary: #b5b3ac; /* 8.46:1 no card                              */
-    --ink-tertiary: #8f8d87; /* 5.65:1 na página · 5.35:1 no card           */
+    --ink-tertiary: #908e88; /* 5.72:1 na página · 5.42:1 no card · 4.67:1 no
+      PICO da luz (recalibrado 2026-07-12, folga opcional de 1 passo de L —
+      o #8f8d87 anterior já passava no pico, mas com margem fina de 4.60:1) */
 
     --line-subtle: #23262d;
     --line-strong: #383c45;
-    --border-field: #616772; /* 3.12:1 no card (UI ≥3) */
+    --border-field: #6b727e; /* 3.87:1 página · 3.67:1 no card · 3.15:1 no
+      PICO da luz (UI ≥3; recalibrado 2026-07-12 — #616772 caía a 2.69:1 no
+      pico e reprovava). Matiz/saturação intocados, só L subiu. */
 
     --accent-action: #e97b3c; /* 6.57:1 na página como UI */
     --accent-action-hover: #f28a50;
@@ -130,6 +159,12 @@
     --grafico-4: #e28aa8;
     --grafico-5: #b6a0e6;
     --grafico-6: #9aa0ad;
+
+    /* Luz — mesma identidade (§1), recalibrada para o papel escuro. */
+    --luz-tinta: 132 148 178; /* #8494B2 */
+    --luz-aurora-alfa: 0.055; /* teto 0.06 */
+    --luz-foco-alfa: 0.1; /* teto 0.12 */
+    --grao-alfa: 0.04; /* teto 0.04 */
   }
 }
 
@@ -212,6 +247,7 @@
   --ease-ink: cubic-bezier(0.22, 1, 0.36, 1); /* padrão da casa: sai rápido, assenta longo */
   --ease-rule: cubic-bezier(0.65, 0, 0.35, 1); /* simétrico: réguas/barras que se imprimem  */
   --ease-settle: linear(0, 0.53 18%, 0.92 38%, 1.02 58%, 0.99 78%, 1); /* ÚNICO spring: citação */
+  --ease-cena: cubic-bezier(0.4, 0, 0.2, 1); /* glide contínuo da luz — só aurora drift + foco follow; nunca entradas/réguas/evidência */
 
   /* Escala tipográfica editorial (seção 3 do brief) — nomes próprios para não
      colidir com a escala default do Tailwind (xs/sm/base/lg...); usar
@@ -551,6 +587,14 @@ html {
 .reveal-ticker.is-armed .traco-elo:nth-of-type(3) {
   transition-delay: 240ms;
 }
+/* 4º elo (propagação Onda 1, FilmstripDimensoes.tsx — o conector vertical do
+   painel D5 tem 5 pontos/4 segmentos, um a mais que TracoDoElo original de
+   como-funciona/page.tsx, que só usa 3). Mesmo ritmo (+120ms por segmento),
+   simples extensão da sequência acima — TracoDoElo continua com só 3
+   segmentos, então esta regra fica ociosa lá, sem efeito colateral. */
+.reveal-ticker.is-armed .traco-elo:nth-of-type(4) {
+  transition-delay: 360ms;
+}
 
 /* Pulso único do ponto de origem ao conectar (scale 1→1.4→1, 400ms) — NÃO é
    o spring do sistema (usa `--ease-ink`, não `--ease-settle`: o único spring
@@ -574,6 +618,11 @@ html {
 }
 .reveal-ticker.is-armed.is-revealed .ponto-elo-4 {
   animation-delay: 440ms;
+}
+/* 5º ponto (mesmo motivo do 4º elo acima: o conector do painel D5 tem 5
+   estratos/pontos, um a mais que TracoDoElo). */
+.reveal-ticker.is-armed.is-revealed .ponto-elo-5 {
+  animation-delay: 560ms;
 }
 @keyframes pulso-elo {
   0% {
@@ -759,6 +808,507 @@ html {
   }
 }
 
+/* 11. AURORA — leito de luz ambiente (A6, base de coesão global: este
+       arquivo carrega em TODA rota via layout.tsx). Registro FRIO (M1):
+       azul-tinta dessaturado, NUNCA acionável, nunca 2º acento — só
+       profundidade. Pseudo-elemento IRMÃO do conteúdo (nunca wrapper):
+       trava C2 (redteam-frontend-cinema.md) — `body` não recebe transform/
+       filter/will-change/contain; só o PRÓPRIO `::before` anima seu
+       transform abaixo, preservando o containing block de `position:fixed`
+       para descendentes como `.regua-leitura` (mesmo raciocínio do
+       comentário de `.virada-edicao::after` acima). z-index -1: fica atrás
+       de todo o conteúdo (nada mais no arquivo usa z-index negativo, só
+       positivos — regua-leitura/virada-edicao/skip-link). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% -10%,
+    rgb(var(--luz-tinta) / var(--luz-aurora-alfa)) 0%,
+    transparent 60%
+  );
+}
+/* Drift ~12px ao rolar — compositor-only, só `transform` do PRÓPRIO
+   pseudo-elemento. `@supports` com fallback estático (B2 do red-team): sem
+   o recurso, a aurora fica parada no radial acima, nunca invisível.
+   `animation-duration: 1ms` é irrelevante (mesmo padrão de
+   `.regua-leitura`): o progresso vem da scroll-timeline, não do tempo — e
+   por refletir o scroll que o próprio leitor decidiu fazer (não é
+   movimento autônomo), não precisa de tratamento extra em
+   `prefers-reduced-motion` (mesma nota de `.regua-leitura` acima). */
+@supports (animation-timeline: scroll(root block)) {
+  body::before {
+    animation-name: aurora-drift;
+    animation-duration: 1ms;
+    animation-timing-function: var(--ease-cena);
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+/* 12. GRÃO — textura opcional do papel (§7, decisão estética SEM lastro
+       científico — declarado assim de propósito). Só sobre `bg-page` (nunca
+       cards/texto): SVG feTurbulence ESTÁTICO em data-URI, permitido pela
+       CSP do projeto via `img-src 'self' blob: data:` (src/proxy.ts) — é
+       uma URL de `background-image` dentro do CSS, não `style=` inline.
+       Nunca animado (proibido pela direção de arte). */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grao-alfa);
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 13. FOCO — luminária que responde ao ponteiro (§2/§4, M7). Opt-in por
+       superfície via classe `.tem-foco` + hook `usePonteiro`
+       (src/components/motion/usePonteiro.ts): o hook seta `--mx`/`--my`
+       (relativos ao elemento que os recebe) via `el.style.setProperty` —
+       nunca `setAttribute('style', …)`, nunca `style=` em JSX (CSP).
+       Container: `position:relative` (ancora a camada absoluta) +
+       `overflow:hidden` (clip da luz nas bordas) + `isolation:isolate` —
+       cria um stacking context PRÓPRIO só para conter o z-index negativo da
+       luz nesta superfície (sem isso, a luz vazaria atrás de outras seções
+       da página, já que `position:relative` sozinho não cria stacking
+       context). `isolation` NÃO está na lista de propriedades que viram
+       containing block de `position:fixed` (transform/filter/will-change/
+       contain) — não reabre a trava C2. ATENÇÃO (guarda de propagação): o
+       stacking context de `.tem-foco` APRISIONA o z-index dos descendentes —
+       `.tem-foco` NUNCA pode envolver a Tarja CVM (z-50) nem a
+       `.regua-leitura` (z-55), senão esses z-index passam a valer só dentro
+       do contexto e as camadas podem render abaixo de seções irmãs; e o
+       `overflow:hidden` clipa qualquer descendente que precise transbordar
+       (ex.: anel de foco rente à borda). Luz no corpo de /tese segue
+       proibida pela direção de arte (§4). */
+.tem-foco {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Camada-sprite do hero (componente `FocoLuz.tsx`) — sprite radial
+   PRÉ-PINTADO movido só por `transform: translate3d(...)` (compositor-only,
+   C2 do red-team); o `calc(... - 60vmax)` é só a centralização estática do
+   sprite de 120vmax dentro do container, somada ao deslocamento dinâmico de
+   `--mx`/`--my` — nenhuma outra propriedade anima por frame.
+   `will-change: transform` fica só nesta camada-folha (nunca ancestral de
+   `.regua-leitura`). Invisível por padrão: só aparece com ponteiro fino +
+   hover (M7); some de novo em `prefers-reduced-motion` (bloco de redução no
+   fim do arquivo). */
+.foco-luz {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 120vmax;
+  height: 120vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-foco-alfa)) 0%,
+    transparent 60%
+  );
+  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
+  transition:
+    transform var(--dur-set) var(--ease-cena),
+    opacity var(--dur-set) var(--ease-ink);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) {
+  .foco-luz {
+    opacity: 1;
+  }
+}
+
+/* Foco frio dos CartaoTese (§4, M3) — mesmo mecanismo, `::after` do próprio
+   card (a hairline de `.cartao-ticker::before` continua intocada) e pico
+   mais baixo (`--luz-foco-card-alfa`). `--mx`/`--my` chegam por delegação:
+   UM listener de pointermove na grade inteira (`GradeFoco.tsx`) seta as
+   variáveis no card sob o cursor — mais barato em listeners que um hook por
+   card. */
+.cartao-ticker.tem-foco::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 120vmax;
+  height: 120vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-foco-card-alfa)) 0%,
+    transparent 60%
+  );
+  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
+  transition: transform var(--dur-set) var(--ease-cena);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cartao-ticker.tem-foco::after {
+    opacity: 1;
+  }
+}
+
+/* 14. PIN DE CITAÇÃO — variantes LCP-safe do hero (§2, cenas 3/4). Mesma
+       silhueta do Pin de Citação (item 4 acima: spring `--ease-settle`
+       único + borda que se imprime), mas disparadas por `animation`
+       INCONDICIONAL no load — nunca `.is-armed`/`.is-revealed`
+       (IntersectionObserver): o hero está acima da dobra desde o load, um
+       gate de IO atrasaria a citação à toa (mesmo motivo do P2/
+       `.entrada-hero` acima). Reservadas para o hero; abaixo da dobra use
+       `Reveal variant="citacao-pin"` (já existente). */
+.pin-hero {
+  display: inline-block;
+  opacity: 0;
+  transform: scale(0.92);
+  animation: pin-hero-resolve var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 2 + var(--dur-press)) both;
+}
+@keyframes pin-hero-resolve {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Linha de fonte viva do hero (chip `bg-realce`, cena 4): mesma anatomia do
+   `.citacao-pin` (borda esquerda 2px que se imprime), versão LCP-safe. */
+.citacao-pin-hero {
+  position: relative;
+  opacity: 0;
+  transform: scale(0.96);
+  animation: citacao-pin-hero-resolve var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 6) both;
+}
+@keyframes citacao-pin-hero-resolve {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.citacao-pin-hero::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent-action);
+  transform: scaleY(0);
+  transform-origin: top;
+  animation: citacao-pin-hero-borda var(--dur-set) var(--ease-settle)
+    calc(var(--stagger-step) * 6) both;
+}
+@keyframes citacao-pin-hero-borda {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* 15. SETAS DO FILMSTRIP — propagação Onda 1 (§3/§6 item 14,
+       .maestro/direcao-de-arte-cinema.md; FilmstripDimensoes.tsx). Mesmo CTA
+       secundário do resto do site (borda `--border-field` → `--accent-text`
+       em `--dur-tick`, ex.: "Ver exemplo" no hero) + o glifo mono ←/→ desloca
+       2px na direção do movimento ao hover/focus — compositor-only
+       (`transform`), sem escala. `disabled` (ponta do filmstrip) usa o
+       utilitário `disabled:opacity-60` do Tailwind direto no componente. */
+.seta-filmstrip {
+  transition: border-color var(--dur-tick) var(--ease-ink);
+}
+.seta-filmstrip:hover:not(:disabled),
+.seta-filmstrip:focus-visible {
+  border-color: var(--accent-text);
+}
+.seta-filmstrip__glifo {
+  display: inline-block;
+  transition: transform var(--dur-tick) var(--ease-ink);
+}
+.seta-filmstrip--prev:hover:not(:disabled) .seta-filmstrip__glifo,
+.seta-filmstrip--prev:focus-visible .seta-filmstrip__glifo {
+  transform: translateX(-2px);
+}
+.seta-filmstrip--next:hover:not(:disabled) .seta-filmstrip__glifo,
+.seta-filmstrip--next:focus-visible .seta-filmstrip__glifo {
+  transform: translateX(2px);
+}
+
+/* 16. HAIRLINE SOB O SUMMARY DO MENU MOBILE ABERTO — item 6 do inventário
+       (§6 M6; Header.tsx). `<details>`/`<summary>` nativo, sem JS: o
+       `<summary>` NUNCA sai do DOM (só o menu abaixo dele aparece/some), então
+       `[open]` é só mais um estado CSS de um elemento que já existia — a
+       transição roda normal, sem precisar de `@starting-style` (que só
+       importaria se o PRÓPRIO `.menu-mobile-resumo` entrasse/saísse do DOM,
+       o que não é o caso). Mesma silhueta da Impressão de Régua (scaleX a
+       partir da esquerda, `--ease-rule`), só que presa ao rodapé do
+       `<summary>` via `::after` em vez de um IntersectionObserver — o gatilho
+       aqui é o próprio menu abrir, não um scroll. */
+.menu-mobile-resumo {
+  position: relative;
+}
+.menu-mobile-resumo::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--line-strong);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-tick) var(--ease-rule);
+}
+details[open] > .menu-mobile-resumo::after {
+  transform: scaleX(1);
+}
+
+/* 17. PARALAXE TIPOGRÁFICO — números de seção grandes (2.4, propagação Onda
+       1D: /cobertura e /como-funciona). Profundidade de camadas da edição —
+       o PRÓPRIO glifo do número desloca uns poucos pixels num ritmo
+       levemente distinto do resto do texto ao rolar; NÃO é paralaxe de
+       agência (nenhum bloco inteiro, imagem ou seção se move — só o glifo).
+       Compositor-only (`transform`), amplitude 8px de cada lado (16px de
+       curso total), scroll-driven nativo (`animation-timeline: view()`) com
+       `@supports` + fallback estático — sem suporte, o número fica parado no
+       lugar, nunca invisível (mesmo padrão de `.regua-leitura`/aurora
+       acima). Escopo deliberadamente restrito ao GLIFO do número — nunca a
+       régua-hairline (`.reveal-regua`) irmã de seção: aquela já anima
+       `transform: scaleX()` via transição de entrada (uma vez, ao entrar em
+       view); empilhar TAMBÉM uma `animation` de `transform` no MESMO
+       elemento substituiria o scaleX em vez de compor com ele (animação
+       sempre vence sobre transição na mesma propriedade — regra do cascade),
+       quebrando a Impressão de Régua. Decisão consciente registrada aqui,
+       não omissão (ver relatório da missão). Cobertura de
+       `prefers-reduced-motion` no bloco de redução abaixo (some por completo
+       — não é scroll-progress puro como a Régua de Leitura, é um
+       deslocamento decorativo, então recebe o mesmo tratamento de
+       desligamento total que `.foco-luz`). */
+.paralaxe-numero {
+  transform: translateY(0);
+}
+@supports (animation-timeline: view()) {
+  .paralaxe-numero {
+    animation-name: paralaxe-numero-desloca;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline, não pelo tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+  }
+}
+@keyframes paralaxe-numero-desloca {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(8px);
+  }
+}
+
+/* 18. TINTA DESENHANDO NO PAPEL — entrada em cena dos 6 gráficos SVG da
+       Análise técnica (§5, .maestro/direcao-de-arte-cinema.md;
+       SecaoTecnica.tsx/GraficoLinha.tsx/GraficoMacd.tsx/GraficoOscilador.tsx).
+       Gatilho: `.entrada-grafico` é uma variante do `Reveal` que, ao
+       contrário de `.reveal`/`.reveal-ticker` (que estilizam o PRÓPRIO
+       wrapper), fica deliberadamente MUDA — o wrapper nunca ganha
+       opacity/transform; ele só existe para alternar `.is-armed`/
+       `.is-revealed` (IntersectionObserver, Reveal.tsx) e GATEAR os
+       seletores descendentes abaixo, que são quem de fato anima. Sem
+       `.is-armed` (JS não carregou, ou reduced-motion — ver bloco de
+       redução mais abaixo), nenhuma regra aqui se aplica: os SVGs renderizam
+       exatamente como hoje, pixel-idênticos.
+
+       Ordem de leitura (papel → tese → apoio), 1x por gráfico ao entrar em
+       view — nunca os 6 juntos, cada `<Reveal variant="entrada-grafico">`
+       tem seu próprio observer (SecaoTecnica.tsx):
+         1. eixos/grade — fade, --dur-set, ease-rule ("papel pautado"):
+            reaproveita as classes ESTÁTICAS já usadas pela grade/eixo/tick
+            de `GraficoEixos.tsx` (`stroke-line`/`stroke-line-strong`/
+            `fill-ink-3`) — zero classe nova nesses elementos, só o seletor
+            descendente abaixo os alcança quando estão dentro de
+            `.entrada-grafico`. `:not(.traco-grafico-ref)` exclui o rótulo
+            de linha de referência do Oscilador (mesma classe `fill-ink-3`
+            de um tick comum, mas semanticamente pertence à etapa 4, abaixo).
+         2. série primária (`.traco-grafico` sem `.i-N`: a 1ª série
+            renderizada, `classeEntradaSerie(0)` em formatacao.ts) —
+            `stroke-dashoffset` 1→0 via `pathLength={1}` (JSX) +
+            `stroke-dasharray:1` (aqui), --dur-edition, ease-rule;
+         3. séries secundárias (`.traco-grafico.i-2`…`.i-6`, MESMO
+            vocabulário `.i-N` do stagger de citações/cláusulas — nenhum
+            mecanismo novo) + apoio que a geometria NÃO deixa tracejar
+            (`.traco-grafico-area`: faixa de Bollinger, `fill` sem `stroke`;
+            `.traco-grafico-barra`: histograma do MACD, retângulos sólidos
+            de altura assinada) — stagger 120ms, --dur-press cada, FADE (não
+            dash: sem stroke, `stroke-dashoffset` não teria efeito visual —
+            MOLDE MACIO, fidelidade factual antes do espetáculo);
+         4. referências tracejadas (`.traco-grafico-ref`: linhas 30/70 do
+            RSI/estocástico/Williams %R + seu rótulo mono) — por último,
+            --dur-set, FADE: a linha já usa `strokeDasharray="4 4"` fixo
+            como o PRÓPRIO desenho do tracejado — normalizar o path com
+            `pathLength`/`stroke-dashoffset` (que reinterpreta TODO
+            `stroke-dasharray` em unidades de 0–1) quebraria esse padrão em
+            repouso (o "4 4" passaria a valer sobre um comprimento
+            normalizado de 1, virando quase um traço sólido) — MOLDE MACIO,
+            fade preserva o tracejado intocado.
+
+       Timings compostos via `calc()` com os tokens de duração existentes
+       (zero valor mágico): --dur-set=240ms + --dur-edition=700ms = 940ms é
+       quando a 1ª série secundária/apoio começa; a etapa 4 assume um teto
+       fixo (940ms + --dur-press + 240ms de folga ≈ 1,6s) generoso o
+       bastante para os casos reais do produto (no máximo 2–3 séries por
+       gráfico) — não tenta sincronizar com um Nº de séries desconhecido em
+       tempo de build, mesmo raciocínio de "delay fixo aproximado" já usado
+       em `.pin-hero`/`.citacao-pin-hero` acima. */
+.entrada-grafico.is-armed svg .stroke-line,
+.entrada-grafico.is-armed svg .stroke-line-strong,
+.entrada-grafico.is-armed svg .fill-ink-3:not(.traco-grafico-ref) {
+  opacity: 0;
+  transition: opacity var(--dur-set) var(--ease-rule);
+}
+.entrada-grafico.is-armed.is-revealed svg .stroke-line,
+.entrada-grafico.is-armed.is-revealed svg .stroke-line-strong,
+.entrada-grafico.is-armed.is-revealed svg .fill-ink-3:not(.traco-grafico-ref) {
+  opacity: 1;
+}
+
+/* Série primária. */
+.entrada-grafico.is-armed svg .traco-grafico {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition-property: stroke-dashoffset;
+  transition-timing-function: var(--ease-rule);
+  transition-duration: var(--dur-edition);
+  transition-delay: var(--dur-set);
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico {
+  stroke-dashoffset: 0;
+}
+/* Séries secundárias — só sobrescrevem duração/delay (longhand); a
+   propriedade/easing acima seguem valendo (cascade por propriedade, não
+   precisa repetir). Especificidade de `.traco-grafico.i-N` (2 classes) já
+   vence `.traco-grafico` (1 classe) sem depender de ordem no arquivo. */
+.entrada-grafico.is-armed svg .traco-grafico.i-2,
+.entrada-grafico.is-armed svg .traco-grafico.i-3,
+.entrada-grafico.is-armed svg .traco-grafico.i-4,
+.entrada-grafico.is-armed svg .traco-grafico.i-5,
+.entrada-grafico.is-armed svg .traco-grafico.i-6 {
+  transition-duration: var(--dur-press);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-2 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition));
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-3 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 120ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-4 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 240ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-5 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 360ms);
+}
+.entrada-grafico.is-armed svg .traco-grafico.i-6 {
+  transition-delay: calc(var(--dur-set) + var(--dur-edition) + 480ms);
+}
+
+/* Apoio fade-only (Bollinger / histograma do MACD) — alinhado ao início da
+   etapa 3 (mesmo instante da 1ª série secundária). */
+.entrada-grafico.is-armed svg .traco-grafico-area,
+.entrada-grafico.is-armed svg .traco-grafico-barra {
+  opacity: 0;
+  transition: opacity var(--dur-press) var(--ease-rule)
+    calc(var(--dur-set) + var(--dur-edition));
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-area,
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-barra {
+  opacity: 1;
+}
+
+/* Referências tracejadas — por último. */
+.entrada-grafico.is-armed svg .traco-grafico-ref {
+  opacity: 0;
+  transition: opacity var(--dur-set) var(--ease-rule)
+    calc(var(--dur-set) + var(--dur-edition) + var(--dur-press) + 240ms);
+}
+.entrada-grafico.is-armed.is-revealed svg .traco-grafico-ref {
+  opacity: 1;
+}
+
+/* 19. DROPDOWN DO COMBOBOX — fade curto na abertura (M6 #18,
+       TickerCombobox.tsx). O `<ul>` de sugestões é MONTADO pelo React a
+       cada abertura (condicional `{aberto && ... && (<ul>...)}`), não uma
+       classe alternada num elemento que já existe no DOM — `@starting-style`
+       cobre exatamente este caso sem observer/JS extra: um elemento recém-
+       inserido assume o estado "starting" no 1º frame e transiciona dali
+       para o estado normal. Sem suporte (Safari <17.4/Firefox <129): a
+       regra é só ignorada e o dropdown aparece direto, sem transição —
+       nunca invisível (mesmo espírito do fallback de scroll-driven do
+       resto deste arquivo). `prefers-reduced-motion` não precisa de
+       tratamento extra: a regra genérica `*{transition-duration:.01ms}` no
+       bloco de redução abaixo já cobre esta transição simples de opacidade
+       (mesmo raciocínio do cross-fade de tema em `.bg-card`/`.bg-elevated`,
+       topo deste arquivo). */
+.dropdown-combobox {
+  opacity: 1;
+  transition: opacity var(--dur-set) var(--ease-ink);
+}
+@starting-style {
+  .dropdown-combobox {
+    opacity: 0;
+  }
+}
+
+/* 20. AURORA DO MASTHEAD DA TESE — pool de luz local atrás do título do
+       research report (§4, direcao-de-arte-cinema.md: "/tese: aurora SÓ no
+       masthead, corpo LIMPO"). O masthead (TeseView.tsx) é um card
+       `bg-card` OPACO — a aurora global do body (`body::before`, item 11
+       acima) fica inteiramente atrás dele e nunca aparece ali; em vez de
+       tornar o card translúcido (arriscaria o AA de `text-ink-3`/badges
+       sobre ele — M5), esta é uma camada PRÓPRIA, pintada ACIMA do
+       `bg-card` e ABAIXO do conteúdo (texto/badges), só dentro da caixa do
+       próprio masthead. TRAVA C2: `::before` do PRÓPRIO masthead (nunca um
+       wrapper novo envolvendo-o) — o masthead é IRMÃO de `.regua-leitura`
+       na árvore (TeseView.tsx: ambos filhos diretos de `<article>`), nunca
+       ancestral dela, então `position:relative`/`isolation:isolate` aqui
+       não tocam o containing block do `position:fixed` da régua. Estática
+       (sem drift/scroll-timeline): o masthead é lido rápido, no topo da
+       página — a "espinha" de motion desta página é a Impressão de Régua
+       (scroll) + os reveals de seção, não mais uma luz em movimento. Sem
+       foco de ponteiro aqui nem no resto do corpo — decisão explícita da
+       direção de arte para leitura longa (M7 nota Buchner/Baumgartner/
+       Piepenbrock: luz reativa ao lado de texto extenso distrai). */
+.aurora-masthead {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.aurora-masthead::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 70% 80% at 50% 0%,
+    rgb(var(--luz-tinta) / var(--luz-aurora-alfa)) 0%,
+    transparent 65%
+  );
+}
+
 /* ---------- Reduced motion (WCAG 2.3.3) ---------- */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -790,6 +1340,32 @@ html {
     transition-duration: 120ms !important;
   }
 
+  /* Luz (spike cinema, C1): sem luminária/spring sob reduced-motion — pin e
+     chip do hero nascem já no estado final (o guard genérico acima zera
+     `animation-duration`, mas não `animation-delay`; sem isto ficariam
+     invisíveis presos no delay). Foco de ponteiro (hero e cards) some por
+     completo — instrução explícita da direção de arte, além do que o hook
+     `usePonteiro` já nem liga o listener com reduced-motion ativo. */
+  .pin-hero,
+  .citacao-pin-hero,
+  .citacao-pin-hero::before {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .foco-luz,
+  .cartao-ticker.tem-foco::after {
+    display: none !important;
+  }
+
+  /* Paralaxe tipográfico (item 17 acima, propagação Onda 1D): desliga por
+     completo — decorativo, não scroll-progress puro, então não se beneficia
+     do mesmo raciocínio de isenção da Régua de Leitura/aurora. */
+  .paralaxe-numero {
+    animation: none !important;
+    transform: none !important;
+  }
+
   /* Traço do Elo: sem desenho progressivo nem pulso — traço e pontos ficam
      no estado final direto (o guard genérico acima já zera a duração; isto
      cobre o caso raro de `.is-armed` já ter sido setado antes do usuário
@@ -799,6 +1375,29 @@ html {
   }
   .ponto-elo {
     animation: none !important;
+  }
+
+  /* Tinta desenhando no papel (item 18 acima): estado final instantâneo —
+     mesmo raciocínio do Traço do Elo (o guard genérico já zera a duração;
+     isto cobre o caso raro de `.is-armed` já ter sido setado antes do
+     usuário ligar "reduzir movimento" em pleno uso, e garante o estado
+     final mesmo se o elemento nunca chegou a ganhar `.is-revealed`). */
+  .traco-grafico {
+    stroke-dashoffset: 0 !important;
+  }
+  .traco-grafico-area,
+  .traco-grafico-barra,
+  .traco-grafico-ref {
+    opacity: 1 !important;
+  }
+  /* Grade/eixos do gráfico (`GraficoEixos.tsx`) — mesmas classes ESTÁTICAS
+     `stroke-line`/`stroke-line-strong`/`fill-ink-3` que só existem dentro
+     dos 3 componentes de gráfico (ver comentário do item 18): seguro
+     forçar visível sem escopo extra. */
+  .stroke-line,
+  .stroke-line-strong,
+  svg .fill-ink-3 {
+    opacity: 1 !important;
   }
 
   /* Virada de Edição: corte seco + fade curto (≤120ms) no lugar do véu que

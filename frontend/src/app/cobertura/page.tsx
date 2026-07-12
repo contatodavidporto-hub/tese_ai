@@ -152,9 +152,13 @@ export default function Cobertura() {
                 variant="reveal-ticker"
                 className="cartao-ticker i-1 flex flex-col gap-5 border-2 border-line-strong bg-card p-8 sm:flex-row sm:items-center sm:gap-8"
               >
+                {/* `.paralaxe-numero` (2.4, propagação Onda 1D): profundidade
+                    de camadas — o folio grande desloca alguns px num ritmo
+                    levemente distinto do resto ao rolar (scroll-driven,
+                    @supports + fallback estático; globals.css). */}
                 <span
                   aria-hidden
-                  className="font-mono text-h1 font-semibold text-line-strong sm:shrink-0"
+                  className="paralaxe-numero font-mono text-h1 font-semibold text-line-strong sm:shrink-0"
                 >
                   {CLASSE_LEAD.numero}
                 </span>
@@ -186,7 +190,7 @@ export default function Cobertura() {
                       <div className="flex items-start justify-between gap-3">
                         <span
                           aria-hidden
-                          className="font-mono text-h3 font-semibold text-line-strong"
+                          className="paralaxe-numero font-mono text-h3 font-semibold text-line-strong"
                         >
                           {classe.numero}
                         </span>
@@ -250,7 +254,7 @@ export default function Cobertura() {
                   >
                     <span
                       aria-hidden
-                      className="font-mono text-h3 font-semibold text-line-strong"
+                      className="paralaxe-numero font-mono text-h3 font-semibold text-line-strong"
                     >
                       {tipo.numero}
                     </span>

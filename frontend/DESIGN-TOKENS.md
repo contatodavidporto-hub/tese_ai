@@ -25,10 +25,10 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 | `bg-elevated` | Superfície elevada (modal/tooltip/dropdown) | `#ffffff` | `#1d2027` | elevação — sombra só no claro (`.sombra-elevada`), borda no escuro |
 | `text-ink` | Tinta primária (corpo, títulos) | `#16181d` | `#ebe9e4` | 16.40:1 / 15.45:1 na página |
 | `text-ink-2` | Tinta secundária (subtítulos, descrições) | `#4a4f58` | `#b5b3ac` | 7.60:1 / 8.94:1 |
-| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#686d76` | `#8f8d87` | 4.80:1 / 5.65:1 — mínimo AA, não usar abaixo de 14px |
+| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#5b5f67` | `#908e88` | 5.92:1 / 5.72:1 na página — **≥4.66:1 / ≥4.67:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#686d76`/`#8f8d87` caíam a 3.78:1/4.60:1 no pico). Não usar abaixo de 14px |
 | `border-line` | Hairline decorativa | `#e6e5df` | `#23262d` | réguas, zebra — **isenta de AA** (decorativa, não comunica estado) |
 | `border-line-strong` | Régua de cabeçalho de seção | `#c7c6bf` | `#383c45` | também decorativa |
-| `border-field` | Borda de campo/input interativo | `#8f8e86` | `#616772` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle |
+| `border-field` | Borda de campo/input interativo | `#7b7a72` | `#6b727e` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle. **≥3.14:1 / ≥3.15:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#8f8e86`/`#616772` caíam a 2.39:1/2.69:1 no pico) |
 | `bg-brasa` / `text-brasa` | Brasa — ação primária | `#a03a06` | `#e97b3c` | botão primário, toggle ativo — 6.25:1 / 6.57:1 como UI |
 | `bg-brasa-forte` | Brasa hover/pressed | `#7f2e04` | `#f28a50` | |
 | `text-sobre-brasa` | Texto sobre fundo de brasa | `#ffffff` | `#1c0e05` | **no dark é tinta escura, NUNCA branco** (branco daria ~2.5:1, reprova) |
@@ -46,6 +46,64 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 - Verde: **proibido** em qualquer papel (identidade anterior aposentada).
 - Um único acento. Proibido segundo acento, gradiente multicolor, glassmorphism, blobs.
 - Dark: nunca `#000` chapado, nunca branco puro de corpo, **nunca `text-white` sobre `bg-brasa`**.
+
+### Emenda 2026-07-11 (missão cinematográfica) — luz ambiente fria (carve-out)
+
+> **Luz ambiente fria (carve-out).** É permitida UMA luz monocromática azul-tinta (matiz ~222°, croma baixo) como profundidade/atmosfera, em duas intensidades: aurora ambiente ≤6% e foco interativo ≤10% claro / ≤12% escuro. A luz não é acento: nunca senta em controle, nunca comunica ação/estado/dado, nunca é quente. A brasa segue o único acento. Seguem PROIBIDOS: gradiente multicolor, glassmorphism, blobs, segundo acento, verde. A luz jamais banha número factual, citação, chip bg-realce ou região brasa/salmão (trava M3 — Bazley). Registro frio ≠ rebrand: nenhum hex de conteúdo/tinta/brasa muda; só entram as camadas de luz e o grão.
+
+**O que NÃO muda:** paleta de conteúdo inteira (tinta, superfícies, brasa, aviso, erro, bg-realce, gráficos 1–6), tipografia, escala, contraste AA, dark por prefers-color-scheme. A luz é aditiva.
+
+Fonte: `.maestro/direcao-de-arte-cinema.md` §1 (M1, LEI da missão) · lastro científico completo, estudo por estudo, com força de evidência declarada: `Design - Brief de Cor (Ciência).md` no Vault (`08 - Produto/`).
+
+**Decisão arquitetural (emenda 2026-07-11) — Via A.** CSS puro evoluído + micro-hooks CSSOM para o follow do ponteiro e o drift da aurora. Libs de animação runtime (Framer Motion, GSAP etc.) **rejeitadas** para esta camada — motivo: bundle (zero dep npm nova), CSP (nonce, zero `style=` inline de terceiro) e estética (a casa já resolve reveal/motion em CSS-first; ver §3). A luz é sempre um sprite radial pré-pintado, movido só por `transform`.
+
+#### Tokens novos — luz ambiente e grão
+
+| Token CSS | Papel | Claro | Escuro | Teto |
+|---|---|---|---|---|
+| `--luz-tinta` | cor da luz (RGB space-separated p/ `rgb(var(...)/alfa)`) | `42 54 84` (`#2A3654`) | `132 148 178` (`#8494B2`) | matiz ~222° fixo, croma baixo — não muda |
+| `--luz-aurora-alfa` | opacidade do leito ambiente (sempre presente, difuso, estático/scroll) | `0.05` (0.04 reprovou perceptibilidade no wow-gate) | `0.055` | **≤0.06** nos dois temas |
+| `--luz-foco-alfa` | opacidade da luminária que segue o ponteiro | `0.09` (0.07 reprovou perceptibilidade no wow-gate) | `0.10` | **≤0.10 claro / ≤0.12 escuro** |
+| `--mx`, `--my` | posição do sprite de foco (px), default neutro | `0px` | `0px` | setado só via CSSOM, nunca em CSS estático |
+| `--grao-alfa` | opacidade da textura de grão (opcional, só `bg-page`) | `0.025` | `0.04` | **≤0.03 claro / ≤0.04 escuro** |
+| `--ease-cena` | easing do glide de luz (follow do foco + drift da aurora) | `cubic-bezier(0.4, 0, 0.2, 1)` | idem | escopo estrito: só a luz — nunca reusar `ease-ink`/`ease-rule`/`ease-settle` nela, nem usar `--ease-cena` fora da luz |
+
+Sprite do foco (referência de implementação): `radial-gradient(circle at center, rgb(var(--luz-tinta)/var(--luz-foco-alfa)) 0%, transparent 60%)` em camada ~120vmax, movida SÓ por `transform: translate3d(var(--mx),var(--my),0)`.
+
+**Regra de consumo — CSSOM carve-out (não negociável):**
+- **PERMITIDO:** `el.style.setProperty('--mx', …)` / `el.style.setProperty('--my', …)`, client-side, **pós-mount**, dentro de `pointermove` coalescido por `requestAnimationFrame`, listener `passive`, só sob `@media (hover:hover) and (pointer:fine)`.
+- **PROIBIDO:** `el.setAttribute('style', …)`, prop `style={}` em JSX (SSR ou client), tag `<style>` solta, `styled-jsx`, qualquer `style=` inline literal. `.style.setProperty` é a ÚNICA porta permitida — governada por `script-src` sob nonce, não por `style-src` (CSP permanece intacta).
+
+**TRAVA C2 (containing-block da Régua de Leitura) — inegociável:** PROIBIDO `transform`/`filter`/`will-change`/`contain` em `body`, `main` ou **qualquer ancestral** de `.regua-leitura`. As camadas de luz (aurora + foco) são SEMPRE pseudo-elementos ou `<div>` **irmãs** — nunca wrappers. O drift/follow anima o `transform` da própria camada de luz (o irmão), nunca de um ancestral. Motivo: `position: fixed` da régua depende do containing block do viewport; um ancestral com `transform` quebra isso silenciosamente (precedente: globals.css ~601–628/705–711). QA prova zero regressão visual da régua antes de qualquer merge.
+
+### Emenda 2026-07-12 — correção de gate: `--ink-tertiary`/`--border-field` no PICO da luz
+
+> A emenda de 2026-07-11 introduziu a luz sem revalidar os pares AA contra o
+> PIOR CASO de composição (aurora ambiente ∪ foco de ponteiro, sempre que o
+> token está direto sobre `--bg-page`, sem card opaco por baixo — ex.: hero
+> da home, `.tem-foco`). Auditoria por alpha-composite real (sRGB gama, não
+> linear) provou reprovação em dois pares: `text-ink-3` claro caía a 3.78:1
+> e `border-field` claro a 2.39:1 no pico (0.05 ∪ 0.09 = alfa 0.1355 sobre
+> `#f6f6f3`); no escuro, `border-field` caía a 2.69:1 no pico (0.055 ∪ 0.10 =
+> alfa 0.1495 sobre `#101216`). Bisecção provou que nenhum alfa de luz
+> perceptível (0.04–0.06) resolve sem tocar os primitivos — a luz ficou como
+> está; só os 3 tokens abaixo foram recalibrados (lightness apenas — matiz e
+> saturação intocados, `border-field` claro segue greige, `border-field`
+> escuro segue o mesmo azul-acinzentado de antes):
+>
+> | Token | Antes | Depois | Pico antes | Pico depois |
+> |---|---|---|---|---|
+> | `--ink-tertiary` (claro) | `#686d76` | `#5b5f67` | 3.78:1 (FALHA) | 4.66:1 |
+> | `--border-field` (claro) | `#8f8e86` | `#7b7a72` | 2.39:1 (FALHA) | 3.14:1 |
+> | `--border-field` (escuro) | `#616772` | `#6b727e` | 2.69:1 (FALHA) | 3.15:1 |
+> | `--ink-tertiary` (escuro, folga opcional) | `#8f8d87` | `#908e88` | 4.60:1 (margem fina) | 4.67:1 |
+>
+> Script de auditoria: `scratchpad/contraste-tokens/calibra_tokens.py`
+> (worktree `wt-cinema`). Também validado contra `--bg-card` puro, contra o
+> composite local do masthead da tese (`.aurora-masthead`, só aurora, sem
+> foco) e contra o foco local dos cards de galeria (`.tem-foco::after` do
+> `CartaoTese`, `--luz-foco-card-alfa`) — todos os pares ficam ≥4.5:1
+> (texto) / ≥3:1 (UI) nesses cenários também, com folga confortável.
 
 ---
 
@@ -184,6 +242,11 @@ cada uma.
 Citação); nada quica/flutua em cards ou botões; reveals rodam 1x; zero
 `style=` inline (CSP com nonce); zero lib de animação runtime; zero parallax
 decorativo, shimmer em loop, `filter: blur` animado em grade.
+
+**Emenda 2026-07-11 (missão cinematográfica):** `--ease-cena` é o único
+easing do follow/drift da luz ambiente — nunca reusar `ease-ink`/`ease-rule`/
+`ease-settle` nela, nem `--ease-cena` fora da luz. Camadas de luz nunca em
+ancestral de `.regua-leitura` (TRAVA C2, detalhe completo em §1).
 
 ---
 

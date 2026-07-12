@@ -142,6 +142,30 @@ export function corFundo(indiceSerie: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Entrada em cena dos gráficos ("a tinta desenhando no papel" — §5,
+// .maestro/direcao-de-arte-cinema.md). Classe pura, zero JSX: monta o par
+// `.traco-grafico`(+ posição) que `GraficoLinha/Macd/Oscilador` aplicam nos
+// `<path>` de série — o hook mínimo autorizado pela missão (junto de
+// `pathLength={1}`, aplicado direto no JSX). A escolha do delay/duração de
+// cada posição vive só em CSS (globals.css, seletores `.i-2`…`.i-6`) — este
+// helper só decide QUAL classe de posição cada série recebe, reaproveitando
+// o MESMO vocabulário `.i-N` já usado no stagger de citações/cláusulas
+// (TeseView.tsx, como-funciona/page.tsx) em vez de inventar um mecanismo novo.
+// ---------------------------------------------------------------------------
+
+// `posicaoRenderizada` é o índice (0-based) da série DEPOIS do filtro de
+// pontos válidos (`pontosLinhaValidos`) — não o índice de cor original
+// (`s.indice`/`corTraco`): a 1ª série que efetivamente desenha é sempre a
+// "primária" da encenação, mesmo que sua cor não seja `grafico-1` (ex.: a
+// série 0 ficou sem pontos válidos e foi filtrada). Teto `i-6`: mesmo
+// tamanho de `CLASSES_TRACO_GRAFICO` — séries além da 6ª (raro) reaproveitam
+// o delay da 6ª em vez de ficarem sem stagger.
+export function classeEntradaSerie(posicaoRenderizada: number): string {
+  if (posicaoRenderizada <= 0) return "traco-grafico";
+  return `traco-grafico i-${Math.min(posicaoRenderizada + 1, 6)}`;
+}
+
+// ---------------------------------------------------------------------------
 // Geometria SVG — escalas, ticks, filtro de pontos não-finitos (A16: "path[d]
 // não-vazio e sem NaN"). Puramente numérico; nenhuma função aqui toca o DOM.
 // ---------------------------------------------------------------------------
