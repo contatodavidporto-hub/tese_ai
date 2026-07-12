@@ -25,10 +25,10 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 | `bg-elevated` | Superfície elevada (modal/tooltip/dropdown) | `#ffffff` | `#1d2027` | elevação — sombra só no claro (`.sombra-elevada`), borda no escuro |
 | `text-ink` | Tinta primária (corpo, títulos) | `#16181d` | `#ebe9e4` | 16.40:1 / 15.45:1 na página |
 | `text-ink-2` | Tinta secundária (subtítulos, descrições) | `#4a4f58` | `#b5b3ac` | 7.60:1 / 8.94:1 |
-| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#686d76` | `#8f8d87` | 4.80:1 / 5.65:1 — mínimo AA, não usar abaixo de 14px |
+| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#5b5f67` | `#908e88` | 5.92:1 / 5.72:1 na página — **≥4.66:1 / ≥4.67:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#686d76`/`#8f8d87` caíam a 3.78:1/4.60:1 no pico). Não usar abaixo de 14px |
 | `border-line` | Hairline decorativa | `#e6e5df` | `#23262d` | réguas, zebra — **isenta de AA** (decorativa, não comunica estado) |
 | `border-line-strong` | Régua de cabeçalho de seção | `#c7c6bf` | `#383c45` | também decorativa |
-| `border-field` | Borda de campo/input interativo | `#8f8e86` | `#616772` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle |
+| `border-field` | Borda de campo/input interativo | `#7b7a72` | `#6b727e` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle. **≥3.14:1 / ≥3.15:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#8f8e86`/`#616772` caíam a 2.39:1/2.69:1 no pico) |
 | `bg-brasa` / `text-brasa` | Brasa — ação primária | `#a03a06` | `#e97b3c` | botão primário, toggle ativo — 6.25:1 / 6.57:1 como UI |
 | `bg-brasa-forte` | Brasa hover/pressed | `#7f2e04` | `#f28a50` | |
 | `text-sobre-brasa` | Texto sobre fundo de brasa | `#ffffff` | `#1c0e05` | **no dark é tinta escura, NUNCA branco** (branco daria ~2.5:1, reprova) |
@@ -75,6 +75,35 @@ Sprite do foco (referência de implementação): `radial-gradient(circle at cent
 - **PROIBIDO:** `el.setAttribute('style', …)`, prop `style={}` em JSX (SSR ou client), tag `<style>` solta, `styled-jsx`, qualquer `style=` inline literal. `.style.setProperty` é a ÚNICA porta permitida — governada por `script-src` sob nonce, não por `style-src` (CSP permanece intacta).
 
 **TRAVA C2 (containing-block da Régua de Leitura) — inegociável:** PROIBIDO `transform`/`filter`/`will-change`/`contain` em `body`, `main` ou **qualquer ancestral** de `.regua-leitura`. As camadas de luz (aurora + foco) são SEMPRE pseudo-elementos ou `<div>` **irmãs** — nunca wrappers. O drift/follow anima o `transform` da própria camada de luz (o irmão), nunca de um ancestral. Motivo: `position: fixed` da régua depende do containing block do viewport; um ancestral com `transform` quebra isso silenciosamente (precedente: globals.css ~601–628/705–711). QA prova zero regressão visual da régua antes de qualquer merge.
+
+### Emenda 2026-07-12 — correção de gate: `--ink-tertiary`/`--border-field` no PICO da luz
+
+> A emenda de 2026-07-11 introduziu a luz sem revalidar os pares AA contra o
+> PIOR CASO de composição (aurora ambiente ∪ foco de ponteiro, sempre que o
+> token está direto sobre `--bg-page`, sem card opaco por baixo — ex.: hero
+> da home, `.tem-foco`). Auditoria por alpha-composite real (sRGB gama, não
+> linear) provou reprovação em dois pares: `text-ink-3` claro caía a 3.78:1
+> e `border-field` claro a 2.39:1 no pico (0.05 ∪ 0.09 = alfa 0.1355 sobre
+> `#f6f6f3`); no escuro, `border-field` caía a 2.69:1 no pico (0.055 ∪ 0.10 =
+> alfa 0.1495 sobre `#101216`). Bisecção provou que nenhum alfa de luz
+> perceptível (0.04–0.06) resolve sem tocar os primitivos — a luz ficou como
+> está; só os 3 tokens abaixo foram recalibrados (lightness apenas — matiz e
+> saturação intocados, `border-field` claro segue greige, `border-field`
+> escuro segue o mesmo azul-acinzentado de antes):
+>
+> | Token | Antes | Depois | Pico antes | Pico depois |
+> |---|---|---|---|---|
+> | `--ink-tertiary` (claro) | `#686d76` | `#5b5f67` | 3.78:1 (FALHA) | 4.66:1 |
+> | `--border-field` (claro) | `#8f8e86` | `#7b7a72` | 2.39:1 (FALHA) | 3.14:1 |
+> | `--border-field` (escuro) | `#616772` | `#6b727e` | 2.69:1 (FALHA) | 3.15:1 |
+> | `--ink-tertiary` (escuro, folga opcional) | `#8f8d87` | `#908e88` | 4.60:1 (margem fina) | 4.67:1 |
+>
+> Script de auditoria: `scratchpad/contraste-tokens/calibra_tokens.py`
+> (worktree `wt-cinema`). Também validado contra `--bg-card` puro, contra o
+> composite local do masthead da tese (`.aurora-masthead`, só aurora, sem
+> foco) e contra o foco local dos cards de galeria (`.tem-foco::after` do
+> `CartaoTese`, `--luz-foco-card-alfa`) — todos os pares ficam ≥4.5:1
+> (texto) / ≥3:1 (UI) nesses cenários também, com folga confortável.
 
 ---
 

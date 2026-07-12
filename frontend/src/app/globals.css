@@ -37,12 +37,20 @@
   /* Tinta */
   --ink-primary: #16181d; /* corpo e títulos — 16.40:1 na página         */
   --ink-secondary: #4a4f58; /* subtítulos, descrições — 7.60:1             */
-  --ink-tertiary: #686d76; /* metadados, timestamps — 4.80:1 (AA)         */
+  --ink-tertiary: #5b5f67; /* metadados, timestamps — 5.92:1 página (plano) ·
+    4.66:1 no PICO da luz (recalibrado 2026-07-12: aurora ∪ foco = alfa
+    0.1355 sobre --bg-page reprovava AA a 3.78:1 com o #686d76 anterior).
+    Continua mais claro que --ink-secondary (hierarquia de 3 níveis OK);
+    matiz/temperatura intocados, só a lightness desceu. Ver
+    scratchpad/contraste-tokens/calibra_tokens.py para a auditoria completa. */
 
   /* Estrutura */
   --line-subtle: #e6e5df; /* hairlines, réguas, zebra (decorativa)       */
   --line-strong: #c7c6bf; /* réguas de cabeçalho de seção (decorativa)   */
-  --border-field: #8f8e86; /* inputs/selects — 3.04:1 página (UI ≥3)      */
+  --border-field: #7b7a72; /* inputs/selects — 3.98:1 página (plano) · 3.14:1
+    no PICO da luz (UI ≥3; recalibrado 2026-07-12 — #8f8e86 caía a 2.39:1
+    no pico e reprovava). Caráter greige de campo preservado (H/S intocados,
+    só L desceu). */
 
   /* Acento — BRASA (cobre queimado). ÚNICO acento da identidade */
   --accent-action: #a03a06; /* botão primário, toggle ativo — 6.25:1 UI */
@@ -117,11 +125,15 @@
 
     --ink-primary: #ebe9e4; /* off-white de papel — 15.45:1 na página      */
     --ink-secondary: #b5b3ac; /* 8.46:1 no card                              */
-    --ink-tertiary: #8f8d87; /* 5.65:1 na página · 5.35:1 no card           */
+    --ink-tertiary: #908e88; /* 5.72:1 na página · 5.42:1 no card · 4.67:1 no
+      PICO da luz (recalibrado 2026-07-12, folga opcional de 1 passo de L —
+      o #8f8d87 anterior já passava no pico, mas com margem fina de 4.60:1) */
 
     --line-subtle: #23262d;
     --line-strong: #383c45;
-    --border-field: #616772; /* 3.12:1 no card (UI ≥3) */
+    --border-field: #6b727e; /* 3.87:1 página · 3.67:1 no card · 3.15:1 no
+      PICO da luz (UI ≥3; recalibrado 2026-07-12 — #616772 caía a 2.69:1 no
+      pico e reprovava). Matiz/saturação intocados, só L subiu. */
 
     --accent-action: #e97b3c; /* 6.57:1 na página como UI */
     --accent-action-hover: #f28a50;

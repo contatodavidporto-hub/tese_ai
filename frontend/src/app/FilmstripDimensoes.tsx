@@ -83,8 +83,8 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
   // UM `useReveal` para o filmstrip inteiro (ver nota de topo) — arma/revela
   // todos os estratos + o conector do D5 juntos, como qualquer outra seção.
   const { ref, armado, revelado } = useReveal<HTMLDivElement>();
-  const trilhoRef = useRef<HTMLDivElement | null>(null);
-  const painelRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const trilhoRef = useRef<HTMLOListElement | null>(null);
+  const painelRefs = useRef<Array<HTMLLIElement | null>>([]);
   const [ativo, setAtivo] = useState(0);
 
   // Detecta o painel mais visível DENTRO do trilho — `root` é o próprio
@@ -94,7 +94,7 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
   // — a métrica certa para um `root` horizontal.
   useEffect(() => {
     const container = trilhoRef.current;
-    const paineis = painelRefs.current.filter((el): el is HTMLDivElement => el !== null);
+    const paineis = painelRefs.current.filter((el): el is HTMLLIElement => el !== null);
     if (!container || paineis.length === 0) return;
 
     const observer = new IntersectionObserver(
@@ -104,7 +104,7 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
             entrada.intersectionRatio > melhor.intersectionRatio ? entrada : melhor,
           );
           if (maisVisivel.intersectionRatio < 0.5) return atual;
-          const indice = paineis.indexOf(maisVisivel.target as HTMLDivElement);
+          const indice = paineis.indexOf(maisVisivel.target as HTMLLIElement);
           return indice === -1 ? atual : indice;
         });
       },
@@ -123,7 +123,7 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
     alvo?.scrollIntoView({ inline: "start", block: "nearest" });
   }, []);
 
-  function aoTeclado(ev: React.KeyboardEvent<HTMLDivElement>) {
+  function aoTeclado(ev: React.KeyboardEvent<HTMLOListElement>) {
     if (ev.key === "ArrowRight") {
       ev.preventDefault();
       irPara(Math.min(ativo + 1, dimensoes.length - 1));
@@ -182,10 +182,17 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
           `snap-start` nos painéis), sem sequestro de scroll vertical (zero
           listener de `wheel`). Sem JS: lista rolável íntegra, cada painel já
           com seus 5 estratos (impressos/fantasma) estáticos e visíveis. */}
-      <div
+      {/* `<ol role="list">` restaura a semântica de lista ordenada que o
+          `<ol>` original da seção tinha (auditoria 1.3.1: leitor de tela
+          anuncia "lista, 5 itens, item N de 5") — `role="list"` explícito
+          porque o preflight do Tailwind zera list-style e o Safari/VoiceOver
+          deixa de expor listas sem marcador. Um único papel por nó: NÃO usar
+          role="group" aqui (sobrescreveria a lista); o rótulo + tabindex +
+          setas de teclado convivem com role="list" sem conflito. */}
+      <ol
         ref={trilhoRef}
         tabIndex={0}
-        role="group"
+        role="list"
         aria-label="Cinco dimensões — role para o lado"
         onKeyDown={aoTeclado}
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 pb-2 sm:scroll-px-6"
@@ -193,7 +200,7 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
         {dimensoes.map((d, i) => {
           const ehD5 = i === dimensoes.length - 1;
           return (
-            <div
+            <li
               key={d.numero}
               ref={(el) => {
                 painelRefs.current[i] = el;
@@ -259,10 +266,10 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
                   </div>
                 </div>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }
