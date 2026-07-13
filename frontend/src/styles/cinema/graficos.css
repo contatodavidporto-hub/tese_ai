@@ -1,6 +1,10 @@
 /* ============================================================
  * cinema/graficos.css — IMPLEMENTADO (Onda 1E) · DONA: Onda 1E
  * Missão MATÉRIA VIVA (§3 crit.6-espelho — dataviz scrubbed factual)
+ * EMENDA APOTEOSE (2026-07-13, dona da emenda: onda TESE — posse §4 da
+ * LEI): + contorno do gráfico ativo (keyline --accent-confianca em
+ * hover/focus-within, ver bloco próprio abaixo). Scrub/fidelidade/reduce
+ * originais INTOCADOS.
  * ============================================================
  * "Tinta atada ao scroll": os 6 gráficos SVG de /tese desenham E se
  * desdesenham com o scroll do leitor — CSS animation-timeline PURO,
@@ -105,6 +109,27 @@
   }
 }
 
+/* ---------- Contorno do gráfico ativo — missão "APOTEOSE" (2026-07-13,
+   onda TESE, crit. 10-tese: "refinamento leve permitido"). O <figure>
+   sob o ponteiro/foco ganha keyline em --accent-confianca ("confiança em
+   elementos SALIENTES" — uso canônico do token; mesma linguagem do painel
+   ativo da constelação). KEYLINE, nunca glow: contorno de gráfico NÃO está
+   na lista fechada de set-pieces da S2 (box CVM, specular de ticker,
+   constelação, joia da marca) — e no dark a doutrina segue "elevação-base
+   = borda". Fora do @supports de propósito: o contorno vale também no
+   fallback one-shot (Firefox <155). Fidelidade factual intocada: muda a
+   COR da borda do container, nenhuma geometria/eixo/série. Escritor único
+   de border-color do <figure>: esta regra (o `border-line` do Tailwind
+   vive em @layer utilities — camada perde para regra sem camada; e a
+   especificidade 0,2,0 vence 0,1,0 de qualquer forma). */
+.grafico-scrub {
+  transition: border-color var(--dur-set) var(--ease-ink);
+}
+.grafico-scrub:hover,
+.grafico-scrub:focus-within {
+  border-color: var(--accent-confianca);
+}
+
 /* Keyframes fora do @supports (inertes sem um animation-name que os use;
    mesmo padrão do .paralaxe-numero no globals.css). */
 @keyframes tinta-scrub {
@@ -136,5 +161,12 @@
   .grafico-scrub .traco-grafico-barra,
   .grafico-scrub .traco-grafico-ref {
     animation: none !important;
+  }
+
+  /* Contorno do gráfico ativo (APOTEOSE, onda TESE): resposta a input
+     (hover/foco), não movimento autônomo — ainda assim, registro NOMINAL:
+     a troca de cor da keyline vira instantânea (sem glide). */
+  .grafico-scrub {
+    transition: none !important;
   }
 }

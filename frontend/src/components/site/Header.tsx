@@ -1,4 +1,5 @@
 import { LinkCinema } from "@/components/motion/LinkCinema";
+import { Marca } from "@/components/site/Marca";
 
 // Missão MATÉRIA VIVA, Onda 1D: toda a nav interna usa <LinkCinema> (véus de
 // rota — virada de página do jornal). O LinkCinema é JS puro (classList +
@@ -12,13 +13,21 @@ import { LinkCinema } from "@/components/motion/LinkCinema";
 // nesta onda: física parcial por rota custaria acoplamento Header↔ilha e o
 // ganho é marginal — o CTA já tem hover de cor próprio). Gate de merge:
 // delta ZERO de gsap em /tese; first-load de /tese ≤ +3KB (LinkCinema puro).
+//
+// Missão APOTEOSE (crit.1): a marca "O Um Lastreado" entra como SVG inline
+// (Marca.tsx, Server Component — R2 segue intacta: zero JS novo no Header;
+// todo o comportamento vivo é CSS puro em cinema/marca.css). ENTRADA ZERO:
+// o selo nasce 100% visível; altura do header NÃO muda (CLS zero — o svg
+// 28px cabe no line box de 32px do wordmark text-2xl, ver marca.css).
 
 // Nav canônica (ARQUITETURA.md — mapa de telas): a mesma lista serve o menu
-// desktop e o menu mobile abaixo.
+// desktop e o menu mobile abaixo. "/glossario" é contrato da Onda 0 da
+// missão APOTEOSE (CHROME linka; a rota nasce na onda COPY).
 const NAV = [
   { href: "/como-funciona", label: "Como funciona" },
   { href: "/teses", label: "Teses" },
   { href: "/cobertura", label: "Cobertura" },
+  { href: "/glossario", label: "Glossário" },
   { href: "/sobre", label: "Sobre" },
   { href: "/historico", label: "Histórico" },
 ] as const;
@@ -58,10 +67,17 @@ export function Header() {
     <header className="border-b border-line bg-page">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 sm:px-6">
         <div className="flex items-baseline gap-3">
+          {/* Lockup da marca (crit.1): selo + wordmark são INSEPARÁVEIS
+              (cláusula M-c do guia de uso — "[1]" sozinho leria "nº 1").
+              O selo entra INLINE (não flex): preserva a baseline do
+              wordmark como referência do items-baseline deste masthead
+              (divisor + timbre continuam alinhados como hoje) — detalhe
+              documentado em cinema/marca.css. */}
           <LinkCinema
             href="/"
-            className="font-display text-2xl font-semibold tracking-tight text-ink"
+            className="marca-lockup font-display text-2xl font-semibold tracking-tight text-ink"
           >
+            <Marca />
             Tese AI
           </LinkCinema>
           <span aria-hidden className="hidden h-4 w-px bg-line-strong sm:inline-block" />

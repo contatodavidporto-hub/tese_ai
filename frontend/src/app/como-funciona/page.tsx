@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Reveal } from "@/components/motion/Reveal";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
+import { tooltipDe } from "@/lib/glossario";
 import { newsreaderItalico } from "@/lib/fontes";
 import { IndiceNav } from "./IndiceNav";
 
@@ -11,32 +15,57 @@ import { IndiceNav } from "./IndiceNav";
 // nova (ARQUITETURA.md, rail 5).
 export const dynamic = "force-dynamic";
 
-export const metadata = {
+// Copy reescrita na missão APOTEOSE (crit. 11): tooltips consomem
+// lib/glossario.ts (D7); âncoras e IndiceNav preservados.
+export const metadata: Metadata = {
   title: "Como funciona",
   description:
-    "Como o motor do Tese AI monta uma tese: as dimensões de dados com suas fontes oficiais — cinco para ações da B3; subconjunto próprio para FIIs e Tesouro Direto —, a síntese com citações verificáveis e a tese auditável que sai no fim — sem recomendação de compra ou venda.",
+    "Como o motor do Tese AI monta uma tese: até cinco dimensões de dados com fontes oficiais (CVM, SEC EDGAR, BCB, World Bank, STN), síntese com citações verificáveis e um documento auditável no fim — sem recomendação de compra ou venda.",
+  openGraph: {
+    title: "Como funciona — Tese AI",
+    description:
+      "Do ticker à tese auditável: dimensões de dados com fontes oficiais, citações verificáveis e lacunas declaradas — inclusive o que o motor se recusa a entregar.",
+  },
 };
 
 // Etapas do pipeline (ARQUITETURA.md, contrato TeseOut + orquestracao.py do
 // backend): ticker validado → ingestão por dimensão → síntese com citações
 // (Anthropic Citations) → documento com bull×bear e lacunas declaradas.
-const ETAPAS = [
+const ETAPAS: readonly { rotulo: string; texto: ReactNode }[] = [
   {
     rotulo: "Ticker",
-    texto:
-      "Código validado no formato oficial — negociação B3 (ação ou FII) ou título do Tesouro Direto.",
+    texto: (
+      <>
+        O <TermoTooltip {...tooltipDe("ticker")}>ticker</TermoTooltip> é validado no
+        formato oficial — negociação B3 (ação ou FII) ou título do Tesouro Direto. Não
+        há lista fechada: qualquer companhia aberta com cadastro na CVM entra.
+      </>
+    ),
   },
   {
     rotulo: "Ingestão",
-    texto: "Até cinco dimensões, conforme a classe do ativo — cada uma buscada na sua fonte oficial.",
+    texto:
+      "Até cinco dimensões, conforme a classe do ativo — cada uma buscada diretamente na sua fonte oficial, com rótulo e data de cada série.",
   },
   {
     rotulo: "Síntese com citações",
-    texto: "Anthropic Citations: cada afirmação factual sai ligada ao trecho-fonte.",
+    texto: (
+      <>
+        <TermoTooltip {...tooltipDe("citations")}>Anthropic Citations</TermoTooltip>:
+        cada afirmação factual sai ligada ao trecho exato do documento-fonte — a frase
+        carrega a própria prova.
+      </>
+    ),
   },
   {
     rotulo: "Tese auditável",
-    texto: "Síntese e contra-tese (bull × bear), com lacunas declaradas, nunca estimadas.",
+    texto: (
+      <>
+        Síntese e <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip>{" "}
+        (<TermoTooltip {...tooltipDe("bull-bear")}>bull × bear</TermoTooltip>), fato
+        separado de interpretação e lacunas declaradas, nunca estimadas.
+      </>
+    ),
   },
 ] as const;
 
@@ -95,13 +124,13 @@ const CLAUSULAS: readonly Clausula[] = [
 const ENTREGA = [
   "Uma seção por dimensão (01–05), com fato e interpretação sempre separados no texto.",
   "Citações numeradas [n], remetendo ao registro de fontes ao final do documento.",
-  "Registro de fontes: link, hospedeiro e o trecho exato citado.",
+  "Registro de fontes: link, hospedeiro e o trecho exato citado — o caminho de auditoria de cada número.",
   "Lacunas declaradas como “dado não encontrado” quando a fonte não sustenta a afirmação — nunca uma estimativa.",
 ] as const;
 
 const NAO_ENTREGA = [
-  "Recomendação de compra, venda ou manutenção.",
-  "Preço-alvo ou qualquer sugestão de timing de mercado.",
+  "Recomendação de compra, venda ou manutenção — em nenhuma hipótese.",
+  "“Alvo” de preço ou qualquer sugestão de timing de mercado.",
   "Personalização ao perfil do investidor — a ferramenta estrutura o raciocínio; a decisão é sempre do leitor.",
 ] as const;
 
@@ -202,9 +231,10 @@ export default function ComoFuncionaPage() {
               Como funciona
             </h1>
             <p className="mt-3 text-body leading-relaxed text-ink-2">
-              O motor monta a tese por camadas: cinco dimensões de dados, cada uma com sua fonte
-              oficial, sintetizadas com citações verificáveis até um documento auditável — nunca
-              uma recomendação.
+              O motor monta a tese por camadas: até cinco dimensões de dados — cada uma presa à
+              sua fonte oficial —, uma síntese com citações verificáveis e, no fim, um documento
+              em que dá para conferir de onde veio cada número. Esta página percorre o caminho
+              inteiro, do ticker à tese — inclusive o que o motor se recusa a entregar.
             </p>
           </Reveal>
 
@@ -274,8 +304,13 @@ export default function ComoFuncionaPage() {
                     síntese final separa sempre o que é fato do que é interpretação. O quadro
                     completo vale para as ações da B3 — FIIs e títulos do Tesouro Direto usam um
                     subconjunto próprio, sem pares globais (02) nem macro global dedicada (04):
-                    FIIs cruzam o informe mensal CVM com juros e elos; o Tesouro, taxas e preços
-                    da STN com juros, inflação e elos.
+                    FIIs cruzam o{" "}
+                    <TermoTooltip {...tooltipDe("informe-mensal-cvm")}>
+                      informe mensal CVM
+                    </TermoTooltip>{" "}
+                    com juros e elos; o Tesouro, taxas e preços da{" "}
+                    <TermoTooltip {...tooltipDe("stn")}>STN</TermoTooltip> com juros, inflação e
+                    elos.
                   </p>
                 </Reveal>
 
@@ -335,7 +370,9 @@ export default function ComoFuncionaPage() {
                   </h2>
                   <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                     A ferramenta estrutura o raciocínio de investimento; a decisão é sempre do
-                    leitor — postura alinhada à regulação da CVM.
+                    leitor — postura alinhada à regulação da CVM, tratada aqui como parte do
+                    produto, não como ressalva. O quadro abaixo é literal: é o que sai impresso
+                    no documento — e o que nunca sai.
                   </p>
                 </Reveal>
 
@@ -374,7 +411,8 @@ export default function ComoFuncionaPage() {
 
                 <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
                   <p className="flex-1 text-ui text-ink-2">
-                    Quer ver o resultado? Abra uma tese pronta ou gere a de um ticker da B3.
+                    Quer ver esse pipeline aplicado? Abra uma tese pronta da galeria ou gere a
+                    de um ticker da B3 — e siga qualquer número até a fonte.
                   </p>
                   <Link
                     href="/teses"

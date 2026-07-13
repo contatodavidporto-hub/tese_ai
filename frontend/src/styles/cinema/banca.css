@@ -24,6 +24,12 @@
  *       NUNCA nasce oculto sem suporte (padrão .regua-leitura).
  *       Geometria/valores factuais dos cards nunca escalam/mentem;
  *       tilt/levitação/scale seguem proibidos.
+ *       ── EMENDA (1ª edição da onda BANCA, missão APOTEOSE): "Supersedido
+ *       em 2026-07-13 por autorização humana (missão Apoteose) para o
+ *       palco 3D — scale uniforme do cartão inteiro não altera a geometria
+ *       relativa dos dados; segue proibido escalar/animar VALOR ou eixo
+ *       isolado." (LEI §1 S3; implementação do palco: cinema/palco.css,
+ *       tokens --palco-* em globals.css :root.)
  *
  * PEGADINHA (recon): a varredura de segurança do motor Reveal ignora
  * clipagem por ancestral com overflow — NENHUM reveal por card dentro do
@@ -31,6 +37,102 @@
  * Verde 70–200° banido; classes literais por extenso (Tailwind v4 purga
  * template string).
  * ============================================================ */
+
+/* ============================================================
+ * APOTEOSE (2026-07-13) — crit. 5 "rail sem barra" (LEI §3.5 + D6).
+ * Scroll continua 100% NATIVO (touch/teclado/trackpad/IO/view(inline)
+ * intocados); o que muda: barra oculta + affordances substitutas
+ * (peek já existente + hairline de progresso abaixo + dots/setas/teclado
+ * já provados). Drag de mouse: useRailDrag.ts escreve rail.scrollLeft
+ * (propriedade DOM, nunca transform/estilo) — as classes aqui são o lado
+ * CSS do contrato. A11y (ACT 0ssw9k/axe scrollable-region-focusable): o
+ * rail passa SEM tabindex porque todo conteúdo é alcançável pelos
+ * cartões-link focáveis; se o rail um dia ganhar conteúdo não-interativo
+ * clipável, aí sim tabindex="0"+role="region"+aria-label. O foco já
+ * respeita o snap via scroll-px-4/6 (Tailwind no componente — dono do
+ * scroll-padding-inline; esta folha NÃO o redefine).
+ * ============================================================ */
+
+.banca-rail {
+  /* Baseline dez/2024 (FF64+/Cr121+/Saf18.2+); linha seguinte é o
+     fallback não-padrão para engines antigas. */
+  scrollbar-width: none;
+  /* Timeline nomeada do progresso (eixo INLINE, RTL-safe) — consumida
+     pela hairline .banca-progresso__barra via timeline-scope no
+     .banca-envelope (a barra é IRMÃ do rail, não descendente). */
+  scroll-timeline: --banca-rail inline;
+}
+.banca-rail::-webkit-scrollbar {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Affordance do arrasto (só onde o drag existe: mouse). */
+  .banca-rail {
+    cursor: grab;
+  }
+}
+
+/* Estado de drag (classList pelo useRailDrag — atributo/classe, nunca
+   estilo inline): snap OFF (senão o mandatory engole cada escrita de
+   scrollLeft — bug clássico asvd/dragscroll#49), seleção de texto OFF
+   (o arrasto varre os cards), scroll-behavior:auto (o `html` global é
+   smooth: escrever scrollLeft durante drag/decay NÃO pode ser re-suavizado
+   pelo engine — jump 1:1 com o ponteiro). A classe só sai depois que o
+   decay PARA exatamente no snap-point projetado (jump zero ao religar). */
+.banca-rail.banca-arrastando {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  user-select: none;
+  cursor: grabbing;
+}
+
+/* Envelope (GaleriaBanca): dá escopo à timeline nomeada do rail para a
+   hairline irmã (timeline-scope não é herdado — precisa do ancestral
+   comum). Inerte onde não há suporte. */
+.banca-envelope {
+  timeline-scope: --banca-rail;
+}
+
+/* Hairline de progresso — substituta da scrollbar oculta (D6; mesma
+   família da .filmstrip-trilho-progresso: 2px, brasa, transform-only).
+   UM escritor por propriedade: `transform` da barra é desta declaração,
+   que consome --banca-prog (0→1). Quem escreve --banca-prog:
+   (a) com scroll-driven animations: NINGUÉM — a animação abaixo (que
+       vence a declaração) dirige o scaleX direto da timeline, zero JS;
+   (b) sem suporte (FF stable até ~155): fallback passivo de ~10 linhas
+       no GaleriaBanca (scroll passive → rAF → setProperty NA PRÓPRIA
+       barra — regra 5 do DESIGN-TOKENS), gateado por
+       CSS.supports('animation-timeline: --a') — nunca os dois juntos. */
+.banca-progresso {
+  block-size: 2px;
+  inline-size: 100%;
+  background: var(--line-subtle);
+  pointer-events: none;
+}
+.banca-progresso__barra {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  background: var(--accent-action);
+  transform-origin: left;
+  transform: scaleX(var(--banca-prog, 0));
+}
+@supports (animation-timeline: --a) {
+  .banca-progresso__barra {
+    animation: banca-progresso-escala linear both;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline */
+    animation-timeline: --banca-rail;
+  }
+}
+@keyframes banca-progresso-escala {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
 
 @supports (animation-timeline: view()) {
   .banca-carimbo {
@@ -71,4 +173,14 @@
     opacity: 1 !important;
     transform: none !important;
   }
+  /* APOTEOSE — registro NOMINAL por efeito novo (regra da casa):
+     · Hairline de progresso: PERMANECE sob reduce — é scroll-progress puro
+       (reflete o deslocamento que o próprio leitor fez), mesmo raciocínio
+       de isenção da .regua-leitura/aurora em globals.css; com a scrollbar
+       oculta ela é affordance de posição, não ornamento.
+     · Drag de mouse: manipulação direta do usuário — segue funcionando;
+       o useRailDrag troca o decay de inércia por scrollTo(auto) no
+       snap-point (sem animação longa; decisão no JS, registrada aqui).
+     · Palco/virada: reduce nominal nas próprias folhas (palco.css /
+       virada.css — donas). */
 }

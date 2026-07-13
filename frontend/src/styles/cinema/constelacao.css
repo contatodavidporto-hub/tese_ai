@@ -1,0 +1,199 @@
+/* ============================================================
+ * cinema/constelacao.css — IMPLEMENTADA · DONA: onda FILMSTRIP
+ * Missão "APOTEOSE" (2026-07-13) — critério 8 (Constelação D1→D5, o
+ * traçado que conecta os painéis do filmstrip pinado). LEI §3.8.
+ * ============================================================
+ * TOKENS (Onda 0, globals.css :root — tetos/recuo lá):
+ *   --constelacao-traco-largura  (1.5px, espessura do traço)
+ *   --constelacao-contorno-alfa  (0.10 claro, teto <=0.12 — glow S2 do
+ *       painel ATIVO; no escuro NÃO existe glow — contorno = keyline
+ *       sólida com --accent-confianca, doutrina S2 "elevação = borda")
+ *
+ * CONTRATO REAL (FilmstripDimensoes.tsx é o único cliente):
+ *
+ *   .filmstrip-constelacao — <svg aria-hidden> IRMÃO do <ol> dentro do
+ *       wrapper do filmstrip (nunca ancestral de Tarja/régua — trava C2;
+ *       pointer-events:none, jamais intercepta clique/hover). SÓ existe
+ *       visualmente no modo pinado. O transform (x do travelling) vem do
+ *       MESMO tween único do trilho (gsap.to([trilho, svg], ...)): um
+ *       escritor por propriedade — o svg acompanha os painéis rigidamente,
+ *       sem segundo relógio. A geometria `d` de cada segmento é
+ *       recalculada em onRefresh via setAttribute (atributo SVG, NÃO
+ *       style inline — CSP ok) a partir dos CENTROS REAIS dos painéis
+ *       (getBoundingClientRect relativo ao svg: como svg e trilho têm o
+ *       MESMO x a todo instante, a diferença cancela o transform e os
+ *       offsets verticais entram de graça).
+ *
+ *   .constelacao-seg (+ --1..--4) — um <path pathLength=1> por elo
+ *       D(i)→D(i+1). Desenha/desfaz REVERSÍVEL como função PURA do
+ *       progresso: stroke-dashoffset = clamp(0, (fim − prog) · escala, 1).
+ *       `--prog` (0→1) é escrita via CSSOM no PRÓPRIO <svg> no MESMO
+ *       onUpdate que alimenta a hairline (custom property NÃO herda entre
+ *       irmãos <div>/<ol>/<svg> — segunda escrita obrigatória, LEI §3.8);
+ *       daí ela HERDA do <svg> para os <path> filhos. `--constelacao-seg-
+ *       fim`/`--constelacao-seg-escala` são escritas por segmento SÓ no
+ *       onRefresh (pontos de snap reais: o elo i completa o desenho
+ *       exatamente quando o painel i+1 aterrissa). Defaults no var() =
+ *       traço oculto até o JS configurar. Sem divisão por var no CSS
+ *       (escala pré-computada no JS — só multiplicação, suporte universal).
+ *
+ *   COR DO TRAÇO — REGRA INEGOCIÁVEL (LEI §3.8): NUNCA interpolar
+ *       safira→ouro diretamente (midpoint sRGB ~180° = teal banido).
+ *       Rota escolhida: traços DISCRETOS, cada segmento uma cor sólida —
+ *       safira → ink → ink → ouro (--accent-confianca / --ink-primary /
+ *       --accent-valor, semânticos puros; auto-tematizam no dark). Sem
+ *       gradiente contínuo; segmentos 1 e 4 nunca se tocam; cores
+ *       ESTÁTICAS por classe (zero transition de cor — uma transition
+ *       safira→ouro reintroduziria o midpoint banido num quadro).
+ *
+ *   .filmstrip-painel--ativa — contorno luminoso + sombra própria do
+ *       painel ativo (classe alternada pelo React a partir do MESMO
+ *       `ativo` cuja única fonte no modo pinado é o ST.progress — R9).
+ *       Claro = glow S2 contido (--constelacao-contorno-alfa, teto 0.12,
+ *       recuo binário: falhou AA → keyline sem glow) + sombra fria;
+ *       escuro = keyline sólida --accent-confianca, SEM glow/sombra
+ *       (doutrina "elevação = borda"). box-shadow do <li> tem escritor
+ *       único (esta folha via classe; GSAP nunca toca box-shadow).
+ *
+ *   Deslocamento vertical por nth-child SÓ sob .filmstrip-pinado, via
+ *       `translate` (propriedade individual, zero impacto de layout:
+ *       offsetLeft/offsetTop/scrollWidth intactos → pontos de snap,
+ *       teclado 10/10 e contador preservados POR CONSTRUÇÃO; nenhum
+ *       escritor dinâmico — GSAP escreve `transform` no trilho e nas
+ *       .filmstrip-camada, nunca `translate` no <li>). Todos os offsets
+ *       são PARA BAIXO (nunca sobem sobre dots/hairline/Tarja); o maior
+ *       (D2) fica fora do quadro no fim do pin. SEM transition em
+ *       translate (transição mentiria a geometria medida no onRefresh).
+ *
+ *   PROIBIDO: classes reveal-* nas linhas (o scrub é o único dono do
+ *       progresso aqui); offset HORIZONTAL nos painéis; overlay ancestral
+ *       ou cobrindo a Tarja; pinSpacing:true e a guarda de projeção do
+ *       snap são INTOCADOS por esta folha.
+ *
+ *   GATE QA (obrigação no relatório): readPixels em N pontos da linha ao
+ *       longo do scrub (claro+dark) provando ZERO pixel em hue 70–200°
+ *       (com o piso de saturação padrão da sonda — pixels neutros do
+ *       segmento ink têm saturação ~0). Dial de recuo de legibilidade:
+ *       stroke-opacity abaixo.
+ * ============================================================ */
+
+/* Contexto de posicionamento do overlay — position:relative NÃO é
+   transform/filter/perspective/will-change (trava C2 intacta; o inline
+   position:fixed do pin do ScrollTrigger vence esta regra durante o pin
+   e o svg absoluto segue ancorado no wrapper nos dois estados). */
+.filmstrip-pinado {
+  position: relative;
+}
+
+/* Composição de constelação — alturas distintas por painel (nth SÓ sob o
+   modo pinado; fallback nativo pixel-idêntico ao aprovado). Onda: D1 no
+   alto → D2 mergulha fundo (o lastro dos dados) → ascensão progressiva
+   até D5 quase de volta ao topo (o arremate em ouro). Caps em px para o
+   offset não virar drama em viewports muito altos. */
+.filmstrip-pinado .filmstrip-trilho > li:nth-child(2) {
+  translate: 0 min(10vh, 104px);
+}
+.filmstrip-pinado .filmstrip-trilho > li:nth-child(3) {
+  translate: 0 min(5.5vh, 56px);
+}
+.filmstrip-pinado .filmstrip-trilho > li:nth-child(4) {
+  translate: 0 min(3vh, 32px);
+}
+.filmstrip-pinado .filmstrip-trilho > li:nth-child(5) {
+  translate: 0 min(1vh, 12px);
+}
+
+/* Overlay do traçado — irmão do <ol>, decorativo (aria-hidden no TSX),
+   invisível fora do modo pinado E sob reduce (bloco no fim). overflow
+   visible: os paths vivem em coordenadas do conteúdo do trilho (além do
+   box do wrapper); will-change só no modo (camada-folha movida por frame
+   pelo MESMO tween do trilho — precedente .foco-luz/.filmstrip-trilho). */
+.filmstrip-constelacao {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.filmstrip-pinado .filmstrip-constelacao {
+  display: block;
+  will-change: transform;
+}
+
+/* Elos D(i)→D(i+1) — desenho reversível preso ao scrub (função pura de
+   --prog). stroke-linecap butt DE PROPÓSITO: com dashoffset = dasharray,
+   um cap redondo estaciona um "ponto" espúrio na origem do path. */
+.constelacao-seg {
+  fill: none;
+  stroke-width: var(--constelacao-traco-largura);
+  stroke-linecap: butt;
+  stroke-dasharray: 1;
+  stroke-dashoffset: clamp(
+    0,
+    calc(
+      (var(--constelacao-seg-fim, 1) - var(--prog, 0)) *
+        var(--constelacao-seg-escala, 1)
+    ),
+    1
+  );
+  /* Dial de recuo de legibilidade (o traço cruza os cards por cima): se o
+     QA flagrar AA de texto sob a linha, reduzir aqui — decorativo puro. */
+  stroke-opacity: 0.55;
+}
+/* safira → ink → ink → ouro (discretos; nunca safira encosta em ouro). */
+.constelacao-seg--1 {
+  stroke: var(--accent-confianca);
+}
+.constelacao-seg--2,
+.constelacao-seg--3 {
+  stroke: var(--ink-primary);
+}
+.constelacao-seg--4 {
+  stroke: var(--accent-valor);
+}
+
+/* Contorno luminoso + sombra própria do painel ativo (S2). transition só
+   em box-shadow (nunca em translate — geometria — nem em cor de traço).
+   A transition vive em TODOS os <li> do modo para o fade valer também na
+   SAÍDA do estado ativo. */
+.filmstrip-pinado .filmstrip-trilho > li {
+  transition: box-shadow var(--dur-set) var(--ease-ink);
+}
+.filmstrip-pinado .filmstrip-trilho > li.filmstrip-painel--ativa {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-confianca) 45%, transparent),
+    0 0 20px 1px
+      color-mix(
+        in srgb,
+        var(--accent-confianca) calc(var(--constelacao-contorno-alfa) * 100%),
+        transparent
+      ),
+    0 16px 40px -18px var(--sombra-fria);
+}
+@media (prefers-color-scheme: dark) {
+  /* Doutrina S2: no escuro elevação = borda — keyline safira sólida, sem
+     glow nem sombra (--sombra-fria nem é redefinida no tema escuro). */
+  .filmstrip-pinado .filmstrip-trilho > li.filmstrip-painel--ativa {
+    box-shadow: 0 0 0 1px var(--accent-confianca);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL por efeito novo (LEI §0) — todos decorativos; o modo
+     pinado nem nasce sob reduce (gate no-preference + revert do
+     gsap.matchMedia), mas o cinto de segurança segura inclusive um quadro
+     de corrida de toggle (mesma disciplina do filmstrip.css):
+     1) traçado da constelação: fora de cena por inteiro; */
+  .filmstrip-constelacao {
+    display: none !important;
+  }
+  /* 2) offsets verticais + transition do contorno: neutralizados; */
+  .filmstrip-pinado .filmstrip-trilho > li {
+    translate: none !important;
+    transition: none !important;
+  }
+  /* 3) contorno/sombra do painel ativo: sem realce dinâmico. */
+  .filmstrip-pinado .filmstrip-trilho > li.filmstrip-painel--ativa {
+    box-shadow: none !important;
+  }
+}

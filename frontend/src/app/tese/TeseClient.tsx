@@ -9,9 +9,10 @@
 //  - cache hit:   POST devolve `ready` -> GET imediato (abre na hora, custo 0);
 //  - histórico:   GET /api/teses/{id} direto, sem POST (não regenera nada).
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { classesReveal, useReveal } from "@/components/motion/Reveal";
+import { usePonteiro } from "@/components/motion/usePonteiro";
 import {
   atualizarStatusHistorico,
   registrarNoHistorico,
@@ -24,6 +25,23 @@ import type { CriarTeseResposta, TeseOut } from "./types";
 const PRIMEIRA_ESPERA_MS = 1200;
 const INTERVALO_MS = 2500;
 const TEMPO_MAXIMO_MS = 240_000; // tese nova (5 dimensões + síntese) leva minutos
+
+// Chegada do morph "cartão-que-vira-página" (missão APOTEOSE, D4/M-g —
+// contrato da Onda 0): a BANCA seta esta flag imediatamente antes do
+// `router.push` dentro de `startViewTransition`; AQUI (dono ÚNICO da
+// chegada) ela é lida-e-limpa no mount — UMA chegada só, flag órfã de um
+// voo abortado morre na visita seguinte. Presente => o véu especializado
+// `.virada-edicao::after` é suprimido via classe `.morph-chegada` (regra em
+// cinema/tese-apoteose.css): a própria View Transition já anuncia a
+// chegada; dois véus empilhados seria redundante.
+const CHAVE_MORPH_CHEGADA = "tese-ai:morph-chegada";
+
+// useLayoutEffect no cliente (classe aplicada ANTES do primeiro paint da
+// rota nova — sem frame do véu piscando por cima do morph); useEffect no
+// servidor só para silenciar o aviso de SSR do React (não roda de verdade
+// lá) — mesmo padrão de src/app/template.tsx.
+const useLayoutEffectIsomorfo =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type UiState =
   | { phase: "idle" }
@@ -90,6 +108,39 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
   // Invalida execuções antigas quando o usuário inicia outra (ou cancela).
   const runIdRef = useRef(0);
   const autoDisparadoRef = useRef(false);
+  // Raiz do client: âncora da ilha de luz (crit. 7) e ponto de partida do
+  // closest() até o véu `.virada-edicao` na chegada do morph (crit. 4).
+  const raizRef = useRef<HTMLDivElement | null>(null);
+
+  // Specular dos tickers (crit. 7 — ilha PRÓPRIA de /tese, ZERO gsap/R2,
+  // modo delegação CONGELADO do usePonteiro): UM listener no container;
+  // alvos = qualquer `.ticker-luz` (h2 do masthead em TeseView; wrapper do
+  // input HABILITADO no TickerCombobox). Opções do listbox e input disabled
+  // NUNCA recebem a classe (exclusões A5/C7 da LEI) — e o hook já é inerte
+  // sob reduced-motion/touch por contrato próprio.
+  usePonteiro(raizRef, { seletorAlvo: ".ticker-luz" });
+
+  // Lê-e-limpa a flag de chegada do morph ANTES do primeiro paint (ver
+  // comentário de CHAVE_MORPH_CHEGADA no topo). Roda 1x por mount do
+  // TeseClient — o <main> de /tese é recriado a cada navegação para cá.
+  useLayoutEffectIsomorfo(() => {
+    let chegada = false;
+    try {
+      chegada = window.sessionStorage.getItem(CHAVE_MORPH_CHEGADA) !== null;
+      if (chegada) window.sessionStorage.removeItem(CHAVE_MORPH_CHEGADA);
+    } catch {
+      // sessionStorage indisponível (modo privado restrito): sem supressão —
+      // o véu comum roda; a navegação em si nunca depende disto.
+    }
+    if (!chegada) return;
+    // Dono ÚNICO da supressão do véu (LEI §3.4): só quando o morph anunciou
+    // a chegada — navegação SPA comum segue vendo o véu de sempre.
+    raizRef.current?.closest(".virada-edicao")?.classList.add("morph-chegada");
+    // M-g: morph é NAVEGAÇÃO, não modal — a chegada move o foco para o
+    // heading do masthead da rota (tabIndex={-1} em tese/page.tsx), nunca
+    // fica preso num overlay. preventScroll: a rota já chega no topo (CLS≈0).
+    document.getElementById("tese-titulo")?.focus({ preventScroll: true });
+  }, []);
 
   const isBusy = state.phase === "submitting" || state.phase === "polling";
 
@@ -318,7 +369,7 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
       : 0;
 
   return (
-    <div className="flex w-full flex-col gap-8">
+    <div ref={raizRef} className="flex w-full flex-col gap-8">
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-4 border border-line bg-card p-6 sm:flex-row sm:items-start"
@@ -387,7 +438,11 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
           />
         )}
         {state.phase === "ready" && (
-          <div className="flex flex-col gap-5">
+          // `.chegada-suave` (cinema/tese-apoteose.css): busy→ready sem
+          // flash — o skeleton sai e a tese assenta num fade curto. O
+          // writer é o wrapper (elemento próprio); os Reveal internos de
+          // TeseView seguem donos da opacity DELES (sem duplo escritor).
+          <div className="chegada-suave flex flex-col gap-5">
             <p role="status" className="sr-only">
               Tese de {state.tese.ticker} pronta.
             </p>
@@ -424,6 +479,12 @@ function ReguaImpressa({ className }: { className: string }) {
 // Rótulo curto + contador REAL (não telemetria simulada: o polling só sabe
 // "processing"/"ready"/"error" — nenhuma barra de progresso finge fases que o
 // backend não expõe). A régua acima do rótulo imprime 1x ao montar (sem loop).
+// As DUAS fases textuais exibidas são as únicas honestas que o fluxo tem:
+// "Enviando solicitação…" (POST em voo) e "Estruturando a tese de X"
+// (status=processing confirmado) — decisão APOTEOSE: o payload não expõe
+// fase alguma além disso, então nenhuma foi inventada (LEI da casa acima).
+// `.aurora-masthead` (globals.css, alfa CALIBRADO): a luz sutil da casa
+// acompanha a espera — mesmo pool de luz do masthead que vai chegar.
 function CartaoCarregando({
   rotulo,
   contadorSegundos,
@@ -436,7 +497,7 @@ function CartaoCarregando({
   onCancelar?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 border border-line bg-card px-6 py-5">
+    <div className="aurora-masthead flex flex-col gap-3 border border-line bg-card px-6 py-5">
       <ReguaImpressa className="h-1 w-20 bg-brasa" />
       <div className="atraso-regua flex flex-wrap items-center gap-3">
         <span role="status" className="font-sans text-ui font-semibold text-ink">
@@ -487,11 +548,17 @@ function CartaoErro({
 }
 
 // Skeleton com o formato do documento final (evita layout shift na chegada):
-// hairlines que "se imprimem" 1x (Impressão de Régua) — sem loop, sem shimmer.
+// hairlines que "se imprimem" 1x (Impressão de Régua) — sem shimmer de
+// brilho. Missão APOTEOSE: `.esqueleto-respira` (cinema/tese-apoteose.css)
+// dá uma respiração DISCRETA de opacity ao container (período 2.8s,
+// amplitude curta; reduce = estático) — sinal de "vivo", não de progresso.
+// `.vt-morph-destino` (idem) é o DESTINO do morph "cartão-que-vira-página":
+// classe estática com `view-transition-name: cartao-tese` no primeiro card
+// (a geometria de chegada do cartão clicado na Banca — D4 da LEI).
 function EsqueletoTese() {
   return (
-    <div aria-hidden className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 border border-line bg-card px-6 py-6">
+    <div aria-hidden className="esqueleto-respira flex flex-col gap-8">
+      <div className="vt-morph-destino flex flex-col gap-3 border border-line bg-card px-6 py-6">
         <ReguaImpressa className="h-2 w-24 bg-line-strong" />
         <div className="h-6 w-40 bg-line-strong" />
         <div className="h-3 w-56 bg-line" />

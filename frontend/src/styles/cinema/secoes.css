@@ -1,6 +1,7 @@
 /* ============================================================
- * cinema/secoes.css — DONA: Onda 1B (CenaScrub + FioDaFonte)
+ * cinema/secoes.css — DONA: onda CENA (CenaScrub + FioDaFonte + Box CVM)
  * Missão MATÉRIA VIVA (§3 crit.2/crit.6 + emendas R1/R5/R12e/R12g)
+ * Missão APOTEOSE 2026-07-13 (§3.6 eixo Z + §3.9/D5 peça de honra CVM)
  * ============================================================
  * CONTRATO:
  *
@@ -8,11 +9,16 @@
  *       scrub 0.6, 1 timeline por seção; gsap SÓ via carregarGsap() de
  *       src/lib/gsapSetup.ts, import() dinâmico pós-idle/scroll-intent —
  *       R5). Escopo oficial (R12g): as seções da landing abaixo da dobra.
- *       3 atos: entrada 0–35% (y 16px→0 + opacity 0→1, escalonada por
- *       [data-cena-el]), platô 35–75%, saída 75–100% (y→−12px, opacity →
- *       PISO 0.55; a saída só atua na borda superior do viewport).
- *       Elementos [data-cvm]: opacity TRAVADA em 1 — só translateY (aviso
- *       regulatório jamais esmaece). Estado dinâmico 100% via GSAP
+ *       3 atos: entrada 0–35% (y 16px→0 + opacity 0→1 + scale 0.985→1 —
+ *       eixo Z, APOTEOSE C6, escalonada por [data-cena-el]), platô 35–75%,
+ *       saída 75–100% (y→−12px, opacity → PISO 0.55, scale 1→0.99; a saída
+ *       só atua na borda superior do viewport). Profundidade é FAKE: scale
+ *       UNIFORME nas FOLHAS, dentro dos MESMOS fromTo/to (um escritor);
+ *       ZERO perspective em container (A6 — viraria containing block de
+ *       position:fixed e quebraria o pin do filmstrip/sticky da Tarja).
+ *       Elementos [data-cvm]: opacity TRAVADA em 1 e SEM scale — só
+ *       translateY (aviso regulatório jamais esmaece nem encolhe, D5).
+ *       Estado dinâmico 100% via GSAP
  *       element.style (carve-out CSSOM; transform/opacity apenas) — esta
  *       folha guarda só estáticos + reduce.
  *
@@ -24,6 +30,13 @@
  *
  *   [data-cvm]       — no elemento-alvo ou num ancestral: trava a opacity
  *       do alvo em 1 (faixa CVM/aviso regulatório).
+ *
+ *   .cvm-honra       — peça de honra do Box CVM (APOTEOSE crit.9, D5/S2).
+ *       Aplicada pela INTEGRAÇÃO num wrapper INTERNO NOVO dentro do div
+ *       [data-cena-el][data-cvm] da landing (o filho que carrega o visual
+ *       da faixa). UM ESCRITOR: o keyframe `cvm-flutua` anima transform SÓ
+ *       neste filho — o transform do PAI pertence à timeline do CenaScrub.
+ *       Regras completas no fim desta folha.
  *
  *   .cena-escopo     — wrapper client do CenaScrub, display:contents: zero
  *       box, zero stacking context, zero containing block (trava C2 por
@@ -89,6 +102,89 @@
   }
 }
 
+/* ============================================================
+ * Peça de honra — Box CVM "flutuante" (APOTEOSE crit.9 · D5/S2)
+ * ============================================================
+ * A INTEGRAÇÃO cria um wrapper INTERNO novo dentro do div
+ * [data-cena-el][data-cvm] da landing (page.tsx) e MOVE para ele as classes
+ * visuais da faixa (flex/border-y-2/border-aviso-borda/bg-aviso-fundo/
+ * padding/text-center) + `.cvm-honra`. O pai [data-cena-el][data-cvm] vira
+ * container liso (largura/role/aria intactos) e segue alvo do GSAP.
+ * Motivo (um-escritor-por-propriedade): o transform do PAI pertence à
+ * timeline do CenaScrub; a levitação vive NO FILHO — dois elementos, dois
+ * escritores, zero conflito. O transform do wrapper cria stacking context
+ * LOCAL, contido na própria faixa (nenhum pin/sticky/sprite z-index:-1
+ * descendente; não é ancestral de Tarja/.regua-leitura/pin — trava C2
+ * intacta por construção).
+ *
+ * CLARO — levitação sutil + sombra fria (--sombra-fria, mesmo idioma do
+ * .sombra-elevada) + halo OURO-VALOR baixíssimo (--accent-valor @
+ * --cvm-halo-alfa, teto ≤0.08; S2 autoriza glow SÓ neste set-piece). AA
+ * calibrado pela Onda 0 no pico do halo: warn-text 5.54:1 (mín 4.5) /
+ * warn-border 3.20:1 (mín 3.0). Cláusula de recuo BINÁRIA (S2): falhou AA
+ * no QA visual → keyline sem glow (tratamento do escuro), nunca itera.
+ *
+ * ESCURO — elevação = borda (doutrina S2, "sem glow de elevação no dark"):
+ * SEM sombra, SEM halo; keyline 1px `--cvm-keyline-dark` (ouro; 8.17–8.90:1
+ * contra as superfícies escuras, checado Onda 0) via box-shadow INSET
+ * (alinha à caixa de padding — imune à largura da borda aviso do wrapper) +
+ * specular CONTIDO na keyline: segmento de 1px em --valor-brilho deslocado
+ * do centro ("ouro só lê metal com highlight deslocado", Meert et al. 2014
+ * — mesmo idioma do sheen do hero). Micro-área decorativa de 1px, longe do
+ * texto (py-8), sem blur/spread (não é glow): AA de texto não se aplica;
+ * consome o token semântico puro — zero token de alfa novo.
+ *
+ * Texto do aviso: opacity 1 SEMPRE — nada aqui escreve opacity de conteúdo
+ * (a trava do CenaScrub no pai continua; sob reduce, bloco no fim). */
+.cvm-honra {
+  position: relative;
+  box-shadow:
+    0 12px 32px -12px var(--sombra-fria),
+    0 0 28px 4px
+      color-mix(in srgb, var(--accent-valor) calc(var(--cvm-halo-alfa) * 100%), transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Levitação: transform-only NO FILHO (dono único do transform do wrapper),
+     amplitude ±3px em 7s por perna — deriva ≈1px/s: lê "flutua" sem
+     disputar a leitura do aviso. Gate no-preference AQUI + override nominal
+     no bloco reduce abaixo (cinto-e-suspensório da casa). */
+  .cvm-honra {
+    animation: cvm-flutua 7s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes cvm-flutua {
+  from {
+    transform: translateY(3px);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .cvm-honra {
+    /* Keyline ouro interna no perímetro (elevação = borda, S2). box-shadow
+       inset não entra no layout (zero CLS) e ninguém mais escreve
+       box-shadow neste elemento. */
+    box-shadow: inset 0 0 0 1px var(--cvm-keyline-dark);
+  }
+  .cvm-honra::after {
+    /* Specular da keyline: 1px de --valor-brilho sobre o fio superior da
+       keyline inset (top:0 = borda de padding, exatamente onde o inset
+       pinta), deslocado do centro (12%→46%). Decorativo puro. */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 12%;
+    width: 34%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--valor-brilho) 50%, transparent);
+    pointer-events: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Sob reduce o gsap.matchMedia NÃO cria trigger nenhum e nenhum estado
      inicial é escrito — conteúdo 100% visível desde o SSR (se reduce está
@@ -96,7 +192,9 @@
      cinto-e-suspensório NOMINAL para quem LIGA reduce em pleno uso, antes
      do revert() do matchMedia (declaração !important vence o estilo inline
      escrito pelo GSAP) — classificação "decorativo" (guia do plano §8):
-       - alvos do scrub ([data-cena-el]) assentados e visíveis;
+       - alvos do scrub ([data-cena-el]) assentados e visíveis — o
+         transform:none zera o y E o scale do eixo Z (APOTEOSE C6):
+         sob reduce NÃO existe profundidade, conteúdo 100% visível;
        - fio da fonte COMPLETO e estático (o traço de auditoria não some;
          só deixa de ser coreografado). */
   [data-cena],
@@ -107,5 +205,13 @@
   .fio-da-fonte [data-fio-path] {
     stroke-dashoffset: 0 !important;
     opacity: 1 !important;
+  }
+  /* APOTEOSE crit.9 — levitação da peça de honra CVM: decorativa, vira
+     `none` NOMINALMENTE (regra da casa: reduce por nome, para cada efeito
+     novo). O box fica estático e 100% visível; sombra fria/halo/keyline/
+     specular são ESTÁTICOS e permanecem (não são movimento). */
+  .cvm-honra {
+    animation: none !important;
+    transform: none !important;
   }
 }

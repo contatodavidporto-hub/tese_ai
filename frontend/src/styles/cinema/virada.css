@@ -1,0 +1,73 @@
+/* ============================================================
+ * cinema/virada.css — IMPLEMENTADO (missão APOTEOSE 2026-07-13) · DONA: onda BANCA
+ * Critério 4 — Cartão-que-vira-página (ORIGEM do morph, D4/M-g/M-f).
+ * View Transition NATIVA same-document (document.startViewTransition em
+ * volta de startTransition(router.push)) — API do navegador, zero flag
+ * experimental, zero canary (React <ViewTransition> segue vetado).
+ * Lógica: src/components/motion/useViradaCartao.ts (gate quádruplo; nome
+ * `cartao-tese` aplicado via CSSOM SÓ no cartão clicado, limpo no finally
+ * — senão sombrearia os `.vt-tese-N` cross-document, que ficam INTOCADOS).
+ * Destino (onda TESE): aplica a classe `.vt-morph-destino` (contrato da
+ * Onda 0) ao card do EsqueletoTese — a REGRA da classe mora aqui (folha do
+ * morph) para a TESE só aplicar classe; a supressão do véu de chegada é da
+ * TESE em cinema/tese-apoteose.css (flag sessionStorage
+ * `tese-ai:morph-chegada`, escrita pelo hook daqui).
+ * CSP: folha estática nonce'd — os pseudos ::view-transition-* de AUTOR
+ * moram aqui; os do UA são isentos de style-src (CSSWG #7560). Diff zero
+ * no proxy.ts. DoD (C4 do red-team): o cartão expande e ATERRISSA no
+ * EsqueletoTese com CLS≈0 e Tarja CVM visível — nunca "vira o documento
+ * final" (a tese real continua carregando depois).
+ * ============================================================ */
+
+/* Destino do morph (aplicada pela TESE ao card do EsqueletoTese; nome
+   idêntico ao que o hook escreve via CSSOM na origem — par único). */
+.vt-morph-destino {
+  view-transition-name: cartao-tese;
+}
+
+/* Pseudos de AUTOR do par nomeado — duração ≤400ms (a página fica
+   congelada durante a VT — regra dura do dossiê), ease da casa (--ease-ink,
+   "sai rápido, assenta longo"); a raiz segue no crossfade default do UA. */
+::view-transition-group(cartao-tese) {
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease-ink);
+}
+::view-transition-image-pair(cartao-tese) {
+  isolation: isolate;
+}
+::view-transition-old(cartao-tese),
+::view-transition-new(cartao-tese) {
+  animation-duration: 360ms;
+  animation-timing-function: var(--ease-ink);
+  /* Par preenche o box do group durante o morph de proporção — evita o
+     esticamento do snapshot (padrão do guia de View Transitions). */
+  height: 100%;
+}
+
+/* Irmãos do cartão clicado durante o voo: zoom-out + fade via CLASSE no
+   rail (classList pelo hook — nunca estilo inline). Escreve nas MESMAS
+   vars --palco-s/--palco-o consumidas pela declaração única de palco.css
+   (um escritor por propriedade preservado — só troca o valor da var).
+   Classe repetida = especificidade (0,5,0) para vencer o estado
+   :hover-irmãos de palco.css no empate (esta folha importa DEPOIS).
+   Visível de verdade quando a VT é pulada (Esc/skip) e a navegação ainda
+   está em voo — o palco "apaga as luzes" enquanto a página vira. */
+.banca-rail.virada-em-voo .cartao-ticker.cartao-ticker:not(.virada-origem) {
+  --palco-s: var(--palco-scale-irmaos);
+  --palco-o: 0;
+}
+.banca-rail.virada-em-voo .cartao-ticker.cartao-ticker.virada-origem {
+  --palco-s: var(--palco-scale-ativo);
+  --palco-o: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduce NOMINAL da virada: o gate (2) do hook nem chama
+     startViewTransition (navegação comum, véu digno de sempre) e o
+     globals.css já zera ::view-transition-* — aqui, defesa em
+     profundidade: se as classes de voo forem aplicadas com reduce ligado
+     em pleno uso, a troca de estado dos irmãos é instantânea. */
+  .banca-rail.virada-em-voo .cartao-ticker {
+    transition: none !important;
+  }
+}

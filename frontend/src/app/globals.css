@@ -17,6 +17,24 @@
 @import "../styles/cinema/rotas.css";
 @import "../styles/cinema/magnetico.css";
 @import "../styles/cinema/banca.css";
+/* ---------- Folhas da missão "APOTEOSE" (2026-07-13, Onda 0 — Fundação).
+   Stubs com dono no cabeçalho (implementação real entra nas ondas de tela);
+   ticker-luz.css e tooltip.css são conteúdo COMPLETO desta própria Onda 0
+   (primitivas compartilhadas). ORDEM MANDATÓRIA (plano-apoteose.md §4):
+   `tese-apoteose.css` importado por ÚLTIMO — depois de `rotas.css` E de
+   todas as folhas novas — porque a regra de supressão do véu de chegada do
+   morph (`.virada-edicao.morph-chegada::after`) precisa vencer a cascata
+   contra a regra irmã do corpo deste arquivo em especificidade comparável.
+   Ninguém edita `tese-apoteose.css` além da onda TESE; ninguém edita este
+   bloco de @import além da Onda 0. */
+@import "../styles/cinema/marca.css";
+@import "../styles/cinema/palco.css";
+@import "../styles/cinema/virada.css";
+@import "../styles/cinema/constelacao.css";
+@import "../styles/cinema/ticker-luz.css";
+@import "../styles/cinema/tooltip.css";
+@import "../styles/cinema/glossario.css";
+@import "../styles/cinema/tese-apoteose.css";
 
 /*
  * ============================================================
@@ -179,6 +197,72 @@
     quita o ink hardcoded rgb(22 24 29/.16) apontado no recon. Só existe no
     claro: no escuro elevação = borda (o .sombra-elevada vira none e o valor
     herdado nunca é consumido). */
+
+  /* ---------- Missão "APOTEOSE" (2026-07-13, Onda 0) — tokens novos.
+     Lastro/tetos/cláusula de recuo completos em DESIGN-TOKENS.md
+     ("Emenda APOTEOSE 2026-07-13"). Cada bloco abaixo documenta teto +
+     recuo inline; a tabela de contexto AA fica só no .md (não duplicar
+     matriz aqui). ---------- */
+
+  /* Palco 3D da Banca (crit. 3, S1/D3 — DESIGN-TOKENS.md §3, "2ª exceção
+     formal de spring"). Consumidos por cinema/palco.css (dona: BANCA), SÓ
+     sob ancestral `.banca-rail` — nunca em `/teses` (S1 vale só para a
+     Banca). Scale sempre UNIFORME (nunca escala eixo/valor isolado — S3). */
+  --palco-scale-ativo: 1.04; /* teto S1 <=1.045 */
+  --palco-scale-irmaos: 0.97; /* piso S1 >=0.96 */
+  --palco-dim: 0.72; /* opacity dos irmãos (hover/focus-within do rail);
+    checado: ink-primary sobre bg-card, ambos diluídos a 0.72 contra
+    bg-page, ainda 7.08:1 claro / 8.03:1 escuro — sobra grande, sem risco de
+    ilegibilidade no estado "de-enfatizado" */
+  --palco-tilt: 2.5deg; /* teto S1 <=2.5deg, reversível */
+  /* Cláusula de recuo (perf/AA C12, pior frame composto): se o composto
+     palco-mola + specular multi-card + rail-drag não fechar p95<=20ms,
+     recuar NESTA ORDEM: 1) --palco-tilt -> 0 (mata só a inclinação, mantém
+     zoom+dim); 2) --palco-scale-ativo -> 1.02 / --palco-scale-irmaos ->
+     0.99 (reduz a amplitude do tween, mantém a mola). Nunca cortar o dim
+     primeiro (é o que mais barateia — puro opacity). */
+
+  /* `.ticker-luz` — specular dourado compartilhado (crit. 7, S2: glow
+     autorizado em set-piece "brilho especular do palco/tickers"). Conteúdo
+     COMPLETO da primitiva: cinema/ticker-luz.css (dona: Onda 0). Cor:
+     --valor-brilho (mesma família do sheen do hero/marca — "ouro só lê
+     metal com highlight", Meert et al. 2014) via color-mix, NUNCA
+     --luz-tinta (o especular é quente/joia, não o registro frio ambiente). */
+  --ticker-luz-alfa: 0.08; /* claro — teto <=0.10 nos dois temas (cláusula
+    do plano). PROVISÓRIO: valor final sai da calibração de QA (screenshot
+    no pico real); calibração ANALÍTICA desta Onda passou com folga nos 4
+    contextos reais (bg-card/bg-elevated × claro/escuro) — pior caso medido
+    4.67:1+ (ver DESIGN-TOKENS.md). Cláusula de recuo: falhou AA em
+    QUALQUER contexto real -> cair para 0.05 (mesmo piso de
+    --luz-foco-card-alfa) antes de qualquer outra medida. */
+
+  /* Box CVM — peça de honra (crit. 9, D5/S2). Claro = halo baixíssimo
+     sobre --warn-bg; escuro = SEM halo, só keyline (doutrina S2: "no dark,
+     elevação-base continua = borda") + `.ticker-luz` reaproveitado para o
+     specular contido da keyline (zero token de alfa duplicado). */
+  --cvm-halo-alfa: 0.08; /* teto <=0.08 (S2/D5), só claro. Calibração
+    analítica: warn-text 5.54:1 / warn-border 3.20:1 no pico (mínimos
+    4.5/3.0) — ver DESIGN-TOKENS.md. Cláusula de recuo BINÁRIA (S2): falhou
+    AA -> vira keyline sem glow (mesmo tratamento do escuro), nunca itera. */
+  --cvm-keyline-dark: var(--accent-valor); /* alias de componente (camada 3
+    da arquitetura: componente consome semântico) — troca de tema já vem de
+    --accent-valor, nunca redefinido por --media aqui. 8.17–8.90:1 contra
+    bg-card/bg-elevated/bg-page escuros (UI >=3:1, checado). */
+
+  /* Constelação D1→D5 (crit. 8). Cor dos stops (safira/ink/ouro) é
+     semântica pura (--accent-confianca / --ink-primary / --accent-valor)
+     consumida direto por cinema/constelacao.css (dona: FILMSTRIP) — NUNCA
+     interpolar safira->ouro direto (midpoint sRGB ~180° é hue banido);
+     waypoint neutro/ink no meio OU traços discretos sem gradiente
+     contínuo (LEI §3.8). Só a geometria/alfa do traço são tokens novos: */
+  --constelacao-traco-largura: 1.5px;
+  --constelacao-contorno-alfa: 0.1; /* claro — contorno luminoso (glow, S2)
+    do painel ativo; teto <=0.12. Escuro: SEM glow, contorno = borda sólida
+    com --accent-confianca (doutrina S2, mesma lógica do CVM). Calibração
+    analítica (--accent-confianca sobre bg-card, pior caso ink-tertiary):
+    7.09:1 em 0.08 até 6.31:1 em 0.15 — folga grande, teto conservador.
+    Cláusula de recuo: falhou AA -> contorno também vira borda sólida no
+    claro (sem glow), igualando ao tratamento do escuro. */
 }
 
 /* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
@@ -254,6 +338,14 @@
     --accent-valor: #d9b354;
     --valor-brilho: #f7ecc9;
     --moldura-ameixa: #b391ac;
+
+    /* APOTEOSE (Onda 0) — único token de §"tokens novos" que troca de valor
+       por tema (os demais são geometria fixa ou já apontam para um
+       primitivo que troca sozinho — ver bloco :root acima). */
+    --ticker-luz-alfa: 0.1; /* teto <=0.10; pior caso analítico medido
+      4.96:1 (ink-tertiary sobre bg-elevated escuro) — a reprovação real só
+      começa entre 0.12–0.14 (bisecção em DESIGN-TOKENS.md): folga
+      confortável dentro do teto. */
   }
 }
 

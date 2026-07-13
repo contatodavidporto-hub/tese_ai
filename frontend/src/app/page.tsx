@@ -12,6 +12,9 @@ import { FioDaFonte } from "@/components/motion/FioDaFonte";
 import { FocoLuz } from "@/components/motion/FocoLuz";
 import { Reveal } from "@/components/motion/Reveal";
 import { IlhaMagnetica } from "@/components/motion/useMagnetico";
+import { OrganismoH1 } from "@/components/motion/useOrganismoH1";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
+import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 import { AmbienteLanding } from "./AmbienteLanding";
 import { FilmstripDimensoes } from "./FilmstripDimensoes";
@@ -24,7 +27,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Tese AI — a tese inteira, com a fonte de cada número",
   description:
-    "Gere teses de investimento estruturadas para ações da B3, FIIs e Tesouro Direto cruzando fundamentos, macro e geopolítica — cada número com fonte e data, cada lacuna declarada. Não é recomendação de compra ou venda.",
+    "Teses de investimento estruturadas para ações da B3, FIIs e Tesouro Direto: fundamentos, macro, pares globais e geopolítica cruzados com cada número rastreável até a fonte pública, com data. Lacuna declarada, interpretação rotulada. Não é recomendação de compra ou venda.",
+  openGraph: {
+    title: "Tese AI — a tese inteira, com a fonte de cada número",
+    description:
+      "Teses estruturadas para B3, FIIs e Tesouro Direto — cada número rastreável até a fonte pública, com data. Não é recomendação de compra ou venda.",
+  },
 };
 
 function formatDataIso(iso: string): string {
@@ -37,44 +45,44 @@ function formatPct(pct: number): string {
 }
 
 // Dimensões canônicas D1…D5 (ARQUITETURA.md — verificadas em
-// backend/app/services/orquestracao.py). Copy derivada do texto já auditado
-// da landing anterior, redistribuída em 5 cláusulas por fonte oficial — sem
-// afirmação nova.
+// backend/app/services/orquestracao.py). Textos aplicados LITERALMENTE de
+// .maestro/ondas/copy-landing-spec.md §5 (onda COPY — vendedora pela
+// verdade; sem afirmação nova); numero/titulo/fonte intactos.
 const DIMENSOES = [
   {
     numero: "D1",
     titulo: "Fundamentos",
     fonte: "CVM",
     texto:
-      "Demonstrações e cadastro públicos da CVM: receita, margens, dívida e as derivadas que o dado permite calcular — nada além do que a fonte sustenta.",
+      "Demonstrações e cadastro públicos da CVM: receita, margens, dívida — e as derivadas que o dado permite calcular. Nada além do que a fonte sustenta.",
   },
   {
     numero: "D2",
     titulo: "Pares globais",
     fonte: "SEC EDGAR",
     texto:
-      "Comparáveis internacionais a partir de arquivos da SEC — sempre com a ressalva de padrão contábil e moeda, como comparação selecionada, não equivalência.",
+      "Comparáveis internacionais a partir de arquivos da SEC — sempre com a ressalva de padrão contábil e moeda: comparação selecionada, nunca equivalência.",
   },
   {
     numero: "D3",
     titulo: "Macro Brasil",
     fonte: "BCB",
     texto:
-      "Séries oficiais do Banco Central do Brasil — juros, câmbio e atividade — e o preço do petróleo Brent, com o rótulo e a data de cada série.",
+      "Séries oficiais do Banco Central do Brasil — juros, câmbio e atividade — e o preço do petróleo Brent: o pano de fundo em que a empresa opera, com rótulo e data de cada série.",
   },
   {
     numero: "D4",
     titulo: "Macro global",
     fonte: "World Bank + Tesouro",
     texto:
-      "Séries internacionais do Banco Mundial e do Tesouro: atividade, juros e comparáveis macro fora do Brasil, com o rótulo e a data de cada série.",
+      "Séries do Banco Mundial e do Tesouro dos EUA: atividade, juros e comparáveis fora do Brasil — o contexto que também pressiona a tese, com rótulo e data de cada série.",
   },
   {
     numero: "D5",
     titulo: "Elos causais",
     fonte: "fonte nas duas pontas",
     texto:
-      "Elos causais entre evento, commodity, setor e empresa — marcados como interpretação, em cenários condicionais, com fonte nas duas pontas de cada elo.",
+      "Elos causais entre evento, commodity, setor e empresa — narrados como interpretação, em cenários condicionais, com fonte nas duas pontas de cada elo.",
   },
 ] as const;
 
@@ -82,17 +90,17 @@ const PRINCIPIOS = [
   {
     titulo: "Não recomenda",
     texto:
-      "Nenhum “compre”, “venda” ou preço-alvo. A ferramenta estrutura o raciocínio; a decisão é do leitor — postura alinhada à regulação da CVM.",
+      "Nenhuma ordem de compra ou de venda, nenhum “alvo” de preço. A ferramenta estrutura o raciocínio; a decisão é do leitor — a postura que a regulação da CVM espera, tratada como honra da casa.",
   },
   {
     titulo: "Cada número com fonte",
     texto:
-      "As afirmações factuais saem ancoradas em citações verificáveis, com link e data da fonte pública. O que não tem fonte não entra como fato.",
+      "As afirmações factuais saem ancoradas em citações verificáveis, com link e data da fonte pública. O que não tem fonte não entra como fato — e qualquer leitor pode refazer o caminho.",
   },
   {
     titulo: "Lacunas declaradas",
     texto:
-      "Quando o dado não existe, a tese registra “dado não encontrado” e segue — abster é mais honesto que estimar.",
+      "Quando o dado não existe, a tese registra “dado não encontrado” e segue — abster é mais honesto que estimar. Lacuna visível vale mais que número inventado.",
   },
 ] as const;
 
@@ -139,6 +147,13 @@ export default function Home() {
           </span>
           <CampoBrasa />
           <FocoLuz />
+          {/* H1-organismo (APOTEOSE crit.2): ilha que liga a proximidade por
+              palavra (useOrganismoH1 → usePonteiro modo proximidade) na
+              superfície do hero inteiro. A sonda é um <span hidden aria-hidden>
+              (display:none, zero box/layout) — filha DIRETA do .tem-foco, como
+              as demais ilhas; zero classe nova no h1, spans/nome acessível
+              intocados (contrato .maestro/ondas/hero.md). */}
+          <OrganismoH1 />
           <div data-mascara-brasa="" className="mx-auto flex w-full max-w-5xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-24">
             <div className="entrada-hero i-1">
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -185,8 +200,8 @@ export default function Home() {
               <p className="max-w-2xl text-lede leading-relaxed text-ink-2">
                 O Tese AI estrutura teses de investimento cruzando fundamentos, contexto macro,
                 pares globais e geopolítica. Cada afirmação factual é rastreável até o dado
-                público de origem, interpretação vem rotulada como tal — e cada lacuna é
-                declarada, nunca preenchida com chute.
+                público de origem; interpretação vem rotulada como tal; cada lacuna é declarada,
+                nunca preenchida com chute. A tese organiza — a decisão é sua.
               </p>
             </div>
             <div className="entrada-hero i-4">
@@ -257,10 +272,18 @@ export default function Home() {
                 >
                   Prova viva: assim nasce um número na tese
                 </h2>
+                {/* Tooltip DENTRO de [data-cena-el] (spec §3): permitido porque
+                    o gatilho do TermoTooltip só transiciona color/border-color
+                    e o popup .tt-popup anima a si mesmo — NUNCA acrescentar
+                    classe de transform/opacity ao gatilho (um-escritor: o
+                    CenaScrub é o dono deste bloco). */}
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                   Todo dado factual segue o mesmo caminho: número em mono, marcado com uma
-                  citação, ligado a uma fonte e uma data — sem exceção. Exemplo real, com a
-                  carteira teórica do Ibovespa (B3, {dataCarteira})
+                  citação, ligado a uma fonte e uma data — sem exceção. Exemplo real, com a{" "}
+                  <TermoTooltip {...tooltipDe("carteira-teorica")}>
+                    carteira teórica do Ibovespa
+                  </TermoTooltip>{" "}
+                  (B3, {dataCarteira})
                   <sup data-fio-de="" className="font-mono text-brasa-texto">[1]</sup>:
                 </p>
               </div>
@@ -321,9 +344,9 @@ export default function Home() {
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
                   Pré-geradas pelo motor: os {acoesExemplo} maiores pesos da carteira teórica
                   do Ibovespa (B3, {dataCarteira}) e {multiativoExemplo} exemplos multiativo — um
-                  FII, um título do Tesouro Direto — mantidos em cache. Clique e leia a tese
-                  completa, com citações e fontes — se o cache tiver expirado, ela é regenerada
-                  na hora.
+                  FII, um título do Tesouro Direto — mantidos prontos e renovados a cada ciclo
+                  diário. Clique e leia a tese completa, com citações e fontes; se tiver
+                  expirado, ela é regenerada na hora.
                 </p>
               </div>
               <div data-cena-el="">
@@ -364,12 +387,17 @@ export default function Home() {
                 >
                   Cinco dimensões, uma tese
                 </h2>
+                {/* Tooltips liberados aqui: #dimensoes está FORA do scrub (R1)
+                    — gatilhos sem transform/opacity próprios por construção
+                    (spec §5; o Reveal anima o wrapper, não os spans). */}
                 <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                  O motor monta a tese por camadas e fecha com síntese e contra-tese (bull ×
-                  bear). Fato e interpretação vêm sempre separados no texto — cada camada com a
-                  fonte oficial que a sustenta. O quadro completo vale para as ações; FIIs e
-                  títulos do Tesouro Direto usam um subconjunto próprio de dimensões — sem
-                  pares globais nem macro global dedicada.
+                  O motor monta a tese por camadas e fecha com síntese e{" "}
+                  <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip> (
+                  <TermoTooltip {...tooltipDe("bull-bear")}>bull × bear</TermoTooltip>). Fato e
+                  interpretação vêm sempre separados no texto — cada camada com a fonte oficial
+                  que a sustenta. O quadro completo vale para as ações; FIIs e títulos do
+                  Tesouro Direto usam um subconjunto próprio de dimensões — sem pares globais
+                  nem macro global dedicada.
                 </p>
               </div>
             </Reveal>
@@ -417,24 +445,27 @@ export default function Home() {
                 ))}
               </ol>
 
-              {/* Faixa-brasão: o aviso CVM tratado como manchete, não letra miúda */}
-              <div
-                data-cena-el=""
-                data-cvm=""
-                role="note"
-                aria-label="Aviso regulatório"
-                className="flex flex-col items-center gap-2 border-y-2 border-aviso-borda bg-aviso-fundo px-6 py-8 text-center sm:px-10"
-              >
-                <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
-                  Aviso CVM
-                </span>
-                <p className="font-display text-h2 font-semibold tracking-tight text-aviso-texto">
-                  Não é recomendação de investimento.
-                </p>
-                <p className="max-w-2xl font-sans text-ui text-aviso-texto">
-                  Cada tese estrutura o raciocínio a partir de dados públicos, com fonte e data
-                  em toda afirmação factual — a decisão de compra ou venda é sempre do leitor.
-                </p>
+              {/* Faixa-brasão: o aviso CVM tratado como manchete, não letra miúda.
+                  Peça de honra (APOTEOSE C9/D5): o pai [data-cena-el][data-cvm]
+                  vira container liso — o GSAP do CenaScrub segue dono único do
+                  transform(y) dele (opacity travada em 1). O filho .cvm-honra
+                  (novo, contrato .maestro/ondas/cena.md) leva as classes visuais
+                  + a levitação/keyline de cinema/secoes.css — um-escritor: o
+                  float por keyframe mora no FILHO, nunca no data-cena-el. Texto
+                  VERBATIM (compliance — não mudar uma vírgula). */}
+              <div data-cena-el="" data-cvm="" role="note" aria-label="Aviso regulatório">
+                <div className="cvm-honra flex flex-col items-center gap-2 border-y-2 border-aviso-borda bg-aviso-fundo px-6 py-8 text-center sm:px-10">
+                  <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
+                    Aviso CVM
+                  </span>
+                  <p className="font-display text-h2 font-semibold tracking-tight text-aviso-texto">
+                    Não é recomendação de investimento.
+                  </p>
+                  <p className="max-w-2xl font-sans text-ui text-aviso-texto">
+                    Cada tese estrutura o raciocínio a partir de dados públicos, com fonte e data
+                    em toda afirmação factual — a decisão de compra ou venda é sempre do leitor.
+                  </p>
+                </div>
               </div>
 
               <div
@@ -442,8 +473,8 @@ export default function Home() {
                 className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5"
               >
                 <p className="flex-1 text-ui text-ink-2">
-                  Pronto para ver como fica? Gere a tese de uma ação da B3, de um FII ou de um
-                  título do Tesouro Direto — ou abra um exemplo pronto.
+                  Pronto para auditar uma? Gere a tese de uma ação da B3, de um FII ou de um
+                  título do Tesouro Direto — ou abra uma tese pronta da galeria.
                 </p>
                 {/* CTA da faixa final — .magnetico (R2: ilha da landing). */}
                 <Link

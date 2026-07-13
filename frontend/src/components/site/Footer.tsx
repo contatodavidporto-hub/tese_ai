@@ -3,6 +3,7 @@
 // preservado). R2: ZERO gsap/useMagnetico aqui — magnéticos são exclusivos
 // das ilhas da landing.
 import { LinkCinema } from "@/components/motion/LinkCinema";
+import { Marca } from "@/components/site/Marca";
 import { backendSaudavel } from "@/lib/saude";
 import { DATA_CARTEIRA_IBOV } from "@/lib/tickers";
 
@@ -39,10 +40,13 @@ export async function ChipSaudeAoVivo() {
   return <ChipSaude estado={ok} />;
 }
 
+// "/glossario" é contrato da Onda 0 da missão APOTEOSE (CHROME linka; a
+// rota nasce na onda COPY) — mesma ordem da nav canônica do Header.
 const NAV_FOOTER = [
   { href: "/como-funciona", label: "Como funciona" },
   { href: "/teses", label: "Teses" },
   { href: "/cobertura", label: "Cobertura" },
+  { href: "/glossario", label: "Glossário" },
   { href: "/sobre", label: "Sobre" },
   { href: "/historico", label: "Histórico" },
   { href: "/tese", label: "Gerar tese" },
@@ -66,7 +70,13 @@ export function Footer({ saudeSlot }: { saudeSlot?: React.ReactNode }) {
     <footer className="mt-auto border-t border-line-strong bg-page">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="flex flex-col gap-3">
-          <span className="font-display text-h3 font-semibold text-ink">Tese AI</span>
+          {/* Marca em variante CARIMBO (crit.1, veredito §4.4): mono
+              currentColor a 20px, estática, sem sheen — rodapé é
+              assinatura, não palco. Selo sempre com o wordmark (M-c). */}
+          <span className="flex items-center gap-2 text-ink">
+            <Marca variante="carimbo" />
+            <span className="font-display text-h3 font-semibold">Tese AI</span>
+          </span>
           <p className="max-w-xs font-sans text-ui leading-relaxed text-ink-2">
             <strong className="font-semibold text-ink">
               Não é recomendação de investimento.

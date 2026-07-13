@@ -1,0 +1,152 @@
+/* ============================================================
+ * cinema/tese-apoteose.css — IMPLEMENTADO (onda TESE) · DONA: onda TESE
+ * Missão "APOTEOSE" (2026-07-13) — critérios 4 (destino do morph + cena de
+ * espera digna), 7 (specular de /tese), 10 (masthead intensificado) e 11
+ * (tooltips — lógica/folha do tooltip são da Onda 0; aqui nada a estilizar).
+ *
+ * IMPORTANTE — ORDEM DE IMPORT (garantida pela Onda 0, `globals.css`):
+ * esta folha é a ÚLTIMA importada, depois de TODAS as outras (inclusive
+ * `rotas.css`) — necessário para a regra de supressão do véu de chegada
+ * abaixo vencer a cascata contra a regra irmã do CORPO do globals.css em
+ * especificidade comparável (`html body .virada-edicao.morph-chegada::after`
+ * vs `.virada-edicao::after` do corpo — a primeira já vence por
+ * especificidade sozinha, mas a ordem é reforço deliberado do plano,
+ * NUNCA reduzir para depender só da especificidade). `rotas.css`/CHROME
+ * NÃO É TOCADO por esta regra.
+ *
+ * Quem escreve o quê (um-escritor-por-propriedade):
+ *   - `view-transition-name: cartao-tese` — DESTINO: classe estática
+ *     `.vt-morph-destino` (abaixo); ORIGEM: CSSOM no clique, dona BANCA
+ *     (cinema/virada.css), com limpeza no finally. Os `.vt-tese-1..13`
+ *     cross-document do globals.css ficam INTOCADOS.
+ *   - `animation`/`content` de `.virada-edicao::after` — dono base:
+ *     globals.css (keyframe do véu). A supressão abaixo NÃO anima nada:
+ *     remove a box do pseudo-elemento (content:none) quando a chegada veio
+ *     do morph — decisão de classList (TeseClient.tsx lê-e-limpa a flag
+ *     `tese-ai:morph-chegada` e aplica `.morph-chegada` ANTES do paint).
+ *   - `transform` do ::after do masthead (keyline ameixa) — só o keyframe
+ *     `masthead-keyline` daqui.
+ *   - `opacity` do container do EsqueletoTese — só o keyframe
+ *     `esqueleto-respira` daqui (as réguas internas seguem com o writer
+ *     delas: transition do padrão Reveal, elementos DIFERENTES).
+ *   - `opacity` do wrapper `ready` — só o keyframe `chegada-suave` daqui
+ *     (os Reveal internos de TeseView animam a PRÓPRIA opacity, elementos
+ *     diferentes: multiplicação visual, nunca dois escritores no mesmo nó).
+ *   - `--mx`/`--my` em /tese — escritor único: ilha `usePonteiro` do
+ *     TeseClient (delegação `.ticker-luz`); o sprite é da primitiva
+ *     compartilhada cinema/ticker-luz.css (dona Onda 0, NÃO redefinida aqui).
+ * ============================================================ */
+
+/* ---------- Crit. 4 — DESTINO DO MORPH (D4) ----------
+   Classe PRÉ-DECLARADA (nunca gerada em runtime) aplicada ao primeiro card
+   do EsqueletoTese (TeseClient.tsx, estado busy): é a geometria de chegada
+   do cartão-que-vira-página. O DoD do morph aterrissa AQUI (skeleton), com
+   CLS≈0 e Tarja visível — nunca no documento final (que ainda carrega). */
+.vt-morph-destino {
+  view-transition-name: cartao-tese;
+}
+
+/* ---------- Crit. 4 — SUPRESSÃO DO VÉU DE CHEGADA (dono ÚNICO: TESE) ----------
+   Só quando a chegada foi anunciada pelo morph (classe `.morph-chegada`
+   aplicada pelo TeseClient ao `.virada-edicao`, uma chegada só): dois véus
+   empilhados (View Transition + cortina) seria redundante/feio. Navegação
+   SPA comum segue vendo o véu de sempre. `content: none` (e não só
+   `animation: none`) é deliberado: também neutraliza a variante REDUCE do
+   véu (globals.css usa `!important` no fade de 120ms — sem box de
+   pseudo-elemento, não há o que animar). */
+html body .virada-edicao.morph-chegada::after {
+  animation: none;
+  content: none;
+}
+
+/* ---------- Crit. 10 — MASTHEAD INTENSIFICADO ----------
+   Keyline ameixa (--moldura-ameixa: "borda do masthead" é uso canônico do
+   token — decorativo, nunca texto/estado, hue ~318° fora da faixa banida)
+   que SE IMPRIME da esquerda para a direita 1x no mount — a "entrada mais
+   rica" do masthead sem tocar no writer do <Reveal> (que anima o próprio
+   elemento; aqui anima-se SÓ o transform do ::after, elemento distinto).
+   A aurora do masthead segue a do globals.css (`.aurora-masthead`, ::before)
+   com o alfa CALIBRADO — intensificar o alfa localmente criaria um emissor
+   novo sob texto fora da cadeia AA (decisão registrada: reuso, não boost).
+   Pareada com `.aurora-masthead` no elemento (que já dá position:relative +
+   overflow:hidden + isolation); o position:relative abaixo é defesa caso a
+   dupla se separe um dia. */
+.masthead-apoteose {
+  position: relative;
+}
+.masthead-apoteose::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--moldura-ameixa);
+  transform-origin: left;
+  animation: masthead-keyline var(--dur-edition) var(--ease-rule) both;
+  pointer-events: none;
+}
+@keyframes masthead-keyline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------- Crit. 4 — CENA DE ESPERA DIGNA ----------
+   Respiração DISCRETA do skeleton (container inteiro, opacity-only,
+   compositor-friendly): substitui a estática absoluta por um sinal de
+   "vivo" sem shimmer/loop de brilho e sem fingir progresso (a LEI do
+   TeseClient permanece: nenhuma fase/telemetria que o backend não expõe —
+   o polling só sabe processing/ready/error). Período longo e amplitude
+   curta de propósito: é respiração, não pulso de atenção. */
+.esqueleto-respira {
+  animation: esqueleto-respira 2.8s ease-in-out infinite;
+}
+@keyframes esqueleto-respira {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* busy→ready sem flash: o wrapper do estado `ready` entra com um fade curto
+   (--dur-set) em vez de trocar seco — o skeleton sai, a tese assenta. */
+.chegada-suave {
+  animation: chegada-suave var(--dur-set) var(--ease-ink) both;
+}
+@keyframes chegada-suave {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL por efeito (regra da casa, DESIGN-TOKENS.md §1.4):
+     - supressão do véu do morph: lógica de classList, segue valendo sob
+       reduce (content:none remove a box; nada anima) — nada a desligar;
+     - specular `.ticker-luz`: reduce nominal na PRÓPRIA primitiva
+       (cinema/ticker-luz.css) + `usePonteiro` inerte sob reduce;
+     - keyline do masthead: decorativa — estado final direto (sem animation,
+       o transform base é `none` = scaleX(1): keyline inteira, estática); */
+  .masthead-apoteose::after {
+    animation: none !important;
+  }
+  /* - respiração do skeleton: ESTÁTICO sob reduce (spec da missão) — a
+       opacity base do container é 1; */
+  .esqueleto-respira {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  /* - chegada busy→ready: corte seco digno (opacity base = 1). */
+  .chegada-suave {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

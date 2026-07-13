@@ -28,9 +28,18 @@
 // — a MESMA interface de dados que a grade atual consome (PapelB3[] +
 // data ISO da carteira); sem `.stagger`/`.i-N`/<Reveal> por card.
 
+// APOTEOSE (2026-07-13, onda BANCA — crit. 3/5): o rail ganha (a) palco 3D
+// (usePalco + cinema/palco.css, autorização S1/S3), (b) arrasto de mouse com
+// inércia snap-safe (useRailDrag + classe .banca-arrastando), (c) hairline de
+// progresso substituta da scrollbar oculta (scroll-timeline sob @supports +
+// fallback JS passivo D6 abaixo). Setas/dots/teclado/IO/view(inline) do rail
+// permanecem EXATAMENTE como estavam.
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { GradeFoco } from "@/components/motion/GradeFoco";
+import { usePalco } from "@/components/motion/usePalco";
+import { useRailDrag } from "@/components/motion/useRailDrag";
 import { CartaoTese } from "@/components/teses/CartaoTese";
 import type { PapelB3 } from "@/lib/tickers";
 
@@ -41,7 +50,40 @@ export type GaleriaBancaProps = {
 
 export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps) {
   const cardRefs = useRef<Array<HTMLLIElement | null>>([]);
+  const envelopeRef = useRef<HTMLDivElement | null>(null);
+  const barraRef = useRef<HTMLSpanElement | null>(null);
   const [ativo, setAtivo] = useState(0);
+
+  // Palco 3D (mola do tilt) + drag do rail — ambos acham o `.banca-rail`
+  // dentro do envelope (o <ul> vive no GradeFoco, que não expõe ref).
+  usePalco(envelopeRef);
+  useRailDrag(envelopeRef);
+
+  // D6 — fallback da hairline (FF stable sem scroll-driven animations até
+  // ~155): scroll passivo → rAF → --banca-prog NA PRÓPRIA barra (regra 5 do
+  // DESIGN-TOKENS). Onde há suporte, a animação CSS dirige tudo e este
+  // efeito nem liga (nunca dois escritores).
+  useEffect(() => {
+    if (typeof CSS !== "undefined" && CSS.supports("animation-timeline: --a")) return;
+    const rail = envelopeRef.current?.querySelector<HTMLElement>(".banca-rail");
+    const barra = barraRef.current;
+    if (!rail || !barra) return;
+    let quadro = 0;
+    const pintar = () => {
+      const max = rail.scrollWidth - rail.clientWidth;
+      barra.style.setProperty("--banca-prog", max > 0 ? String(rail.scrollLeft / max) : "0");
+    };
+    const aoRolar = () => {
+      window.cancelAnimationFrame(quadro);
+      quadro = window.requestAnimationFrame(pintar);
+    };
+    pintar();
+    rail.addEventListener("scroll", aoRolar, { passive: true });
+    return () => {
+      rail.removeEventListener("scroll", aoRolar);
+      window.cancelAnimationFrame(quadro);
+    };
+  }, []);
 
   // Card ativo por IO com root = o próprio rail (nunca a viewport inteira,
   // nunca listener de `scroll` cru) — mesma métrica do FilmstripDimensoes
@@ -87,7 +129,9 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
   }, []);
 
   return (
-    <div className="flex flex-col gap-4">
+    // `.banca-envelope` (banca.css): timeline-scope da hairline — a barra é
+    // IRMÃ do rail e precisa do ancestral comum para enxergar --banca-rail.
+    <div ref={envelopeRef} className="banca-envelope flex flex-col gap-4">
       {/* Controles FORA do container clipado (o anel de foco nunca é
           cortado pelo overflow do rail — guarda C2 do red-team, mesmo
           racional do FilmstripDimensoes). */}
@@ -170,6 +214,14 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
           </li>
         ))}
       </GradeFoco>
+
+      {/* Hairline de progresso (crit. 5/D6) — affordance substituta da
+          scrollbar oculta (padrão do filmstrip: 2px, brasa, transform-only;
+          estilos em banca.css). Decorativa para leitor de tela: o
+          wayfinding acessível segue nos dots aria-current + setas. */}
+      <div className="banca-progresso" aria-hidden="true">
+        <span ref={barraRef} className="banca-progresso__barra" />
+      </div>
     </div>
   );
 }

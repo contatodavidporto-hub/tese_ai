@@ -291,6 +291,143 @@ via `new Worker(new URL(...))` + 1 linha `worker-src 'self'` no proxy —
    shader (mix por luminância/dessaturação; QA reprova hue amostrado via
    readPixels).
 
+### Emenda APOTEOSE 2026-07-13 (Onda 0: fundação)
+
+> LEI da missão: `.maestro/plano-apoteose.md` (worktree `wt-apoteose`), que
+> PREVALECE sobre qualquer resumo abaixo — este bloco registra só o que
+> toca TOKENS/CSS/contratos publicados pela Onda 0 (Fundação). As LEIs da
+> missão Imersiva (R1–R12, trava C2, um-escritor-por-propriedade) seguem
+> vinculantes, salvo as supersessões S1–S3.
+
+#### S1–S3 — supersessões formais (autorizadas pelo humano)
+
+- **S1:** cartões da Banca ganham zoom/tilt/mola no hover/foco (cai o veto
+  11.5 SÓ ali). Scale sempre UNIFORME (nunca deforma eixo/valor isolado —
+  "a geometria relativa dos dados não mente"); ativo ≤1.045, irmãos ≥0.96,
+  tilt ≤2.5°, reversível. Mola registrada como **2ª exceção formal de
+  spring** (ver §3 abaixo — a 1ª segue `.magnetico`).
+- **S2:** brilho/glow autorizado APENAS em 4 set-pieces: box CVM da
+  landing, specular do palco/tickers, contorno da constelação, joia da
+  marca. **No dark, elevação-base continua = borda**: o brilho dark entra
+  por keyline luminosa + specular contido — nunca glow puro — calibrado
+  pela cadeia AA com **cláusula de recuo binária** (falhou AA → keyline sem
+  glow, nunca itera).
+- **S3:** o guard-rail `banca.css:25-27` ("tilt/levitação/scale proibidos")
+  é emendado pela própria onda BANCA (dona de `banca.css`) — fora do
+  escopo desta folha/Onda.
+
+#### D1–D7 relevantes a tokens (resumo — detalhe completo no plano)
+
+D1 marca CSS-first (zero JS no Header, entrada zero) · D3 palco (scale+dim+
+specular claro; keyline+specular escuro; mola `quickTo`) · D4 morph (nome
+`cartao-tese` via CSSOM só no clique, limpeza no `finally`) · D5 box CVM
+(claro = halo baixíssimo; escuro = keyline ouro + specular contido; opacity
+do texto travada em 1) · D6 hairline do rail (fallback JS gateado por
+`@supports not`) · D7 tooltips (termo sem definição → fallback silencioso,
+zero definição inventada).
+
+#### Tokens novos (`globals.css` :root / dark) — teto + recuo por token
+
+| Token | Claro | Escuro | Papel | Teto / cláusula de recuo |
+|---|---|---|---|---|
+| `--palco-scale-ativo` | `1.04` | idem | scale do cartão ativo no palco da Banca (S1/D3) | teto S1 ≤1.045. Recuo (perf/AA C12): reduzir a amplitude do tween (→1.02) DEPOIS de zerar `--palco-tilt` |
+| `--palco-scale-irmaos` | `0.97` | idem | scale dos cartões irmãos (dim simultâneo) | piso S1 ≥0.96 |
+| `--palco-dim` | `0.72` | idem | opacity dos irmãos no hover/focus-within do rail | checado: ink-primary sobre bg-card, ambos diluídos a 0.72 contra bg-page, 7.08:1 claro / 8.03:1 escuro — sem risco de ilegibilidade |
+| `--palco-tilt` | `2.5deg` | idem | inclinação do cartão ativo | teto S1 ≤2.5°, reversível. **1º dial a recuar** (→0) se o composto de perf/AA não fechar |
+| `--ticker-luz-alfa` | `0.08` | `0.10` | alfa do specular `.ticker-luz` (`--valor-brilho`) sobre cards/masthead/combobox/histórico | teto ≤0.10 nos dois temas (provisório — final na calibração de QA). Recuo: falhou AA → 0.05 (piso de `--luz-foco-card-alfa`) |
+| `--cvm-halo-alfa` | `0.08` | *(n/a — dark usa keyline)* | halo `--accent-valor` do Box CVM sobre `--warn-bg` | teto ≤0.08 (S2/D5). Recuo BINÁRIO: falhou AA → keyline sem glow, nunca itera |
+| `--cvm-keyline-dark` | *(n/a — claro usa halo)* | `var(--accent-valor)` | keyline 1px do Box CVM no escuro (elevação = borda, S2) | alias de componente; troca de tema já vem de `--accent-valor` |
+| `--constelacao-traco-largura` | `1.5px` | idem | espessura do traçado SVG da constelação | fixo (geometria, não AA) |
+| `--constelacao-contorno-alfa` | `0.10` | *(n/a — dark usa borda sólida)* | glow do contorno do painel ativo (S2) | teto ≤0.12. Recuo: falhou AA → contorno também vira borda sólida no claro |
+
+Cores dos stops da constelação (safira/ink/ouro) e das partes da marca NÃO
+ganham token de componente novo — consomem os semânticos existentes direto
+(`--accent-confianca`, `--ink-primary`, `--accent-valor`, `--valor-brilho`):
+arquitetura de 3 camadas já satisfeita sem camada extra (decisão registrada,
+não omissão).
+
+**Convenção `--marca-*` (contrato publicado pela Onda 0):** reservada para
+a ilha de inércia CSSOM da Fase 2/opcional da marca (`--marca-lx`/
+`--marca-ly`, mesmo padrão neutro-default de `--mx`/`--my`) — **não
+declarada em `globals.css` nesta rodada** (é a primeira coisa a cortar se a
+missão apertar, per `veredito-marca.md` §3/§5; declarar tokens não
+consumidos seria dead code). Se a CHROME adotar a Fase 2, declara os dois
+tokens ali, seguindo o mesmo contrato de `--mx`/`--my` (CSSOM, gate
+`hover:hover) and (pointer:fine)`, clamp ±1px).
+
+#### Calibração AA — emissores novos (analítica, src-over sRGB gama)
+
+`.maestro/ferramentas/calibra_tokens.py --help` só cobre a recalibração de
+`ink-tertiary`/`border-field` contra o pico da luz ambiente (shader do
+hero) — **não modela os 2 emissores novos desta missão** (confirmado por
+`--help`, sem flags para eles). Script ad-hoc equivalente (mesmo método:
+`alpha_composite` src-over em sRGB gama + luminância relativa WCAG),
+`scratchpad/calibra_apoteose.py` (anexo ao PR):
+
+```
+CENÁRIO 1 — .ticker-luz (--valor-brilho @ --ticker-luz-alfa) sobre bg-card/bg-elevated
+  CLARO  bg-card     -> ink-3 7.89:1 · ink-2 7.92:1 · border-field 5.30:1 · ink-1 17.09:1
+  CLARO  bg-elevated -> ink-3 8.03:1 · ink-2 8.06:1 · border-field 5.39:1 · ink-1 17.38:1
+  ESCURO bg-card     -> ink-3 5.50:1 · ink-2 6.55:1 · border-field 3.74:1 · ink-1 11.33:1
+  ESCURO bg-elevated -> ink-3 4.96:1 · ink-2 5.91:1 · border-field 3.37:1 · ink-1 10.22:1  (PIOR CASO)
+  Mínimos: texto ≥4.5:1, UI (border-field) ≥3.0:1 — 16/16 PASS.
+  Bisecção de margem (escuro/bg-elevated, pior caso): 0.10 passa (4.96) — a reprovação
+  real só começa entre 0.12 (ink-3 4.67, border-field 2.98 FALHA) e 0.14 — folga
+  confortável dentro do teto ≤0.10.
+
+CENÁRIO 2 — halo do Box CVM (--accent-valor @ --cvm-halo-alfa) sobre --warn-bg (claro)
+  CLARO warn-bg -> warn-text 5.54:1 (min 4.5) · warn-border 3.20:1 (min 3.0) — PASS.
+
+CENÁRIO 3 — contorno da constelação (--accent-confianca @ --constelacao-contorno-alfa) sobre bg-card (claro)
+  0.08 -> ink-3 7.09:1 · border-field 4.76:1 · ink-2 7.12:1
+  0.10 -> ink-3 6.86:1 · border-field 4.61:1 · ink-2 6.89:1  (valor escolhido)
+  0.15 -> ink-3 6.31:1 · border-field 4.24:1 · ink-2 6.33:1  (ainda PASS — folga grande)
+
+--cvm-keyline-dark (--accent-valor escuro #d9b354, UI ≥3:1):
+  sobre bg-card #16181d -> 8.90:1 · bg-elevated #1d2027 -> 8.17:1 · bg-page #101216 -> 9.40:1
+```
+
+Todos os pares novos PASSAM com folga nos valores escolhidos (teto ≤0.10/
+≤0.08/≤0.12 respectivamente); nenhuma recalibração de `ink-tertiary`/
+`border-field` foi necessária além da já registrada na emenda MATÉRIA VIVA.
+**Provisório declarado:** `--ticker-luz-alfa` e o glow da constelação/CVM
+são calibração ANALÍTICA (sem screenshot de pico real) — a calibração final
+por pixel real (QA) fica dentro dos tetos acima; se algum contexto real
+(fonte custom, densidade de conteúdo) reprovar, aplicar a cláusula de recuo
+do token correspondente (tabela acima), nunca iterar às cegas.
+
+#### Ordem de `@import` (contrato de cascata, `globals.css`)
+
+Depois das 8 folhas herdadas da missão Imersiva, entram (nesta ordem):
+`marca.css`, `palco.css`, `virada.css`, `constelacao.css`, `ticker-luz.css`,
+`tooltip.css`, `glossario.css`, `tese-apoteose.css` — **esta última por
+ÚLTIMO, depois de `rotas.css` e de todas as outras**, porque a regra de
+supressão do véu de chegada do morph
+(`html body .virada-edicao.morph-chegada::after { animation:none; content:none; }`,
+a escrever pela TESE) precisa vencer a cascata contra a regra irmã do
+CORPO do `globals.css` — a especificidade maior já garante isso sozinha,
+mas a ordem é reforço deliberado do plano, não uma dependência única.
+
+#### Contratos publicados pela Onda 0 (consumidos pelas ondas de tela)
+
+- Flag `tese-ai:morph-chegada` (sessionStorage, escrita pela BANCA) + classe
+  `.morph-chegada` (aplicada pela TESE) + classe `.vt-morph-destino` + nome
+  `view-transition-name: cartao-tese` (origem SÓ via CSSOM no clique, com
+  limpeza no `finally` — não sombrear `.vt-tese-1..13` cross-document).
+- Primitiva `.ticker-luz`/`.ticker-luz::after` (`cinema/ticker-luz.css`,
+  conteúdo completo, dona única Onda 0) — BANCA/TESE/CHROME só aplicam a
+  classe e garantem `--mx`/`--my` no alvo (delegação já estabelecida por
+  `usePonteiro.ts`/`GradeFoco.tsx`); ninguém redefine a primitiva.
+- `TermoTooltip.tsx` (`src/components/ui/TermoTooltip.tsx`) + folha
+  `cinema/tooltip.css` — componente funcional completo (props `termo`,
+  `children`, `definicao?`, `slug?`; WCAG 1.4.13 dismissible/hoverable/
+  persistent). COPY é dona só de `lib/glossario.ts`/conteúdo — nunca da
+  lógica/CSS do componente.
+- Interface pública de `usePonteiro.ts` **CONGELADA** nesta rodada (Onda 0
+  não a tocou) — qualquer modo novo (ex.: por-palavra da HERO) deve ser
+  ADITIVO/retrocompatível.
+- Href/label `/glossario` (COPY cria a rota; CHROME linka no nav).
+
 ---
 
 ## 2. Tipografia
@@ -438,6 +575,17 @@ decorativo, shimmer em loop, `filter: blur` animado em grade.
 > cursor em CTA — nunca entrada de conteúdo, nunca card); reveals da landing
 > migrados ao CenaScrub deixam de ser one-shot (scrub reversível é o novo
 > contrato LÁ; motor Reveal segue one-shot nas demais rotas).
+
+> **Emenda APOTEOSE 2026-07-13 — 2ª exceção formal de spring:** a mola do
+> **palco 3D da Banca** (S1, `cinema/palco.css`, dona: onda BANCA) — cartão
+> ativo escala/inclina via `gsap.quickTo` (mesmo motor `carregarGsap()`
+> lazy da landing, R5) — é a SEGUNDA exceção registrada à regra do spring
+> único CSS (`--ease-settle`, exclusivo do Pin de Citação). Escopo estrito:
+> só o palco `.cartao-ticker` sob ancestral `.banca-rail`; nunca entrada de
+> conteúdo; scale sempre UNIFORME (nunca eixo/valor isolado). Tokens de
+> teto: `--palco-scale-ativo`/`--palco-scale-irmaos`/`--palco-dim`/
+> `--palco-tilt` (globals.css :root, tetos e cláusula de recuo em §1
+> "Emenda APOTEOSE").
 
 **Emenda 2026-07-11 (missão cinematográfica):** `--ease-cena` é o único
 easing do follow/drift da luz ambiente — nunca reusar `ease-ink`/`ease-rule`/

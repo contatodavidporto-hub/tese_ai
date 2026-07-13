@@ -7,11 +7,22 @@
 // Enxerto NORMA #4 (DESIGN-BRIEF.md §5): extrato de auditoria SEM cards — só
 // linhas e réguas, agrupadas por dia com cabeçalho sticky. O CONTRATO de
 // ItemHistorico (id, ticker, status, criadoEm) não muda aqui — só o visual.
+//
+// Missão APOTEOSE (crit.7 + crit.10 — onda CHROME):
+// - Luz especular nos tickers: cada linha do extrato (o <Link> É a linha)
+//   ganha `.ticker-luz` (primitiva da Onda 0, cinema/ticker-luz.css);
+//   --mx/--my chegam por DELEGAÇÃO — um único usePonteiro no wrapper
+//   estável abaixo (listener passivo + rAF, padrão GradeFoco), zero
+//   mecanismo novo. Reduce/touch: hook e primitiva inertes por construção.
+// - Reveals mais ricos: linhas entram como "Fila do Ticker"
+//   (variant="reveal-ticker" + stagger .i-N por posição DENTRO do grupo do
+//   dia, teto i-6 — grupos longos não acumulam atraso).
 
 import Link from "next/link";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useRef, useSyncExternalStore } from "react";
 
 import { Reveal } from "@/components/motion/Reveal";
+import { usePonteiro } from "@/components/motion/usePonteiro";
 import {
   assinarHistorico,
   HISTORICO_VAZIO,
@@ -104,75 +115,93 @@ export function HistoricoClient() {
 
   const grupos = useMemo(() => agruparPorDia(itens), [itens]);
 
-  if (itens.length === 0) {
-    return (
-      <div className="flex flex-col items-start gap-3 border border-line bg-card px-6 py-8">
-        {/* Microcopy da casa (enxerto Noturna #11): sem ilustração fofa. */}
-        <p className="font-sans text-ui text-ink-2">nenhum registro neste período.</p>
-        <Link
-          href="/tese"
-          className="flex min-h-11 items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
-        >
-          Gerar a primeira tese
-        </Link>
-      </div>
-    );
-  }
+  // Delegação da luz especular (crit.7): UM listener passivo no wrapper
+  // ESTÁVEL (o mesmo nó nos dois estados — vazio/lista — para o efeito do
+  // usePonteiro, que roda 1x, nunca apontar para um nó desmontado) escreve
+  // --mx/--my no `.ticker-luz` sob o ponteiro.
+  const raizRef = useRef<HTMLDivElement | null>(null);
+  usePonteiro(raizRef, { seletorAlvo: ".ticker-luz" });
 
   return (
-    <div className="flex flex-col gap-8">
-      {grupos.map((grupo) => (
-        <section key={grupo.chave} aria-labelledby={`dia-${grupo.chave}`}>
-          {/* Offset aproximado da Tarja regulatória (sticky top-0, z-50) —
-              o cabeçalho de dia fica logo abaixo dela ao rolar. */}
-          <h2
-            id={`dia-${grupo.chave}`}
-            className="sticky top-10 z-10 border-b border-line-strong bg-page py-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
+    <div ref={raizRef} className="flex flex-col gap-8">
+      {itens.length === 0 ? (
+        <div className="flex flex-col items-start gap-3 border border-line bg-card px-6 py-8">
+          {/* Microcopy da casa (enxerto Noturna #11): sem ilustração fofa. */}
+          <p className="font-sans text-ui text-ink-2">nenhum registro neste período.</p>
+          <Link
+            href="/tese"
+            className="flex min-h-11 items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
           >
-            {grupo.rotulo}
-          </h2>
-          <ul className="flex flex-col">
-            {grupo.itens.map((item) => (
-              <li key={item.id} className="border-b border-line">
-                <Reveal>
-                  {/* A1 (foco não obscurecido, 2.4.11): id estável herda
-                      `[id] { scroll-margin-top: 6rem }` (globals.css) — sem
-                      isso, focar este link por teclado e rolar até ele o
-                      deixava colado sob o cabeçalho de dia sticky (top-10). */}
-                  <Link
-                    id={`registro-${item.id}`}
-                    href={`/tese?id=${encodeURIComponent(item.id)}&ticker=${encodeURIComponent(item.ticker)}`}
-                    // D8: a linha inteira já É o link — o "abrir →" era um CTA
-                    // redundante (grid de 2 colunas agora, não 3).
-                    className="grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-4 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr]"
-                  >
-                    <span className="font-mono text-meta text-ink-3">
-                      {formatHora(item.criadoEm)}
-                    </span>
-                    <span className="flex min-w-0 items-baseline gap-3">
-                      <span className="truncate font-mono text-ui font-semibold text-ink">
-                        {item.ticker}
-                      </span>
-                      <span
-                        className={`font-mono text-meta uppercase tracking-wide ${CLASSE_STATUS[item.status]}`}
+            Gerar a primeira tese
+          </Link>
+        </div>
+      ) : (
+        <>
+          {grupos.map((grupo) => (
+            <section key={grupo.chave} aria-labelledby={`dia-${grupo.chave}`}>
+              {/* Offset aproximado da Tarja regulatória (sticky top-0, z-50) —
+                  o cabeçalho de dia fica logo abaixo dela ao rolar.
+                  REVALIDADO na missão APOTEOSE: a marca do header tem altura
+                  reservada = wordmark atual (CLS zero, cinema/marca.css) e a
+                  Tarja é intocada — top-10 e o scroll-margin-top globais
+                  continuam calibrados. */}
+              <h2
+                id={`dia-${grupo.chave}`}
+                className="sticky top-10 z-10 border-b border-line-strong bg-page py-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
+              >
+                {grupo.rotulo}
+              </h2>
+              <ul className="flex flex-col">
+                {grupo.itens.map((item, indice) => (
+                  <li key={item.id} className="border-b border-line">
+                    {/* Fila do Ticker (crit.10): stagger por posição no grupo
+                        do dia, teto .i-6 — linha 40 não espera 40 passos. */}
+                    <Reveal
+                      variant="reveal-ticker"
+                      className={indice > 0 ? `i-${Math.min(indice, 6)}` : undefined}
+                    >
+                      {/* A1 (foco não obscurecido, 2.4.11): id estável herda
+                          `[id] { scroll-margin-top: 6rem }` (globals.css) — sem
+                          isso, focar este link por teclado e rolar até ele o
+                          deixava colado sob o cabeçalho de dia sticky (top-10). */}
+                      <Link
+                        id={`registro-${item.id}`}
+                        href={`/tese?id=${encodeURIComponent(item.id)}&ticker=${encodeURIComponent(item.ticker)}`}
+                        // D8: a linha inteira já É o link — o "abrir →" era um CTA
+                        // redundante (grid de 2 colunas agora, não 3). A linha É o
+                        // ticker: `.ticker-luz` aqui (crit.7), sprite z:-1 contido
+                        // pelo isolation da própria primitiva.
+                        className="ticker-luz grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-4 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr]"
                       >
-                        {ROTULO_STATUS[item.status]}
-                      </span>
-                    </span>
-                  </Link>
-                </Reveal>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-      <button
-        type="button"
-        onClick={() => limparHistorico()}
-        className="flex min-h-11 w-fit items-center font-sans text-ui text-ink-3 underline underline-offset-4 hover:text-ink"
-      >
-        Limpar histórico deste navegador
-      </button>
+                        <span className="font-mono text-meta text-ink-3">
+                          {formatHora(item.criadoEm)}
+                        </span>
+                        <span className="flex min-w-0 items-baseline gap-3">
+                          <span className="truncate font-mono text-ui font-semibold text-ink">
+                            {item.ticker}
+                          </span>
+                          <span
+                            className={`font-mono text-meta uppercase tracking-wide ${CLASSE_STATUS[item.status]}`}
+                          >
+                            {ROTULO_STATUS[item.status]}
+                          </span>
+                        </span>
+                      </Link>
+                    </Reveal>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <button
+            type="button"
+            onClick={() => limparHistorico()}
+            className="flex min-h-11 w-fit items-center font-sans text-ui text-ink-3 underline underline-offset-4 hover:text-ink"
+          >
+            Limpar histórico deste navegador
+          </button>
+        </>
+      )}
     </div>
   );
 }

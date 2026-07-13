@@ -9,10 +9,14 @@ import { TeseClient } from "./TeseClient";
 // cada resposta HTML seja gerada por requisição para o nonce ser injetado.
 export const dynamic = "force-dynamic";
 
+// Metadata revisada (missão APOTEOSE, crit. 11 — vendedora-pela-verdade):
+// zero superlativo não-auditável, zero número literal novo; "cinco
+// dimensões" e "lacunas declaradas" são a copy estabelecida do site
+// (landing/#dimensoes, /sobre). Disclaimer CVM permanece na description.
 export const metadata = {
   title: "Gerar tese",
   description:
-    "Gere a tese estruturada de uma companhia aberta da B3, um FII ou um título do Tesouro Direto: fundamentos, macro, pares globais e geopolítica, com cada afirmação factual ligada à sua fonte. Não é recomendação de investimento.",
+    "Estruture a tese de uma companhia aberta da B3, de um FII ou de um título do Tesouro Direto: até cinco dimensões — fundamentos, macro, pares globais e elos causais — com cada número ligado à fonte e à data, e lacunas declaradas em vez de estimadas. Não é recomendação de compra ou venda.",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,7 +54,17 @@ export default async function TesePage({
           <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
             Nova tese
           </p>
-          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
+          {/* Alvo do foco na chegada do morph (missão APOTEOSE, M-g):
+              tabIndex={-1} = focável SÓ programaticamente — o TeseClient
+              move o foco para cá quando a navegação chega pelo
+              cartão-que-vira-página (leitor de tela anuncia o heading da
+              rota; nada fica preso em overlay). Fora do morph, nada muda:
+              -1 não entra na ordem de tabulação. */}
+          <h1
+            id="tese-titulo"
+            tabIndex={-1}
+            className="font-display text-h1 font-semibold tracking-tight text-ink"
+          >
             Gerar tese
           </h1>
           <p className="text-body text-ink-2">

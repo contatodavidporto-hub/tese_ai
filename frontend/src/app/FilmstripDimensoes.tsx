@@ -68,6 +68,35 @@
 // - CSP: zero `style=`/`setAttribute('style')` — só `classList`, escritas
 //   CSSOM do GSAP (carve-out DESIGN-TOKENS.md) e `setProperty('--prog')` na
 //   folha consumidora. `markers:false` sempre.
+//
+// ============================================================
+// CONSTELAÇÃO D1→D5 (missão APOTEOSE 2026-07-13, LEI §3.8 — crit. 8)
+// ============================================================
+// Sob o MESMO gate do modo pinado, os painéis ganham alturas distintas
+// (translate vertical por nth-child em cinema/constelacao.css — zero
+// impacto em offsetLeft/scrollWidth: snap/teclado/contador preservados
+// POR CONSTRUÇÃO) e um <svg aria-hidden> IRMÃO do <ol> traça os elos
+// D(i)→D(i+1) entre os CENTROS REAIS dos painéis:
+// - O svg é o SEGUNDO alvo do MESMO tween único do travelling (um
+//   escritor de transform por elemento; svg e trilho recebem o MESMO x a
+//   cada quadro → as linhas acompanham os painéis rigidamente, e a
+//   geometria medida por getBoundingClientRect relativo ao svg é
+//   invariante ao progresso do scrub — a diferença cancela o transform).
+// - `d` de cada segmento é recalculado em onRefresh via setAttribute
+//   (atributo SVG ≠ style inline; CSP intacta), junto de
+//   `--constelacao-seg-fim/-escala` (pontos de snap reais → o elo i
+//   completa exatamente quando o painel i+1 aterrissa; escala
+//   pré-computada aqui para o CSS não dividir por var).
+// - `--prog` é escrita TAMBÉM no svg no MESMO onUpdate da hairline
+//   (custom property não herda entre irmãos; do svg ela herda para os
+//   <path>). Desenho/desfazimento = função PURA do progresso (reversível
+//   de graça pelo scrub). PROIBIDO reveal-* nas linhas (LEI §3.8).
+// - Contorno luminoso + sombra própria do painel ativo: classe
+//   `filmstrip-painel--ativa` derivada do MESMO `ativo` (fonte única R9);
+//   visual 100% em cinema/constelacao.css (claro glow S2 / dark keyline).
+// - Fallback/reduce: svg display:none + translate:none na folha — rail
+//   nativo pixel-idêntico ao aprovado; pinSpacing:true e a guarda de
+//   projeção do snap seguem INTOCADOS.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -145,6 +174,10 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
   // revert; `barraRef` é a folha que consome `--prog` (hairline).
   const [pinado, setPinado] = useState(false);
   const barraRef = useRef<HTMLDivElement | null>(null);
+  // Constelação (APOTEOSE C8): o svg irmão do <ol> que traça os elos
+  // D(i)→D(i+1) — recebe o MESMO x do tween do travelling e a sua própria
+  // escrita de `--prog` (não herda do irmão) no MESMO onUpdate.
+  const constelacaoRef = useRef<SVGSVGElement | null>(null);
   const rolarPinadoRef = useRef<((indice: number) => void) | null>(null);
   const ativoPinadoRef = useRef(0);
   const refreshAposFontes = useRef(false);
@@ -206,6 +239,10 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
         const paineis = painelRefs.current.filter((el): el is HTMLLIElement => el !== null);
         const total = paineis.length;
         if (total < 2) return;
+        // Constelação (C8): capturado UMA vez por ativação do modo — se o
+        // svg não existir (nunca, na prática: renderizado sempre), o modo
+        // pinado segue íntegro sem o traçado (degradação silenciosa).
+        const svgConstelacao = constelacaoRef.current;
 
         // Resquício de scroll nativo do rail zera ANTES de desligar o
         // overflow (depois da classe o trilho deixa de ser scroll container
@@ -221,6 +258,10 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
           involucro.classList.remove("filmstrip-pinado");
           document.documentElement.classList.remove("rolagem-pinada");
           barraRef.current?.style.removeProperty("--prog");
+          // Constelação: mesma higiene da hairline (o svg some com a
+          // classe; `d`/props por segmento são recalculados numa próxima
+          // ativação, mas a var por-frame não fica órfã).
+          svgConstelacao?.style.removeProperty("--prog");
           // O tween do ScrollToPlugin nasce em handler (fora do mm.add
           // síncrono) e escaparia do revert(): mata aqui (auditoria final
           // 2026-07-13, achado 7) — a página não pode continuar rolando
@@ -258,10 +299,54 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
             0,
           );
 
+        // Constelação (C8): geometria dos elos D(i)→D(i+1) — recalculada
+        // em onRefresh (mesmo relógio de recalcularPontos: fontes/resize
+        // mudam os centros). Centros REAIS via getBoundingClientRect
+        // relativo ao svg: svg e trilho carregam o MESMO x do tween a
+        // qualquer instante (segundo alvo do mesmo tween), então a
+        // diferença cancela o transform e inclui de graça os offsets
+        // verticais (translate por nth em cinema/constelacao.css).
+        // Escritas: `d` por setAttribute (atributo SVG, não style inline)
+        // e `--constelacao-seg-fim/-escala` por setProperty na folha
+        // consumidora (pontos de snap reais: o elo i desenha no trecho de
+        // progresso entre os pousos dos painéis i e i+1; a escala é
+        // pré-computada aqui — o CSS só multiplica, nunca divide por var).
+        const recalcularConstelacao = () => {
+          if (!svgConstelacao) return;
+          const caixa = svgConstelacao.getBoundingClientRect();
+          if (caixa.width === 0 && caixa.height === 0) return; // display:none — nunca no modo pinado (guarda)
+          const centros = paineis.map((p) => {
+            const r = p.getBoundingClientRect();
+            return { x: r.left - caixa.left + r.width / 2, y: r.top - caixa.top + r.height / 2 };
+          });
+          svgConstelacao
+            .querySelectorAll<SVGPathElement>(".constelacao-seg")
+            .forEach((seg, i) => {
+              const a = centros[i];
+              const b = centros[i + 1];
+              if (!a || !b) return;
+              seg.setAttribute(
+                "d",
+                `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${b.x.toFixed(1)} ${b.y.toFixed(1)}`,
+              );
+              const ini = pontosSnap[i] ?? 0;
+              const fim = pontosSnap[i + 1] ?? 1;
+              seg.style.setProperty("--constelacao-seg-fim", fim.toFixed(4));
+              seg.style.setProperty(
+                "--constelacao-seg-escala",
+                (1 / Math.max(fim - ini, 0.0001)).toFixed(4),
+              );
+            });
+        };
+
         // Tween ÚNICO do travelling: 1px de scroll vertical = 1px de
         // travelling (ease:none — também OBRIGATÓRIO para o
         // containerAnimation dos estratos mapear posição corretamente).
-        const tween = gsap.to(trilho, {
+        // O svg da constelação é o SEGUNDO alvo do MESMO tween (C8): um
+        // escritor de transform por elemento, x idêntico nos dois a cada
+        // quadro — as linhas acompanham os painéis rigidamente, sem
+        // segundo relógio nem cópia com atraso de frame.
+        const tween = gsap.to(svgConstelacao ? [trilho, svgConstelacao] : trilho, {
           x: () => -distancia(),
           ease: "none",
           scrollTrigger: {
@@ -307,13 +392,23 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
             },
             anticipatePin: 1,
             invalidateOnRefresh: true,
-            onRefresh: () => recalcularPontos(),
+            // Ordem importa: pontos primeiro (a constelação consome os
+            // pontos de snap recém-medidos nas janelas de desenho).
+            onRefresh: () => {
+              recalcularPontos();
+              recalcularConstelacao();
+            },
             markers: false, // LEI: nunca true em produção (injetaria style inline)
             onUpdate: (st) => {
               // R9: ÚNICA fonte do painel ativo (aria-current/dots/contador)
               // e da hairline — `--prog` escrita via CSSOM na PRÓPRIA folha
               // da barra (nunca no container; nunca @property).
-              barraRef.current?.style.setProperty("--prog", st.progress.toFixed(4));
+              const prog = st.progress.toFixed(4);
+              barraRef.current?.style.setProperty("--prog", prog);
+              // C8: segunda escrita OBRIGATÓRIA no MESMO onUpdate — custom
+              // property não herda entre irmãos; do svg ela herda para os
+              // <path> dos elos (LEI §3.8).
+              svgConstelacao?.style.setProperty("--prog", prog);
               const indice = indiceMaisProximo(st.progress);
               ativoPinadoRef.current = indice;
               setAtivo(indice);
@@ -330,6 +425,10 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
           return;
         }
         ativoPinadoRef.current = indiceMaisProximo(st.progress);
+        // C8: geometria inicial garantida mesmo que o refresh de criação
+        // tenha corrido antes deste ponto (idempotente — mesmo cálculo do
+        // onRefresh; classe .filmstrip-pinado já aplicada = svg visível).
+        recalcularConstelacao();
 
         // Estratos internos por containerAnimation: as linhas de camada de
         // cada painel (menos o D1, já em cena no início do pin) assentam
@@ -586,7 +685,16 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
               ref={(el) => {
                 painelRefs.current[i] = el;
               }}
-              className="flex w-[88vw] shrink-0 snap-start flex-col gap-6 border border-line bg-card p-6 sm:w-[80vw] sm:p-8"
+              // `filmstrip-painel--ativa` (C8): contorno luminoso + sombra
+              // própria do painel ativo — derivada do MESMO `ativo` (fonte
+              // única R9: ST.progress no modo pinado, IO no rail nativo).
+              // Regras 100% escopadas sob .filmstrip-pinado em
+              // cinema/constelacao.css: no fallback a classe é inerte e o
+              // rail aprovado fica pixel-idêntico. box-shadow do <li> tem
+              // escritor único (aquela folha; GSAP nunca toca box-shadow).
+              className={`flex w-[88vw] shrink-0 snap-start flex-col gap-6 border border-line bg-card p-6 sm:w-[80vw] sm:p-8${
+                i === ativo ? " filmstrip-painel--ativa" : ""
+              }`}
             >
               <div className="grid gap-6 sm:grid-cols-[1fr_15rem]">
                 <div className="flex flex-col gap-2">
@@ -656,6 +764,28 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
           );
         })}
       </ol>
+
+      {/* Constelação D1→D5 (APOTEOSE C8, LEI §3.8) — overlay IRMÃO do <ol>
+          (nunca ancestral de nada; pointer-events:none na folha), um
+          <path pathLength=1> por elo D(i)→D(i+1). Decorativo puro
+          (aria-hidden): os dots com aria-current + contador seguem sendo o
+          wayfinding. `d` vem do onRefresh via setAttribute (atributo SVG ≠
+          style inline — CSP); o desenho consome `--prog` escrita no próprio
+          svg pelo MESMO onUpdate da hairline. display:none fora do modo
+          pinado e sob reduce (cinema/constelacao.css) — fallback nativo
+          pixel-idêntico. PROIBIDO reveal-* aqui: o scrub é o único dono do
+          progresso das linhas. Cores por classe: safira→ink→ink→ouro,
+          traços DISCRETOS (nunca gradiente safira→ouro — midpoint teal
+          banido, hue 70–200°). */}
+      <svg ref={constelacaoRef} aria-hidden="true" className="filmstrip-constelacao">
+        {dimensoes.slice(0, -1).map((d, i) => (
+          <path
+            key={d.numero}
+            className={`constelacao-seg constelacao-seg--${i + 1}`}
+            pathLength={1}
+          />
+        ))}
+      </svg>
     </div>
   );
 }

@@ -250,8 +250,12 @@ export function TeseView({ tese }: { tese: TeseOut }) {
           `bg-card` opaco do card e ABAIXO do conteúdo — ver globals.css
           item 20. O masthead é IRMÃO de `.regua-leitura` (não ancestral),
           então `position:relative`/`isolation:isolate` da classe não
-          reabrem a trava C2. */}
-      <Reveal className="aurora-masthead flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
+          reabrem a trava C2. Missão APOTEOSE (crit. 10): `.masthead-
+          apoteose` (cinema/tese-apoteose.css) imprime a keyline ameixa no
+          topo 1x no mount — entrada mais rica sem tocar no writer do
+          <Reveal> (o keyframe anima só o ::after próprio); a aurora segue
+          com o alfa CALIBRADO do globals (reuso, nunca boost local). */}
+      <Reveal className="aurora-masthead masthead-apoteose flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="flex flex-col gap-1">
             <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
@@ -266,8 +270,15 @@ export function TeseView({ tese }: { tese: TeseOut }) {
                 </span>
               )}
             </p>
+            {/* `.ticker-luz` (crit. 7, primitiva da Onda 0): specular
+                dourado contido que segue o ponteiro sobre o ticker —
+                `--mx`/`--my` chegam pela ilha delegada do TeseClient
+                (usePonteiro, seletorAlvo ".ticker-luz"). O sprite (::after,
+                z:-1 no contexto isolado do h2) fica clipado pelo
+                overflow:hidden do `.aurora-masthead` pai — "specular
+                contido" (S2), nunca névoa vazando do card. */}
             <h2
-              className={`font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
+              className={`ticker-luz font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
             >
               {tese.ticker}
             </h2>

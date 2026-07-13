@@ -1,0 +1,81 @@
+/* ============================================================
+ * cinema/tooltip.css — IMPLEMENTAÇÃO COMPLETA · DONA ÚNICA: Onda 0
+ * Missão "APOTEOSE" (2026-07-13) — critério 11 (tooltips), consumida por
+ * `src/components/ui/TermoTooltip.tsx` (WCAG 1.4.13: dismissible/
+ * hoverable/persistent). COPY (critério 11) só entra no CONTEÚDO consumido
+ * pelo componente (`lib/glossario.ts`: termo/definição/slug) — NUNCA na
+ * lógica ou no CSS deste arquivo.
+ * ============================================================
+ * CONTRATO:
+ *   .tt-wrapper — <span> `position:relative` (containing block do popup
+ *       absolute — não é ancestral de nada `fixed`; não reabre a trava C2).
+ *       `display:inline` para não quebrar o fluxo de texto onde o termo
+ *       aparece embutido em parágrafo/label.
+ *   .tt-popup   — bloco posicionado ACIMA do gatilho por padrão
+ *       (`bottom: 100% + gap`). Tipografia/cor/borda/sombra aplicadas via
+ *       utilitário Tailwind DIRETO no componente (mesmo padrão do popover
+ *       de citação em `app/tese/Markdown.tsx`: `sombra-elevada border
+ *       border-line-strong bg-elevated text-ui`) — esta folha só tem o que
+ *       Tailwind não expressa: posicionamento condicional + entrada. Único
+ *       escritor de `transform`/posição deste elemento — o componente NUNCA
+ *       adiciona classe Tailwind de transform/position aqui. Entrada: fade
+ *       curto + 4px de assentamento, `--dur-tick`/`ease-ink` (feedback de
+ *       UI, não reveal de conteúdo — por isso NÃO usa `--ease-settle`,
+ *       exclusivo do Pin de Citação).
+ *   .tt-abaixo  — modificador alternado PELO COMPONENTE via `classList`,
+ *       UMA vez por abertura, medindo `getBoundingClientRect()` do gatilho
+ *       — ZERO `style` inline (CSP; regra da casa). Quando o gatilho está
+ *       perto do teto do viewport, o popup abre para BAIXO em vez de para
+ *       cima.
+ * ============================================================ */
+
+.tt-wrapper {
+  position: relative;
+  display: inline;
+}
+
+.tt-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 40; /* < Tarja z-50 (contrato de pilha do recon csp-seguranca) */
+  width: max-content;
+  animation: tt-entra-cima var(--dur-tick) var(--ease-ink) both;
+}
+.tt-popup.tt-abaixo {
+  bottom: auto;
+  top: calc(100% + 8px);
+  animation-name: tt-entra-baixo;
+}
+@keyframes tt-entra-cima {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes tt-entra-baixo {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Decorativo (entrada de UI, não scroll-progress): estado final direto —
+     o guard genérico do globals.css já zera a duração; isto garante o
+     transform final CORRETO (sem isto o popup ficaria preso no frame
+     inicial da keyframe, 4px deslocado). Registro NOMINAL por nome. */
+  .tt-popup {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: translateX(-50%) !important;
+  }
+}

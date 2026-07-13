@@ -13,6 +13,13 @@
 // veículo de imprensa reportando o preço-alvo de uma casa) — `nofollow`
 // sinaliza "não endosso" também para buscadores, coerente com o aviso da
 // própria seção ("a plataforma reporta, não endossa").
+//
+// Missão APOTEOSE (crit. 11 — decisão registrada): NENHUM TermoTooltip
+// nesta seção. O texto dos itens é o `texto_varredura` que o gate v3 varre
+// (INTOCÁVEL — envolver qualquer palavra dele num <button> mudaria o texto
+// renderizado que o R12 aceita como atribuído), e o chrome restante
+// (aviso/lacunas/meta) não tem campo definicional no payload — termo sem
+// definição = fallback silencioso, sem tooltip (D7).
 
 import { RotuloChip } from "./EnvelopeNovo";
 import { formatarData, formatarValorLivre } from "./formatacao";

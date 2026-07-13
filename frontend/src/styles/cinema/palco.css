@@ -1,0 +1,113 @@
+/* ============================================================
+ * cinema/palco.css — IMPLEMENTADO (missão APOTEOSE 2026-07-13) · DONA: onda BANCA
+ * Critério 3 (Palco 3D da Banca de Teses), autorizado por S1 (cai o veto
+ * 11.5 SÓ para o palco da Banca) + D3 da LEI. A emenda formal do guard-rail
+ * de banca.css foi feita como 1ª edição da onda BANCA (S3 — ver banca.css).
+ * ============================================================
+ * ARQUITETURA (um-escritor-por-propriedade, carve-out "var na folha"):
+ *   - `scale`      — ÚNICO escritor: esta folha (estados :hover/:focus-visible
+ *     trocam `--palco-s`; a declaração base consome). SEMPRE uniforme —
+ *     nunca eixo/valor isolado (S1/S3).
+ *   - `opacity`    — ÚNICO escritor no Link: esta folha via `--palco-o`
+ *     (o dim dos irmãos; virada.css troca as MESMAS vars no voo do morph —
+ *     mesmo canal, zero segundo escritor). O carimbo (banca.css) anima
+ *     opacity do WRAPPER `.banca-carimbo`, elemento distinto.
+ *   - `transform`  — ÚNICO escritor: a declaração abaixo, que consome
+ *     `--palco-rx`/`--palco-ry` (tilt em graus, unitless × 1deg) escritas
+ *     SÓ pelo usePalco.ts (gsap.quickTo via carregarGsap() — mola, 2ª
+ *     exceção formal de spring, DESIGN-TOKENS.md §3; escrita CSSOM).
+ *     `perspective()` é AUTO-CONTIDA no próprio cartão (nunca no rail nem
+ *     em ancestral — trava C2 intacta: nenhum ancestral de Tarja/régua/pin
+ *     ganha transform/perspective).
+ *   - `transition` — o `.bg-card` global (globals.css) perde para esta
+ *     declaração por especificidade, então a troca de tema
+ *     (background-color/border-color, --dur-set/--ease-ink) é REINCLUÍDA
+ *     aqui — comportamento preservado, um escritor só.
+ *   - `box-shadow` — claro: sombra profunda fria (família rgb(--luz-tinta));
+ *     escuro: elevação = borda (doutrina S2) — keyline ouro luminosa via
+ *     color-mix(--valor-brilho), specular contido entregue pelo
+ *     `.ticker-luz` no glifo do ticker (CartaoTese) — nunca glow difuso.
+ *
+ * ESCOPO: TODA regra sob ancestral `.banca-rail` — `/teses` usa o MESMO
+ * CartaoTese fora do rail e NÃO herda zoom/tilt/dim (S1 vale só p/ Banca).
+ * Transform NUNCA no <li> (snap area usa a bounding box TRANSFORMADA) nem
+ * no `.banca-carimbo` (dono do view-timeline inline).
+ * Tokens (globals.css :root, tetos + cláusula de recuo lá):
+ * --palco-scale-ativo 1.04 · --palco-scale-irmaos 0.97 · --palco-dim 0.72 ·
+ * --palco-tilt 2.5deg. Verde 70–200° ausente por construção.
+ * ============================================================ */
+
+.banca-rail .cartao-ticker {
+  scale: var(--palco-s, 1);
+  opacity: var(--palco-o, 1);
+  transition:
+    scale var(--dur-set) var(--ease-ink),
+    opacity var(--dur-set) var(--ease-ink),
+    box-shadow var(--dur-set) var(--ease-ink),
+    background-color var(--dur-set) var(--ease-ink),
+    border-color var(--dur-set) var(--ease-ink);
+}
+
+/* Tilt (mola do ponteiro) — só onde existe ponteiro fino; vars escritas
+   exclusivamente pelo usePalco (inerte sob reduce/touch). Reversível por
+   contrato: o retorno elástico do hook leva rx/ry a 0 e REMOVE as vars. */
+@media (hover: hover) and (pointer: fine) {
+  .banca-rail .cartao-ticker {
+    transform: perspective(900px) rotateX(calc(var(--palco-rx, 0) * 1deg))
+      rotateY(calc(var(--palco-ry, 0) * 1deg));
+  }
+
+  /* Cartão ativo (ponteiro). */
+  .banca-rail .cartao-ticker:hover {
+    --palco-s: var(--palco-scale-ativo);
+  }
+  /* Irmãos: recuo + dim CSS puro (D3) — seletor da LEI §3.3. */
+  .banca-rail:hover .cartao-ticker:not(:hover):not(:focus-visible) {
+    --palco-s: var(--palco-scale-irmaos);
+    --palco-o: var(--palco-dim);
+  }
+  .banca-rail .cartao-ticker:hover {
+    box-shadow:
+      0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
+      0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
+  }
+}
+
+/* Cartão ativo (teclado — qualquer dispositivo; tilt não se aplica:
+   mola é física de ponteiro, o estado digno de foco é zoom+sombra). */
+.banca-rail .cartao-ticker:focus-visible {
+  --palco-s: var(--palco-scale-ativo);
+  box-shadow:
+    0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
+    0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
+}
+.banca-rail:focus-within .cartao-ticker:not(:focus-visible):not(:hover) {
+  --palco-s: var(--palco-scale-irmaos);
+  --palco-o: var(--palco-dim);
+}
+
+/* Escuro: elevação-base = borda (S2) — keyline ouro luminosa no lugar da
+   sombra difusa; specular contido fica no `.ticker-luz` do glifo. */
+@media (prefers-color-scheme: dark) {
+  .banca-rail .cartao-ticker:focus-visible {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .banca-rail .cartao-ticker:hover {
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduce NOMINAL do palco: os ESTADOS continuam (zoom do ativo, recuo/dim
+     dos irmãos, sombra/keyline — hierarquia legível), mas a troca é
+     INSTANTÂNEA e digna (transition none) e a mola/tilt NUNCA nasce
+     (usePalco é inerte sob reduce; transform none aqui é defesa em
+     profundidade caso as vars tenham sido escritas antes de o usuário
+     ligar a redução em pleno uso). */
+  .banca-rail .cartao-ticker {
+    transition: none !important;
+    transform: none !important;
+  }
+}
