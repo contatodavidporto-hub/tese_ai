@@ -89,7 +89,12 @@ export function GraficoMacd({ grafico }: { grafico: Grafico }) {
   }. ${grafico.nota}`;
 
   return (
-    <figure className="flex flex-col gap-3 border border-line bg-card p-5">
+    /* `.grafico-scrub` (missão MATÉRIA VIVA, cinema/graficos.css): liga o
+       desenho ATADO AO SCROLL — CSS view-timeline puro, zero JS — sob
+       @supports (animation-timeline: view()); fora dele a classe é inerte
+       e vale o one-shot atual (globals.css item 18). Classe ESTÁTICA:
+       única mudança deste componente. */
+    <figure className="grafico-scrub flex flex-col gap-3 border border-line bg-card p-5">
       <figcaption className="font-display text-lede font-semibold text-ink">{grafico.titulo}</figcaption>
 
       <MolduraGrafico idBase={grafico.id} titulo={grafico.titulo} descricao={descricao} ticksY={ticksY} ticksX={ticksX}>

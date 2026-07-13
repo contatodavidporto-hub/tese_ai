@@ -1,4 +1,22 @@
 @import "tailwindcss";
+/* ---------- Folhas da missão imersiva "MATÉRIA VIVA" (2026-07-12, Onda 0).
+   Tailwind v4 (@tailwindcss/postcss) inline os @import em build; a spec CSS
+   exige TODO @import ANTES de qualquer regra — por isso vivem aqui no topo.
+   CONSEQUÊNCIA DE CASCATA (contrato para as ondas): em especificidade igual,
+   as regras do corpo deste globals.css (mais tarde no arquivo final) VENCEM
+   as das folhas cinema. Para sobrescrever uma regra existente do globals.css
+   a partir de cinema/*.css use ESPECIFICIDADE MAIOR (ex.: `html body::before`
+   > `body::before`; `.tem-foco .foco-luz` > `.foco-luz`) — nunca `!important`
+   fora do bloco reduced-motion da própria folha. Cada folha tem UM dono
+   (cabeçalho de cada arquivo); ninguém mais toca o globals.css após a Onda 0. */
+@import "../styles/cinema/hero.css";
+@import "../styles/cinema/luz.css";
+@import "../styles/cinema/secoes.css";
+@import "../styles/cinema/graficos.css";
+@import "../styles/cinema/filmstrip.css";
+@import "../styles/cinema/rotas.css";
+@import "../styles/cinema/magnetico.css";
+@import "../styles/cinema/banca.css";
 
 /*
  * ============================================================
@@ -37,20 +55,23 @@
   /* Tinta */
   --ink-primary: #16181d; /* corpo e títulos — 16.40:1 na página         */
   --ink-secondary: #4a4f58; /* subtítulos, descrições — 7.60:1             */
-  --ink-tertiary: #5b5f67; /* metadados, timestamps — 5.92:1 página (plano) ·
-    4.66:1 no PICO da luz (recalibrado 2026-07-12: aurora ∪ foco = alfa
-    0.1355 sobre --bg-page reprovava AA a 3.78:1 com o #686d76 anterior).
-    Continua mais claro que --ink-secondary (hierarquia de 3 níveis OK);
-    matiz/temperatura intocados, só a lightness desceu. Ver
-    scratchpad/contraste-tokens/calibra_tokens.py para a auditoria completa. */
+  --ink-tertiary: #4c4f56; /* metadados, timestamps — 7.58:1 página (plano) ·
+    4.67:1 no pico composto da luz COM o termo REAL do shader (2ª passada da
+    calibração, Onda 3 2026-07-12: aurora 0.07 ∪ shader 0.051 medido por
+    gl.readPixels sob o cap do uMask ∪ penumbra 0.03 ∪ bloom 0.10 ∪ núcleo
+    0.043 sobre --bg-page — o #51545b da 1ª passada analítica caía a 4.32:1
+    com o shader somado). Continua mais claro que --ink-secondary (hierarquia
+    de 3 níveis OK); matiz/temperatura intocados, só a lightness desceu.
+    Prova por pixel real: .maestro/evidencias/calibracao/ (wt-imersivo). */
 
   /* Estrutura */
   --line-subtle: #e6e5df; /* hairlines, réguas, zebra (decorativa)       */
   --line-strong: #c7c6bf; /* réguas de cabeçalho de seção (decorativa)   */
-  --border-field: #7b7a72; /* inputs/selects — 3.98:1 página (plano) · 3.14:1
-    no PICO da luz (UI ≥3; recalibrado 2026-07-12 — #8f8e86 caía a 2.39:1
-    no pico e reprovava). Caráter greige de campo preservado (H/S intocados,
-    só L desceu). */
+  --border-field: #6a6963; /* inputs/selects — 5.09:1 página (plano) · 3.13:1
+    no pico composto COM o termo real do shader (UI ≥3; 2ª passada Onda 3
+    2026-07-12, shader 0.051 medido por readPixels — o #6f6e67 da 1ª passada
+    caía a 2.91:1 com o shader somado). Caráter greige de campo preservado
+    (H/S intocados, só L desceu). */
 
   /* Acento — BRASA (cobre queimado). ÚNICO acento da identidade */
   --accent-action: #a03a06; /* botão primário, toggle ativo — 6.25:1 UI */
@@ -106,12 +127,58 @@
      token novo desta implementação (fora do apêndice original) para o pico
      mais baixo do foco frio dos CartaoTese (§4). */
   --luz-tinta: 42 54 84; /* #2A3654, ~222° dessaturado */
-  --luz-aurora-alfa: 0.05; /* teto 0.06 — 0.04 reprovou perceptibilidade no wow-gate (claro) */
-  --luz-foco-alfa: 0.09; /* teto 0.10 — 0.07 reprovou perceptibilidade no wow-gate (claro) */
-  --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) */
+  --luz-aurora-alfa: 0.07; /* NOVO teto autorizado (missão imersiva
+    2026-07-12; era 0.05 com teto 0.06) — modulada por body[data-secao] entre
+    0.05–0.08 na landing (Onda 1A) e com decaimento por profundidade de
+    scroll; recalibração AA correspondente em --ink-tertiary/--border-field */
+  --luz-foco-alfa: 0.09; /* MORTO (sprite único do PR #31): a Onda 1A já
+    trocou o .foco-luz pela dupla núcleo+bloom (cinema/luz.css vence por
+    especificidade); único consumidor é a regra .foco-luz legada deste
+    arquivo, sempre vencida. Remover token+regra num follow-up de limpeza
+    pós-merge (não nesta missão — cirurgia de CSS fora do escopo do QA). */
+  --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) — intocado */
   --mx: 0px; /* ponteiro — X; default neutro */
   --my: 0px; /* ponteiro — Y; default neutro */
   --grao-alfa: 0.025; /* textura opcional do papel (§7); teto 0.03 */
+
+  /* ---------- Luz — MATÉRIA VIVA (missão imersiva 2026-07-12) ----------
+     Novos tetos AUTORIZADOS pelo humano, condicionados à cadeia
+     calibra_tokens.py → recalibração ink-3/border-field → prova AA por
+     screenshot no pico composto (cláusula de recuo: pico combinado da
+     luminária recua p/ 0.12/0.14 e aurora p/ 0.06/0.06 se o AA não fechar —
+     DESIGN-TOKENS.md §1). Luminária DUPLA: núcleo rápido (~180ms) + bloom
+     com inércia (700ms) + anel de penumbra ameixa. Implementação: Onda 1A
+     (cinema/luz.css + FocoLuz.tsx com 3 sprites). */
+  --luz-nucleo-alfa: 0.043; /* pico do núcleo rápido (36vmax, lag ~180ms) */
+  --luz-bloom-alfa: 0.1; /* PROVISÓRIO — valor FINAL sai do calibra_tokens.py
+    da Onda 3 (com o termo real do shader via readPixels); bloom = 90vmax
+    com stop 45% ("luminária, não névoa") */
+  --luz-penumbra: 70 44 78; /* anel externo ameixa ~310° (fora da faixa
+    proibida 70–200°) — TRIPLET RGB p/ rgb(var(...)/alfa), como --luz-tinta */
+  --luz-penumbra-alfa: 0.03;
+  --brasa-ember: 160 58 6; /* cor das brasas do shader do hero (lida via
+    getComputedStyle — nunca hardcoded no frag); âmbar, nunca vermelho sobre
+    dado (Bazley et al. 2021); jamais banha número/citação (uMask + chips
+    opacos, trava M3) */
+
+  /* ---------- Detalhes-joia com lastro (missão imersiva 2026-07-12; lastro
+     estudo a estudo em DESIGN-TOKENS.md §1) — micro-área/keyline SEMPRE;
+     nunca CTA/wash: a BRASA segue a única cor de ação. ---------- */
+  --accent-confianca: #2d4a7a; /* safira — confiança em elementos SALIENTES
+    (scrollspy ativo, keyline do selo de metodologia, trilha de auditoria,
+    fio duplo dos chips de fonte) */
+  --accent-valor: #8a6415; /* ouro base do metálico em micro-área <5% (badge
+    "Tese Profunda", marcos premium); família de --grafico-3 */
+  --valor-brilho: #f0dfae; /* stop de highlight do gradiente especular (sheen
+    por background-position; keyline ≤4px; varredura única na palavra
+    "fonte" do hero) — nunca texto sozinho */
+  --moldura-ameixa: #5a3153; /* keyline 1px de molduras editoriais
+    (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo,
+    nunca texto/estado; hue ~318°, fora de 70–200° */
+  --sombra-fria: rgb(42 54 84 / 0.16); /* sombra única do .sombra-elevada —
+    quita o ink hardcoded rgb(22 24 29/.16) apontado no recon. Só existe no
+    claro: no escuro elevação = borda (o .sombra-elevada vira none e o valor
+    herdado nunca é consumido). */
 }
 
 /* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
@@ -125,15 +192,21 @@
 
     --ink-primary: #ebe9e4; /* off-white de papel — 15.45:1 na página      */
     --ink-secondary: #b5b3ac; /* 8.46:1 no card                              */
-    --ink-tertiary: #908e88; /* 5.72:1 na página · 5.42:1 no card · 4.67:1 no
-      PICO da luz (recalibrado 2026-07-12, folga opcional de 1 passo de L —
-      o #8f8d87 anterior já passava no pico, mas com margem fina de 4.60:1) */
+    --ink-tertiary: #a5a49e; /* 7.50:1 página · 7.11:1 card · 4.62:1 no pico
+      composto COM o termo real do shader (2ª passada Onda 3 2026-07-12:
+      aurora 0.08 ∪ shader 0.059 medido por gl.readPixels sob o cap do uMask
+      ∪ penumbra 0.04 ∪ bloom 0.11 ∪ núcleo 0.054 — o #9e9d97 da 1ª passada
+      caía a 4.25:1 com o shader somado; cenário shader=brasa-ember também
+      passa, 4.65:1). Continua mais escuro que --ink-secondary (hierarquia
+      OK); H/S intocados, só L subiu. */
 
     --line-subtle: #23262d;
     --line-strong: #383c45;
-    --border-field: #6b727e; /* 3.87:1 página · 3.67:1 no card · 3.15:1 no
-      PICO da luz (UI ≥3; recalibrado 2026-07-12 — #616772 caía a 2.69:1 no
-      pico e reprovava). Matiz/saturação intocados, só L subiu. */
+    --border-field: #7e8691; /* 5.09:1 página · 4.83:1 card · 3.14:1 no pico
+      composto COM o termo real do shader (UI ≥3; 2ª passada Onda 3
+      2026-07-12, shader 0.059 por readPixels — o #78808c da 1ª passada caía
+      a 2.90:1 com o shader somado; cenário brasa-ember 3.15:1). Matiz/
+      saturação intocados, só L subiu. */
 
     --accent-action: #e97b3c; /* 6.57:1 na página como UI */
     --accent-action-hover: #f28a50;
@@ -162,9 +235,25 @@
 
     /* Luz — mesma identidade (§1), recalibrada para o papel escuro. */
     --luz-tinta: 132 148 178; /* #8494B2 */
-    --luz-aurora-alfa: 0.055; /* teto 0.06 */
-    --luz-foco-alfa: 0.1; /* teto 0.12 */
+    --luz-aurora-alfa: 0.08; /* NOVO teto autorizado (missão imersiva
+      2026-07-12; era 0.055 com teto 0.06) — mesma modulação por data-secao
+      e decaimento do claro */
+    --luz-foco-alfa: 0.1; /* LEGADO (ver nota do claro) */
     --grao-alfa: 0.04; /* teto 0.04 */
+
+    /* Luz — MATÉRIA VIVA (novos tetos autorizados; mesmos papéis do claro) */
+    --luz-nucleo-alfa: 0.054;
+    --luz-bloom-alfa: 0.11; /* PROVISÓRIO — final na Onda 3 (readPixels) */
+    --luz-penumbra: 176 146 186; /* ameixa clara ~310° */
+    --luz-penumbra-alfa: 0.04;
+    --brasa-ember: 233 123 60;
+
+    /* Detalhes-joia (mesmos papéis do claro; --sombra-fria NÃO é redefinida:
+       no escuro elevação = borda, nunca sombra/glow) */
+    --accent-confianca: #9db4dd;
+    --accent-valor: #d9b354;
+    --valor-brilho: #f7ecc9;
+    --moldura-ameixa: #b391ac;
   }
 }
 
@@ -207,6 +296,18 @@
 
   /* Realce de citação */
   --color-realce: var(--quote-wash);
+
+  /* Detalhes-joia (missão imersiva 2026-07-12) — viram utilitários Tailwind
+     estáticos (ex.: `text-confianca`, `border-confianca`, `bg-valor`,
+     `border-moldura-ameixa`, `text-valor-brilho`). Guard-rails: micro-área/
+     keyline SEMPRE; nunca CTA, nunca wash, nunca segundo acento de ação —
+     a brasa segue única. Os triplets de luz (--luz-penumbra, --brasa-ember)
+     NÃO entram aqui: não são cores CSS completas (consumidos via
+     rgb(var(...)/alfa) nas folhas cinema). */
+  --color-confianca: var(--accent-confianca);
+  --color-valor: var(--accent-valor);
+  --color-valor-brilho: var(--valor-brilho);
+  --color-moldura-ameixa: var(--moldura-ameixa);
 
   /* Paleta de gráficos — habilita `stroke-grafico-1..6` / `fill-grafico-1..6`
      (+ opacidade, ex.: `fill-grafico-5/15`) como classes Tailwind ESTÁTICAS,
@@ -330,7 +431,9 @@ html {
 /* Elevação (camada componente): sombra fria só no claro; no escuro, a
    elevação já vem da borda de --bg-elevated (nunca reforçar com glow). */
 .sombra-elevada {
-  box-shadow: 0 12px 32px -12px rgb(22 24 29 / 0.16);
+  /* Missão imersiva 2026-07-12: consome --sombra-fria (frio-azulado 222°) —
+     fim do ink do claro hardcoded (rgb(22 24 29/.16)), dívida do recon. */
+  box-shadow: 0 12px 32px -12px var(--sombra-fria);
 }
 @media (prefers-color-scheme: dark) {
   .sombra-elevada {

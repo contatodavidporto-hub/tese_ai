@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 
+import { VeuRotas } from "@/components/motion/VeuRotas";
 import { Tarja } from "@/components/site/Tarja";
 
 // Fontes self-hosted pelo next/font (baixadas no build): nada de request
@@ -80,6 +81,14 @@ export default function RootLayout({
         {/* Tarja regulatória SEMPRE visível (postura CVM) — fixa em toda página. */}
         <Tarja />
         {children}
+        {/* Véu de SAÍDA de rota (missão MATÉRIA VIVA, Onda 1D — R3): overlay
+            decorativo fixo z-40, SEMPRE abaixo da Tarja (z-50) e da régua
+            (z-55). Irmão direto do body (nunca wrapper — trava C2). Quem o
+            liga é o LinkCinema (classList + keyframe em cinema/rotas.css);
+            quem o desarma a cada troca de rota é o <VeuRotas /> abaixo.
+            ZERO gsap neste arquivo (R2 — delta zero de gsap em /tese). */}
+        <div id="veu-rota-saida" aria-hidden="true" />
+        <VeuRotas />
       </body>
     </html>
   );

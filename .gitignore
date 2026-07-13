@@ -26,3 +26,6 @@ Thumbs.db
 
 # Misc
 *.log
+
+# Dossiês e evidências de missão (ficam no worktree; nunca no repo do produto)
+.maestro/

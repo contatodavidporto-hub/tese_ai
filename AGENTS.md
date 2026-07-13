@@ -16,6 +16,9 @@
 - Migração: `uv run alembic upgrade head`
 - Frontend: `cd frontend && npm run dev`
 
+## Dependências com condição (frontend)
+- `gsap@3.15.0` (pin exato): motor de scrollytelling da LANDING — licença Webflow **"Standard no-charge"** (grátis comercial, **não-MIT**; termos próprios, sem redistribuir como ferramenta concorrente). Provado CSP-safe (Chromium/Firefox/WebKit, zero violações; escreve via CSSOM). **Plugin Flip PROIBIDO** (`setAttribute('style')`), `markers` proibido em prod, carregamento SÓ via `import()` dinâmico pós-idle (`src/lib/gsapSetup.ts`); zero gsap em /tese (gate de bundle). Regras: `frontend/DESIGN-TOKENS.md`.
+
 ## Convenções
 - Python: type hints, `ruff` + `black`, funções pequenas e testáveis. Commits: Conventional Commits.
 - Cada função que produz "fato" retorna **valor + fonte**. Sem fonte → não é fato.

@@ -1,0 +1,75 @@
+/* ============================================================
+ * cinema/magnetico.css — DONA: Onda 1B (useMagnetico/IlhaMagnetica)
+ * Missão MATÉRIA VIVA (§3 crit.5 física + emendas R2/R5)
+ * ============================================================
+ * CONTRATO:
+ *
+ *   .magnetico       — alvo da física de cursor (useMagnetico.ts): atração
+ *       gsap.quickTo x/y (0.45s power3.out, deslocamento ×0.35 com clamp
+ *       ±8px) já no approach, retorno elastic.out(1, 0.45) 0.6s no
+ *       pointerleave (exceção REGISTRADA ao spring único --ease-settle —
+ *       só física de cursor em CTA, nunca entrada de conteúdo/card).
+ *       TODO o movimento (transform) via GSAP element.style (carve-out
+ *       CSSOM) — o GSAP é o ÚNICO escritor de `transform` no .magnetico;
+ *       esta folha nunca declara transform fora do bloco reduce.
+ *       O elemento precisa gerar box (flex item/inline-block/button):
+ *       transform não se aplica a inline puro.
+ *
+ *   .magnetico-fino  — variante de clamp ±5px (setas/dots do filmstrip,
+ *       Onda 1C). Sempre JUNTO de .magnetico (classes literais).
+ *
+ *   .magnetico-press — "peso de tinta" no press (pointerdown), alternada
+ *       por classList pelo hook. Anima a propriedade INDEPENDENTE `scale`
+ *       (0.985 em 80ms) — nunca `transform` (um escritor por propriedade:
+ *       transform é do GSAP; scale é desta folha). 80ms é valor de LEI do
+ *       plano (§3 crit.5), menor que --dur-tick de propósito: peso, não
+ *       transição.
+ *
+ * CASCATA (contrato da Onda 0): as folhas cinema entram por @import no
+ * TOPO do globals.css. O seletor dobrado .magnetico.magnetico vence os
+ * utilitários de transição do Tailwind (ex.: .transition-colors nos CTAs)
+ * por especificidade (0,2,0) SEM !important — e como um único `transition`
+ * é aplicado por elemento, a lista de propriedades abaixo REINCLUI as cores
+ * (mesmo --dur-tick dos CTAs) para não matar o hover de cor existente.
+ *
+ * ESCOPO (R2 — LEI): magnéticos SÓ em ilhas da LANDING (CTAs do hero e da
+ * faixa final, setas/dots do filmstrip). O Header NÃO importa useMagnetico
+ * nem gsap — e a 1D DECIDIU (registrado em Header.tsx) que o CTA "Gerar
+ * tese" do Header fica SEM física em todas as rotas (não recebe a classe).
+ * Gate: delta ZERO de gsap em /tese (bundle por rota medido no QA). gsap
+ * chega SÓ via carregarGsap() no primeiro pointerenter (lazy — R5).
+ *
+ * Cards NÃO ganham tilt/levitação/parallax 3D (regra mantida — "SaaS
+ * arejado" proibido). Touch/sem hover (pointer:coarse ou no-hover): hook
+ * inerte. Cursor-follower/pena de tinta: FORA (gramática de template).
+ * ============================================================ */
+
+/* Transição do peso de tinta (scale) + preservação das transições de cor
+   dos CTAs (ver CASCATA no cabeçalho). --ease-ink é o easing da casa para
+   micro-interações; o GSAP cuida de transform à parte. */
+.magnetico.magnetico {
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill,
+    stroke, scale;
+  transition-duration:
+    var(--dur-tick), var(--dur-tick), var(--dur-tick), var(--dur-tick),
+    var(--dur-tick), var(--dur-tick), 80ms;
+  transition-timing-function: var(--ease-ink);
+}
+
+/* Peso de tinta: o botão "afunda no papel" enquanto pressionado. */
+.magnetico.magnetico-press {
+  scale: 0.985;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Hook inerte sob reduce (o gsap nem é baixado; mudança ao vivo desliga
+     os ímãs e zera o transform via CSSOM); botões respondem só por
+     transition de cor ≤120ms (o guard genérico capa a duração). Bloco
+     NOMINAL "decorativo" (plano §8) — cinto-e-suspensório contra transform/
+     scale residuais escritos antes de o usuário ligar reduce em pleno uso: */
+  .magnetico {
+    transform: none !important;
+    scale: none !important;
+  }
+}

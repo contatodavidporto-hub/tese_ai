@@ -1,5 +1,8 @@
-import Link from "next/link";
-
+// Missão MATÉRIA VIVA, Onda 1D: a nav interna do rodapé usa <LinkCinema>
+// (véus de rota via classList + cinema/rotas.css; prefetch do next/link
+// preservado). R2: ZERO gsap/useMagnetico aqui — magnéticos são exclusivos
+// das ilhas da landing.
+import { LinkCinema } from "@/components/motion/LinkCinema";
 import { backendSaudavel } from "@/lib/saude";
 import { DATA_CARTEIRA_IBOV } from "@/lib/tickers";
 
@@ -79,13 +82,13 @@ export function Footer({ saudeSlot }: { saudeSlot?: React.ReactNode }) {
           </span>
           {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block. */}
           {NAV_FOOTER.map((item) => (
-            <Link
+            <LinkCinema
               key={item.href}
               href={item.href}
               className="inline-block w-fit py-1.5 font-sans text-ui text-ink-2 underline-offset-4 hover:text-ink hover:underline"
             >
               {item.label}
-            </Link>
+            </LinkCinema>
           ))}
         </nav>
 
