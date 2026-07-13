@@ -1,0 +1,217 @@
+/* ============================================================
+ * cinema/hero.css — IMPLEMENTADA (Onda 1A) · DONA: Onda 1A
+ * Missão MATÉRIA VIVA (.maestro/plano-imersivo.md §3 crit.1 + §12)
+ * ============================================================
+ * CONTRATO (cumprido abaixo; a Onda 2 marca o DOM da landing com ele):
+ *
+ *   .palavra-hero       — spans ESTÁTICOS server-rendered do split por
+ *       palavra do H1 (espaço real entre spans; sem role/aria extra; nome
+ *       acessível do h1 inalterado). Cascata: keyframe INCONDICIONAL
+ *       transform-only (translateY(0.55em) + rotate(1.2deg) → 0), 700ms
+ *       --ease-ink, stagger 45ms via classes LITERAIS .palavra-1 …
+ *       .palavra-12 (Tailwind v4 purga classe montada em template string —
+ *       tudo por extenso abaixo). HERO É LCP: nasce com opacity:1 — NUNCA
+ *       opacity:0, nunca gate de JS/IO (padrão .entrada-hero do globals.css);
+ *       durante o delay a palavra fica visível no estado "from" (só
+ *       deslocada/rotacionada — fill:both), jamais oculta.
+ *
+ *   .palavra-hero-fonte — a palavra "fonte": varredura especular ÚNICA de
+ *       ouro via background-clip:text + background-position, gradiente SÓ de
+ *       var(--accent-valor) → var(--valor-brilho) (nunca hex novo; o par
+ *       ouro não cruza 60–90° nem 70–200°). Sob @supports: sem
+ *       background-clip:text a palavra herda a tinta do H1 (fallback digno).
+ *
+ *   .glifo-fantasma     — "[1]" monumental ~38vw, Newsreader, α 0.045,
+ *       aria-hidden, contra-cursor (fator −0.03×) via --mx/--my escritas
+ *       NESTA folha-elemento por usePonteiro (lista escreverEm do FocoLuz —
+ *       CSSOM; nunca @property inherits:false). will-change:transform SÓ
+ *       nesta folha (nunca em ancestral — trava C2). No tema claro é ele
+ *       quem carrega o WOW.
+ *
+ *   .campo-brasa        — o <canvas> WebGL (CampoBrasa.tsx): camada irmã
+ *       dentro do hero .tem-foco, transparente, z-index:-1, por cima do bg
+ *       e atrás de todo o conteúdo (H1 sempre visível — LCP-first). Ordem
+ *       de DOM entre as camadas z-index:-1 (a Onda 2 monta): glifo-fantasma
+ *       (fundo) → CampoBrasa → FocoLuz (luz por cima). Gates/assentamento
+ *       ≤5s (R6) vivem no componente; sem WebGL/reduce/coarse+deviceMemory<4
+ *       o canvas NEM MONTA.
+ *
+ * CASCATA: esta folha é @import no TOPO do globals.css — em especificidade
+ * igual, o corpo do globals.css vence. Para sobrescrever regra existente use
+ * especificidade maior; nunca !important fora do bloco reduce abaixo.
+ * Trava C2: nenhum transform/filter/will-change/contain em body/main/
+ * ancestral de .regua-leitura; z-index novo sempre < 40 (véus z-40 < Tarja
+ * z-50 < régua z-55). Verde/jade banido: nenhum valor com hue 70–200°.
+ * ============================================================ */
+
+/* ---------- 1. Cascata do H1 — "a manchete se compõe" (crit.1b) ----------
+   transform-only e incondicional: pinta no frame 1 (LCP intacto). O delay
+   por palavra vem de --atraso-palavra (setado pelas classes literais
+   .palavra-N) para não brigar com o delay da varredura de ouro no span
+   "fonte" (animation-delay é uma lista por animação — ver item 2). */
+.palavra-hero {
+  display: inline-block;
+  transform-origin: 0% 100%;
+  animation: palavra-compoe 700ms var(--ease-ink) both;
+  animation-delay: var(--atraso-palavra, 0ms);
+}
+@keyframes palavra-compoe {
+  from {
+    transform: translateY(0.55em) rotate(1.2deg);
+  }
+  to {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+/* Stagger 45ms — classes LITERAIS por extenso (nunca template string). */
+.palavra-1 {
+  --atraso-palavra: 0ms;
+}
+.palavra-2 {
+  --atraso-palavra: 45ms;
+}
+.palavra-3 {
+  --atraso-palavra: 90ms;
+}
+.palavra-4 {
+  --atraso-palavra: 135ms;
+}
+.palavra-5 {
+  --atraso-palavra: 180ms;
+}
+.palavra-6 {
+  --atraso-palavra: 225ms;
+}
+.palavra-7 {
+  --atraso-palavra: 270ms;
+}
+.palavra-8 {
+  --atraso-palavra: 315ms;
+}
+.palavra-9 {
+  --atraso-palavra: 360ms;
+}
+.palavra-10 {
+  --atraso-palavra: 405ms;
+}
+.palavra-11 {
+  --atraso-palavra: 450ms;
+}
+.palavra-12 {
+  --atraso-palavra: 495ms;
+}
+
+/* ---------- 2. Sheen de ouro na palavra "fonte" (crit.1b) ----------
+   "Tinta que vira metal por um instante": varredura especular ÚNICA
+   (Meert 2014: dourado só lê 'metal' com highlight deslocado), gradiente
+   tonal --accent-valor → --valor-brilho → --accent-valor. A palavra nasce
+   ouro sólido no frame 1 (highlight fora da caixa, fill both) e a varredura
+   dispara 1x após a cascata inteira assentar (delay fixo 1400ms > pior caso
+   495ms + 700ms). AA: #8a6415 ≈ 4.98:1 sobre --bg-page claro (texto-hero é
+   large text, ≥3:1) e #d9b354 tem folga no escuro. Micro-área: uma palavra. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .palavra-hero-fonte {
+    background-image: linear-gradient(
+      100deg,
+      var(--accent-valor) 0%,
+      var(--accent-valor) 42%,
+      var(--valor-brilho) 50%,
+      var(--accent-valor) 58%,
+      var(--accent-valor) 100%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    /* Repouso/segurança: 55% mantém a caixa 100% coberta (highlight parado
+       sobre a palavra). Com size 250%, posições fora de ~[5%,95%] deixam
+       borda do glifo SEM background => letra invisível com color:transparent
+       (bug do "f" pego no smoke 2026-07-12). Nunca usar posições <0/>100. */
+    background-position: 55% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    /* Lista: mantém a cascata (delay herdado de --atraso-palavra) e soma a
+       varredura única — animation-delay pareado por índice da lista. */
+    animation:
+      palavra-compoe 700ms var(--ease-ink) both,
+      sheen-fonte 1100ms var(--ease-rule) both;
+    animation-delay: var(--atraso-palavra, 0ms), 1400ms;
+  }
+}
+@keyframes sheen-fonte {
+  /* Varredura esquerda→direita SEM descobrir o glifo: com size 250%, o
+     range [95%,5%] cobre a caixa inteira o tempo todo (margem de 7.5%). */
+  from {
+    background-position: 95% 0;
+  }
+  to {
+    background-position: 5% 0;
+  }
+}
+
+/* ---------- 3. Glifo-fantasma "[1]" — a citação como monumento (crit.1c) --
+   ~38vw, Newsreader, meio afundado no papel (α 0.045, cor = registro frio
+   --luz-tinta), movendo-se CONTRA o cursor (−0.03×) com a inércia do corpo
+   da cena — herda o glide da luz (--ease-cena: o glifo é camada do sistema
+   de luz/profundidade do hero, pintado na própria cor da luz; decisão 1A).
+   --mx/--my chegam ESCRITAS NESTA FOLHA (lista escreverEm do FocoLuz);
+   default 0px herdado de :root = parado e centrado. O overflow:hidden do
+   .tem-foco clipa o transbordo. */
+.glifo-fantasma {
+  position: absolute;
+  top: 50%;
+  right: -4vw;
+  z-index: -1;
+  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 38vw;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  color: rgb(var(--luz-tinta));
+  opacity: 0.045;
+  pointer-events: none;
+  user-select: none;
+  transform: translate3d(
+    calc(var(--mx) * -0.03),
+    calc(var(--my) * -0.03 - 50%),
+    0
+  );
+  transition: transform 700ms var(--ease-cena);
+  will-change: transform;
+}
+
+/* ---------- 4. Canvas do CampoBrasa (posicionamento; motor no componente) */
+.campo-brasa {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Entrada NOMINAL por efeito (o guard genérico do globals.css NÃO zera
+     animation-delay nem neutraliza scroll-timeline — pegadinha .pin-hero). */
+  .palavra-hero,
+  .palavra-hero-fonte {
+    /* cascata do H1 (decorativa): estado assentado imediato — cobre os
+       delays 45ms×N; sem transform residual. */
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .palavra-hero-fonte {
+    /* o sheen vira highlight ESTÁTICO: brilho parado sobre a palavra
+       (animation:none acima já matou a varredura). */
+    background-position: 55% 0 !important;
+  }
+  .glifo-fantasma {
+    /* decorativo de luz/profundidade: some por completo (contrato da luz) */
+    display: none !important;
+  }
+  .campo-brasa {
+    /* defesa em profundidade: o gate JS nem monta o canvas sob reduce
+       (e desmonta ao vivo se o usuário ligar reduce com o campo aberto). */
+    display: none !important;
+  }
+}

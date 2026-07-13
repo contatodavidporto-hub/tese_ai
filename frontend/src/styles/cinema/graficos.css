@@ -1,0 +1,140 @@
+/* ============================================================
+ * cinema/graficos.css — IMPLEMENTADO (Onda 1E) · DONA: Onda 1E
+ * Missão MATÉRIA VIVA (§3 crit.6-espelho — dataviz scrubbed factual)
+ * ============================================================
+ * "Tinta atada ao scroll": os 6 gráficos SVG de /tese desenham E se
+ * desdesenham com o scroll do leitor — CSS animation-timeline PURO,
+ * delta ZERO de JS em /tese (TBT intocado). Liga pela classe ESTÁTICA
+ * `.grafico-scrub` no <figure> de GraficoLinha/Macd/Oscilador.
+ *
+ * DECISÃO REGISTRADA (fidelidade ao espírito do plano, robustez maior):
+ * a timeline é NOMEADA no <figure> (`view-timeline: --tinta-grafico
+ * block`) e consumida pelos <path>/<rect>/<text> descendentes, em vez de
+ * `view()` anônimo em cada path — um <path> SVG não tem box CSS
+ * garantida como subject de view() (comportamento indefinido
+ * cross-browser), e a timeline única no <figure> coordena as FAIXAS de
+ * range de todas as séries sobre o MESMO progresso. Continua 100% CSS
+ * view-timeline, zero JS, mesmo gate @supports (animation-timeline:
+ * view()) — o critério "view() puro" do plano permanece atendido.
+ *
+ * CONVIVÊNCIA com o one-shot (globals.css item 18): animation vence
+ * transition na mesma propriedade — em browsers com suporte o scrub é o
+ * dono de stroke-dashoffset/opacity das séries e apoios; FORA do
+ * @supports (Firefox <155, Safari antigo) nada desta folha se aplica e a
+ * transition one-shot atual segue como fallback aprovado, pixel-idêntico
+ * ao de produção. Eixos/grade NÃO scrubam (fidelidade: eixos estáticos —
+ * o fade one-shot do item 18 continua único dono deles).
+ *
+ * FIDELIDADE FACTUAL (inegociável): geometria nunca escala/mente; sem
+ * count-up; Bollinger (.traco-grafico-area), histograma
+ * (.traco-grafico-barra) e referências tracejadas "4 4"
+ * (.traco-grafico-ref, linha E rótulo) são FADE-only — MOLDE MACIO:
+ * dash-reveal em strokeDasharray fixo reinterpretaria o "4 4" sobre o
+ * comprimento normalizado e viraria traço quase sólido. Tabela sr-only,
+ * regex /hist/i e texto de SecaoConsenso (gate v3) intocados. Verde
+ * 70–200° banido — nenhuma cor nova nesta folha.
+ * ============================================================ */
+
+@supports (animation-timeline: view()) {
+  /* O <figure> é o subject: uma timeline por gráfico, compartilhada por
+     todas as séries dele (faixas coordenadas no mesmo progresso). */
+  .grafico-scrub {
+    view-timeline: --tinta-grafico block;
+  }
+
+  /* Série primária — dash-reveal 1→0 (`pathLength={1}` no JSX normaliza
+     qualquer path para comprimento 1; `stroke-dasharray: 1` idem ao
+     one-shot). `animation-fill-mode: both` é OBRIGATÓRIO: sem ele o path
+     pisca ao sair do range (voltaria ao estado base entre frames). */
+  .grafico-scrub .traco-grafico {
+    stroke-dasharray: 1;
+    animation-name: tinta-scrub;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline, não pelo tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --tinta-grafico;
+    animation-range: entry 10% cover 45%;
+  }
+
+  /* Séries secundárias — FAIXAS de range escalonadas (cover 20%→60%),
+     classes LITERAIS por extenso: animation-delay NÃO funciona em
+     scroll-timeline (progresso não é tempo) e template string com índice
+     seria purgada pelo Tailwind v4. Só o range muda por posição; nome/
+     fill/timeline herdam da regra acima (cascade por propriedade —
+     `.traco-grafico.i-N`, 2 classes, vence `.traco-grafico` sem depender
+     de ordem). */
+  .grafico-scrub .traco-grafico.i-2 {
+    animation-range: cover 20% cover 36%;
+  }
+  .grafico-scrub .traco-grafico.i-3 {
+    animation-range: cover 26% cover 42%;
+  }
+  .grafico-scrub .traco-grafico.i-4 {
+    animation-range: cover 32% cover 48%;
+  }
+  .grafico-scrub .traco-grafico.i-5 {
+    animation-range: cover 38% cover 54%;
+  }
+  .grafico-scrub .traco-grafico.i-6 {
+    animation-range: cover 44% cover 60%;
+  }
+
+  /* Apoio FADE-only (faixa de Bollinger: fill sem stroke; histograma do
+     MACD: retângulos sólidos de altura assinada) — MESMA timeline, faixa
+     alinhada ao início das séries secundárias (ordem papel → tese →
+     apoio preservada como faixas de range, não como delay). */
+  .grafico-scrub .traco-grafico-area,
+  .grafico-scrub .traco-grafico-barra {
+    animation-name: tinta-scrub-fade;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --tinta-grafico;
+    animation-range: cover 20% cover 48%;
+  }
+
+  /* Referências tracejadas "4 4" (linha E rótulo mono do Oscilador) —
+     FADE por último, fechando a encenação dentro do teto cover 60%. */
+  .grafico-scrub .traco-grafico-ref {
+    animation-name: tinta-scrub-fade;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --tinta-grafico;
+    animation-range: cover 45% cover 60%;
+  }
+}
+
+/* Keyframes fora do @supports (inertes sem um animation-name que os use;
+   mesmo padrão do .paralaxe-numero no globals.css). */
+@keyframes tinta-scrub {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes tinta-scrub-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* O bloco !important do globals.css já força o estado final desenhado
+     (stroke-dashoffset:0 / opacity:1 vencem qualquer animation — author
+     !important > animations na cascata). Entrada NOMINAL do efeito novo
+     mesmo assim (o guard genérico não neutraliza scroll-timeline —
+     política da missão): "decorativo" → animation: none; o par
+     dasharray:1 + dashoffset:0 do estado base = traço integral. */
+  .grafico-scrub .traco-grafico,
+  .grafico-scrub .traco-grafico-area,
+  .grafico-scrub .traco-grafico-barra,
+  .grafico-scrub .traco-grafico-ref {
+    animation: none !important;
+  }
+}

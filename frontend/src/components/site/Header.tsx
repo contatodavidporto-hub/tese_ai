@@ -1,4 +1,17 @@
-import Link from "next/link";
+import { LinkCinema } from "@/components/motion/LinkCinema";
+
+// Missão MATÉRIA VIVA, Onda 1D: toda a nav interna usa <LinkCinema> (véus de
+// rota — virada de página do jornal). O LinkCinema é JS puro (classList +
+// keyframes de cinema/rotas.css) e preserva o prefetch do next/link.
+//
+// R2 (LEI — DECISÃO documentada): este Header NÃO importa gsap nem
+// useMagnetico em hipótese alguma — magnéticos são exclusivos das ilhas da
+// landing (CTAs do hero/faixa final e setas/dots do filmstrip). O CTA
+// "Gerar tese" daqui fica SEM física de cursor por padrão, em TODAS as
+// rotas (a alternativa "delegação pela ilha da landing" foi descartada
+// nesta onda: física parcial por rota custaria acoplamento Header↔ilha e o
+// ganho é marginal — o CTA já tem hover de cor próprio). Gate de merge:
+// delta ZERO de gsap em /tese; first-load de /tese ≤ +3KB (LinkCinema puro).
 
 // Nav canônica (ARQUITETURA.md — mapa de telas): a mesma lista serve o menu
 // desktop e o menu mobile abaixo.
@@ -45,9 +58,12 @@ export function Header() {
     <header className="border-b border-line bg-page">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 sm:px-6">
         <div className="flex items-baseline gap-3">
-          <Link href="/" className="font-display text-2xl font-semibold tracking-tight text-ink">
+          <LinkCinema
+            href="/"
+            className="font-display text-2xl font-semibold tracking-tight text-ink"
+          >
             Tese AI
-          </Link>
+          </LinkCinema>
           <span aria-hidden className="hidden h-4 w-px bg-line-strong sm:inline-block" />
           <span className="hidden font-mono text-meta tracking-wide text-ink-3 sm:inline">
             {edicao}
@@ -59,20 +75,23 @@ export function Header() {
           {/* A3 (alvo ≥24px, WCAG 2.5.8): piso py-1.5 + inline-block — a caixa
               clicável de um link de texto sem padding vertical media 19.6px. */}
           {NAV.map((item) => (
-            <Link
+            <LinkCinema
               key={item.href}
               href={item.href}
               className="sublinhado-brasa inline-block py-1.5 font-sans text-ui text-ink-2 hover:text-ink"
             >
               {item.label}
-            </Link>
+            </LinkCinema>
           ))}
-          <Link
+          {/* CTA sem física (R2, decisão documentada acima); destino /tese
+              faz push direto no LinkCinema (sem véu — .virada-edicao é o véu
+              especializado da rota). */}
+          <LinkCinema
             href="/tese"
             className="bg-brasa px-4 py-2 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
           >
             Gerar tese
-          </Link>
+          </LinkCinema>
         </nav>
 
         {/* Nav mobile: details/summary nativo (sem JS, sem lib) */}
@@ -88,20 +107,20 @@ export function Header() {
           </summary>
           <nav aria-label="Principal (mobile)" className="flex flex-col gap-1 border-t border-line pb-3 pt-2">
             {NAV.map((item) => (
-              <Link
+              <LinkCinema
                 key={item.href}
                 href={item.href}
                 className="flex min-h-11 items-center px-1 font-sans text-ui text-ink-2 hover:text-ink"
               >
                 {item.label}
-              </Link>
+              </LinkCinema>
             ))}
-            <Link
+            <LinkCinema
               href="/tese"
               className="mt-1 flex min-h-11 items-center justify-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa"
             >
               Gerar tese
-            </Link>
+            </LinkCinema>
           </nav>
         </details>
       </div>

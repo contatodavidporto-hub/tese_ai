@@ -1,0 +1,237 @@
+/* ============================================================
+ * cinema/luz.css — IMPLEMENTADA (Onda 1A) · DONA: Onda 1A
+ * Missão MATÉRIA VIVA (§3 crit.4 — 5 camadas + emendas R7/R11/R12a/R12c)
+ * ============================================================
+ * CONTRATO (cumprido abaixo):
+ *
+ *   .foco-luz            — BLOOM da luminária dupla: 90vmax stop 45%
+ *       ("luminária, não névoa"), rgb(var(--luz-tinta)/var(--luz-bloom-alfa)),
+ *       corpo com inércia (700ms --ease-cena). R12a: offset corrigido de
+ *       -60vmax (metade de 120vmax) para -45vmax (metade de 90vmax).
+ *       Especificidade `.tem-foco .foco-luz` VENCE o `.foco-luz` do
+ *       globals.css (as folhas cinema entram por @import no topo).
+ *
+ *   .foco-luz-nucleo     — núcleo rápido 36vmax (offset -18vmax), chega em
+ *       ~180ms. .foco-luz-penumbra — anel EXTERNO ameixa (~310°), o corpo
+ *       mais lento (900ms). Os 3 sprites são folhas irmãs dentro do
+ *       .tem-foco (FocoLuz.tsx); usePonteiro escreve --mx/--my NA FOLHA de
+ *       cada sprite (escreverEm em lista) — nunca no container, nunca
+ *       @property inherits:false. will-change:transform só nas folhas.
+ *
+ *   html body::before    — aurora tonal DUPLA (safira 222° + ameixa 310°) e
+ *       DECAIMENTO por profundidade (R7a). UM ESCRITOR POR PROPRIEDADE:
+ *       transform segue sendo do keyframe aurora-drift do globals.css;
+ *       opacity é do keyframe aurora-decai DESTA folha — como animation-name
+ *       é UMA propriedade, esta regra (especificidade maior) declara a LISTA
+ *       com os dois keyframes: drift (transform, do globals) + decai
+ *       (opacity, daqui). Cada propriedade animada segue com um único dono.
+ *
+ *   body[data-secao="…"] — ambiente por seção (R7b, DECISÃO: corte seco de
+ *       var, sem promessa de interpolação). Escopado (R11): só a ilha da
+ *       landing seta o atributo (useSecaoAtiva com {ambiente:true}) e o
+ *       REMOVE no unmount; /tese e /como-funciona jamais setam.
+ *
+ * TRAVA M3: luz jamais banha número factual, citação, chip bg-realce ou
+ * região brasa/salmão — chips opacos por cima da camada; luz proibida no
+ * corpo de /tese. NOTA AA (calibra_tokens.py, Onda 0 — 1ª passada
+ * analítica): --accent-text CLARO (#9e3c00, INTOCÁVEL) cai a 4.17:1 sob o
+ * CENTRO analítico do novo pico — e nem o recuo binário salva (4.39:1).
+ * Consequência de layout para 1A/2/3: nenhum link/número em --accent-text
+ * nu sobre bg-page pode habitar a zona de pico da luminária no hero (chip
+ * opaco ou distância). Ver DESIGN-TOKENS.md §1 (cláusula de recuo).
+ * ============================================================ */
+
+/* ---------- 1. Luminária dupla com massa (camadas 1–3 do crit.4) ----------
+   Física única da casa: núcleo rápido (180ms) → bloom com inércia (700ms) →
+   penumbra, o corpo mais lento (900ms) — todos perseguindo o MESMO par
+   --mx/--my escrito por usePonteiro em cada folha. Parada (default 0px), a
+   dupla fica centrada no hero e já é perceptível; em movimento, o lag
+   escalonado dá a sensação de massa. Opacidade só com hover+pointer:fine
+   (mesmo gate do globals.css); reduce esconde tudo (bloco no fim). */
+
+/* BLOOM (R12a): raio 120vmax→90vmax, stop 45%, alfa novo --luz-bloom-alfa;
+   offset de centralização corrigido para -45vmax. */
+.tem-foco .foco-luz {
+  width: 90vmax;
+  height: 90vmax;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-bloom-alfa)) 0%,
+    transparent 45%
+  );
+  transform: translate3d(calc(var(--mx) - 45vmax), calc(var(--my) - 45vmax), 0);
+  /* corpo com inércia: 700ms literais (assinatura física do plano §3 crit.8 —
+     núcleo 180ms / corpo 700ms; não é o --dur-edition semântico de "1x por
+     view", é a massa da luz). --ease-cena é o easing exclusivo da luz. */
+  transition:
+    transform 700ms var(--ease-cena),
+    opacity var(--dur-set) var(--ease-ink);
+}
+
+/* Base comum dos dois sprites NOVOS (o bloom herda a sua do globals.css). */
+.foco-luz-nucleo,
+.foco-luz-penumbra {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+/* NÚCLEO rápido: 36vmax (offset -18vmax), pico --luz-nucleo-alfa — é o 1º
+   dial a reduzir se o AA do pico não fechar (DESIGN-TOKENS.md §1). */
+.foco-luz-nucleo {
+  width: 36vmax;
+  height: 36vmax;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--luz-tinta) / var(--luz-nucleo-alfa)) 0%,
+    transparent 55%
+  );
+  transform: translate3d(calc(var(--mx) - 18vmax), calc(var(--my) - 18vmax), 0);
+  transition:
+    transform 180ms var(--ease-cena),
+    opacity var(--dur-set) var(--ease-ink);
+}
+
+/* PENUMBRA: anel EXTERNO ameixa (~310°, fora da faixa proibida 70–200°) —
+   faixa translúcida logo além da borda de luz do bloom (banda ~30%→64% de
+   um sprite de 110vmax; o centro do anel é transparente, é ANEL mesmo).
+   Profundidade de joia; a luz segue FRIA e NUNCA acionável. */
+.foco-luz-penumbra {
+  width: 110vmax;
+  height: 110vmax;
+  background: radial-gradient(
+    circle at center,
+    transparent 30%,
+    rgb(var(--luz-penumbra) / var(--luz-penumbra-alfa)) 46%,
+    transparent 64%
+  );
+  transform: translate3d(calc(var(--mx) - 55vmax), calc(var(--my) - 55vmax), 0);
+  transition:
+    transform 900ms var(--ease-cena),
+    opacity var(--dur-set) var(--ease-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .foco-luz-nucleo,
+  .foco-luz-penumbra {
+    opacity: 1;
+  }
+}
+
+/* ---------- 2. Aurora tonal dupla + decaimento por profundidade ----------
+   (camada 4 do crit.4 + R7a.) Dois radial-gradients: a safira do globals
+   (mesma geometria) + um pool AMEIXA menor e deslocado para o alto-direito
+   (~310°; o par 222°→310° não cruza 60–90° nem 70–200°). O pool ameixa usa
+   metade do alfa da aurora e centro fora da zona de pico analítico central
+   (o pico calibrado da Onda 0 considera a aurora plena no centro); a prova
+   por screenshot da Onda 3 revalida o composto real. */
+html body::before {
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% -10%,
+      rgb(var(--luz-tinta) / var(--luz-aurora-alfa)) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 55% 42% at 85% -12%,
+      rgb(var(--luz-penumbra) / calc(var(--luz-aurora-alfa) * 0.5)) 0%,
+      transparent 62%
+    );
+}
+
+/* R7a — "a luz cede ao conteúdo": opacity 1→0.62 conforme a página
+   aprofunda, e volta ao subir (scroll-driven, reversível por natureza).
+   Esta regra redeclara a LISTA de animações do ::before para compor o
+   aurora-drift do globals.css (dono do transform) com o aurora-decai daqui
+   (dono do opacity) — animation-name é uma propriedade só; a lista mantém
+   um escritor por PROPRIEDADE ANIMADA. Mesmo padrão @supports + fallback
+   estático da casa (sem o recurso: aurora parada, nunca invisível). */
+@supports (animation-timeline: scroll(root block)) {
+  html body::before {
+    animation-name: aurora-drift, aurora-decai;
+    animation-duration: 1ms, 1ms;
+    animation-timing-function: var(--ease-cena), linear;
+    animation-fill-mode: both, both;
+    animation-timeline: scroll(root block), scroll(root block);
+  }
+}
+@keyframes aurora-decai {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.62;
+  }
+}
+
+/* ---------- 3. Ambiente por seção (camada 5 do crit.4 + R7b/R11) ----------
+   Corte seco da var --luz-aurora-alfa por capítulo da LANDING (DECISÃO R7b:
+   sem promessa de interpolação — transition de custom property exigiria
+   @property, proibido). Valores LITERAIS dentro da faixa 0.05–0.08 do
+   plano, NUNCA acima do teto base calibrado (0.07 claro / 0.08 escuro) —
+   o pico AA da Onda 0 permanece o pior caso. Contrato com a Onda 2: as 5
+   seções da landing levam id hero/prova/galeria/dimensoes/postura, e a
+   ilha chama useSecaoAtiva([...], { ambiente: true }). Valor desconhecido
+   ou atributo ausente → alfa base (fallback natural da cascata). */
+body[data-secao="hero"] {
+  --luz-aurora-alfa: 0.07;
+}
+body[data-secao="prova"] {
+  --luz-aurora-alfa: 0.06;
+}
+body[data-secao="galeria"] {
+  --luz-aurora-alfa: 0.05;
+}
+body[data-secao="dimensoes"] {
+  --luz-aurora-alfa: 0.05;
+}
+body[data-secao="postura"] {
+  --luz-aurora-alfa: 0.06;
+}
+@media (prefers-color-scheme: dark) {
+  body[data-secao="hero"] {
+    --luz-aurora-alfa: 0.08;
+  }
+  body[data-secao="prova"] {
+    --luz-aurora-alfa: 0.07;
+  }
+  body[data-secao="galeria"] {
+    --luz-aurora-alfa: 0.06;
+  }
+  body[data-secao="dimensoes"] {
+    --luz-aurora-alfa: 0.06;
+  }
+  body[data-secao="postura"] {
+    --luz-aurora-alfa: 0.07;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Contrato da luz sob reduce: luminária some por completo (o globals.css
+     já cobre .foco-luz e o ::after dos cards; os sprites novos entram aqui
+     NOMINALMENTE — classificação "decorativo"): */
+  .foco-luz-nucleo,
+  .foco-luz-penumbra {
+    display: none !important;
+  }
+  /* Aurora sob reduce (nominal): o DECAIMENTO de opacity (R7a) é desligado —
+     esta regra recompõe a lista de animações SÓ com o aurora-drift do
+     globals.css, que mantém sua isenção "progress" já registrada (reflete o
+     scroll do próprio leitor; precedente da régua). O corte seco por
+     data-secao permanece (não é movimento). */
+  @supports (animation-timeline: scroll(root block)) {
+    html body::before {
+      animation-name: aurora-drift;
+      animation-duration: 1ms;
+      animation-timing-function: var(--ease-cena);
+      animation-fill-mode: both;
+      animation-timeline: scroll(root block);
+      opacity: 1 !important;
+    }
+  }
+}

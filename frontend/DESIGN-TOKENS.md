@@ -25,10 +25,10 @@ classe muda entre claro/escuro, só o CSS var por trás dela.
 | `bg-elevated` | Superfície elevada (modal/tooltip/dropdown) | `#ffffff` | `#1d2027` | elevação — sombra só no claro (`.sombra-elevada`), borda no escuro |
 | `text-ink` | Tinta primária (corpo, títulos) | `#16181d` | `#ebe9e4` | 16.40:1 / 15.45:1 na página |
 | `text-ink-2` | Tinta secundária (subtítulos, descrições) | `#4a4f58` | `#b5b3ac` | 7.60:1 / 8.94:1 |
-| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#5b5f67` | `#908e88` | 5.92:1 / 5.72:1 na página — **≥4.66:1 / ≥4.67:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#686d76`/`#8f8d87` caíam a 3.78:1/4.60:1 no pico). Não usar abaixo de 14px |
+| `text-ink-3` | Tinta terciária (metadados, timestamps) | `#4c4f56` | `#a5a49e` | 7.58:1 / 7.50:1 na página — **≥4.67:1 / ≥4.62:1 até no pico composto da luz COM o termo REAL do shader** (aurora ∪ shader 0.051/0.059 medido por gl.readPixels ∪ penumbra ∪ bloom ∪ núcleo sobre `bg-page`; 2ª passada da calibração, Onda 3 2026-07-12 — os `#51545b`/`#9e9d97` da 1ª passada analítica caíam a 4.32:1/4.25:1 com o shader somado; ver emenda Onda 3 abaixo). Não usar abaixo de 14px |
 | `border-line` | Hairline decorativa | `#e6e5df` | `#23262d` | réguas, zebra — **isenta de AA** (decorativa, não comunica estado) |
 | `border-line-strong` | Régua de cabeçalho de seção | `#c7c6bf` | `#383c45` | também decorativa |
-| `border-field` | Borda de campo/input interativo | `#7b7a72` | `#6b727e` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle. **≥3.14:1 / ≥3.15:1 até no PICO da luz** (aurora ∪ foco sobre `bg-page`, recalibrado 2026-07-12; hexes antigos `#8f8e86`/`#616772` caíam a 2.39:1/2.69:1 no pico) |
+| `border-field` | Borda de campo/input interativo | `#6a6963` | `#7e8691` | ≥3:1 — **é a que precisa de AA**, nunca trocar por `line`/`line-strong` num controle. **≥3.13:1 / ≥3.14:1 até no pico composto COM o termo real do shader** (2ª passada, Onda 3 2026-07-12; os `#6f6e67`/`#78808c` da 1ª passada caíam a 2.91:1/2.90:1 com o shader somado — ver emenda Onda 3 abaixo) |
 | `bg-brasa` / `text-brasa` | Brasa — ação primária | `#a03a06` | `#e97b3c` | botão primário, toggle ativo — 6.25:1 / 6.57:1 como UI |
 | `bg-brasa-forte` | Brasa hover/pressed | `#7f2e04` | `#f28a50` | |
 | `text-sobre-brasa` | Texto sobre fundo de brasa | `#ffffff` | `#1c0e05` | **no dark é tinta escura, NUNCA branco** (branco daria ~2.5:1, reprova) |
@@ -70,9 +70,17 @@ Fonte: `.maestro/direcao-de-arte-cinema.md` §1 (M1, LEI da missão) · lastro c
 
 Sprite do foco (referência de implementação): `radial-gradient(circle at center, rgb(var(--luz-tinta)/var(--luz-foco-alfa)) 0%, transparent 60%)` em camada ~120vmax, movida SÓ por `transform: translate3d(var(--mx),var(--my),0)`.
 
+> **Superseded parcial (2026-07-12, emenda MATÉRIA VIVA abaixo):** os tetos
+> de `--luz-aurora-alfa` (≤0.06) e `--luz-foco-alfa` (≤0.10/0.12) desta
+> tabela foram SUBSTITUÍDOS por novos tetos autorizados (aurora 0.07/0.08;
+> luminária dupla núcleo+bloom+penumbra com pico combinado ≈0.14/0.16), com
+> cláusula de recuo. `--luz-foco-alfa` vira LEGADO até a Onda 1A trocar o
+> sprite único pela dupla; `--luz-foco-card-alfa` e `--grao-alfa` seguem
+> intocados com os tetos originais.
+
 **Regra de consumo — CSSOM carve-out (não negociável):**
 - **PERMITIDO:** `el.style.setProperty('--mx', …)` / `el.style.setProperty('--my', …)`, client-side, **pós-mount**, dentro de `pointermove` coalescido por `requestAnimationFrame`, listener `passive`, só sob `@media (hover:hover) and (pointer:fine)`.
-- **PROIBIDO:** `el.setAttribute('style', …)`, prop `style={}` em JSX (SSR ou client), tag `<style>` solta, `styled-jsx`, qualquer `style=` inline literal. `.style.setProperty` é a ÚNICA porta permitida — governada por `script-src` sob nonce, não por `style-src` (CSP permanece intacta).
+- **PROIBIDO:** `el.setAttribute('style', …)`, prop `style={}` em JSX (SSR ou client), tag `<style>` solta, `styled-jsx`, qualquer `style=` inline literal. `.style.setProperty` é a porta permitida — governada por `script-src` sob nonce, não por `style-src` (CSP permanece intacta). **Ampliação formal 2026-07-12 (emenda MATÉRIA VIVA, abaixo):** o carve-out passa de "apenas `el.style.setProperty`" para "**escritas CSSOM do motor GSAP em folhas decorativas**" (o GSAP escreve via `element.style` — a mesma porta CSSOM); todas as proibições desta lista seguem integrais.
 
 **TRAVA C2 (containing-block da Régua de Leitura) — inegociável:** PROIBIDO `transform`/`filter`/`will-change`/`contain` em `body`, `main` ou **qualquer ancestral** de `.regua-leitura`. As camadas de luz (aurora + foco) são SEMPRE pseudo-elementos ou `<div>` **irmãs** — nunca wrappers. O drift/follow anima o `transform` da própria camada de luz (o irmão), nunca de um ancestral. Motivo: `position: fixed` da régua depende do containing block do viewport; um ancestral com `transform` quebra isso silenciosamente (precedente: globals.css ~601–628/705–711). QA prova zero regressão visual da régua antes de qualquer merge.
 
@@ -104,6 +112,184 @@ Sprite do foco (referência de implementação): `radial-gradient(circle at cent
 > foco) e contra o foco local dos cards de galeria (`.tem-foco::after` do
 > `CartaoTese`, `--luz-foco-card-alfa`) — todos os pares ficam ≥4.5:1
 > (texto) / ≥3:1 (UI) nesses cenários também, com folga confortável.
+
+### Emenda 2026-07-12 — missão imersiva "MATÉRIA VIVA" (Onda 0: fundação)
+
+> LEI da missão: `.maestro/plano-imersivo.md` (worktree `wt-imersivo`),
+> inclusive a seção 12 (emendas pós-red-team, que PREVALECEM). Esta emenda
+> registra os tokens novos com lastro, os novos tetos de luz autorizados +
+> cláusula de recuo, a recalibração AA da Onda 0, o carve-out CSSOM ampliado
+> (GSAP), a licença do GSAP, a doutrina worker-src e as regras de
+> arquitetura vinculantes para TODAS as ondas.
+
+#### Tokens novos (lastro honesto, estudo a estudo)
+
+| Token CSS | Claro | Escuro | Papel | Lastro |
+|---|---|---|---|---|
+| `--accent-confianca` (utilitários `*-confianca`) | `#2d4a7a` | `#9db4dd` | Confiança em elementos **salientes** (scrollspy ativo, keyline do selo de metodologia, trilha de auditoria, fio duplo dos chips); **nunca CTA/wash** — brasa segue única cor de ação | Cyr et al. 2010; Alberts & van der Geest 2011 (financeiro: azul mais confiável; all-black pontua pior); Labrecque & Milne 2012. Anti-folclore: croma saliente em micro-área, não wash; Mehta & Zhu 2009 EXCLUÍDO (falhou replicação — Gnambs 2020) |
+| `--accent-valor` (utilitários `*-valor`) | `#8a6415` | `#d9b354` | Base do ouro-metálico em micro-área (<5% da tela): badge "Tese Profunda", marcos premium | Meert et al. 2014 (preferência por gloss); Skulmowski et al. 2016 (croma alto só em micro-área); família de `--grafico-3` |
+| `--valor-brilho` (utilitários `*-valor-brilho`) | `#f0dfae` | `#f7ecc9` | Stop de highlight do gradiente especular (sheen por background-position; keyline ≤4px; varredura única na palavra "fonte" do hero) | Meert et al. 2014 (dourado só lê "metal" com highlight deslocado); Palmer & Schloss 2010 (gradiente tonal nunca cruza 60–90°) |
+| `--moldura-ameixa` (utilitários `*-moldura-ameixa`) | `#5a3153` | `#b391ac` | Keyline 1px de molduras editoriais (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo, **nunca texto/estado**; hue ~318° (fora de 70–200°) | Labrecque & Milne 2012 (roxo = sofisticação); Valdez & Mehrabian 1994 |
+| `--sombra-fria` | `rgb(42 54 84 / 0.16)` | n/a (elevação = borda) | Única sombra do `.sombra-elevada` — quita o ink hardcoded `rgb(22 24 29/.16)` apontado no recon | Valdez & Mehrabian 1994 (PAD: frio escuro = dominância sem arousal) |
+| `--luz-nucleo-alfa` | `0.043` | `0.054` | Pico do núcleo rápido da luminária dupla (36vmax, lag ~180ms) — **é o 1º dial a reduzir se o AA do pico não fechar** | Orçamento composto AA calibrado por script; Skulmowski 2016 |
+| `--luz-bloom-alfa` | `0.10`\* | `0.11`\* | Pico do bloom (90vmax, stop 45%, lag 700ms) — pico combinado da luminária ≈0.14/0.16 (novos tetos autorizados) | Autorização do humano + cadeia calibra_tokens.py→AA |
+| `--luz-penumbra` + `--luz-penumbra-alfa` | `70 44 78` · α `0.03` | `176 146 186` · α `0.04` | Anel externo ameixa do foco (triplet RGB, mesmo padrão de `--luz-tinta`) — profundidade de joia na luz fria, nunca acionável | Valdez & Mehrabian 1994; Palmer & Schloss 2010 (222°→310° não cruza 60–90° nem 70–200°) |
+| `--brasa-ember` | `160 58 6` | `233 123 60` | Cor das brasas do shader do hero (triplet; lida via `getComputedStyle`, nunca hardcoded no frag); **nunca sobre número/dado** (uMask + chips opacos) | Bazley et al. 2021 (âmbar, nunca vermelho sobre dado financeiro) |
+
+\* provisórios — valores FINAIS saem do `calibra_tokens.py` da Onda 3 com o
+termo REAL do shader (gl.readPixels); nunca no chute.
+
+#### Novos tetos de luz autorizados + cláusula de recuo
+
+Os tetos da emenda 2026-07-11 (aurora ≤0.06; foco ≤0.10/0.12) foram
+**substituídos POR AUTORIZAÇÃO EXPLÍCITA do humano** (não-veto registrado no
+plano §1), condicionada à cadeia completa: `calibra_tokens.py` →
+recalibração `ink-3`/`border-field` → prova AA por screenshot no pico
+composto. Novos valores: `--luz-aurora-alfa` **0.07/0.08** (modulada por
+`body[data-secao]` entre 0.05–0.08 + decaimento por profundidade);
+luminária dupla com pico combinado **≈0.14 claro / ≈0.16 escuro**
+(bloom 0.10/0.11 ∪ núcleo 0.043/0.054) + penumbra 0.03/0.04.
+
+**Cláusula de recuo (binária, sem iteração infinita):** se o AA não fechar
+com tinta viável — reduzindo `--luz-nucleo-alfa` PRIMEIRO — o pico combinado
+da luminária recua para **0.12/0.14** e a aurora para **0.06/0.06**. Sem a
+cadeia completa, reverte tudo.
+
+#### Recalibração AA — 1ª passada ANALÍTICA da Onda 0 (sem shader)
+
+Pico composto analítico: aurora ∪ penumbra ∪ bloom ∪ núcleo sobre
+`--bg-page` (compositing sequencial src-over em sRGB gama; incluir a
+penumbra no centro é deliberadamente conservador). Script:
+`.maestro/ferramentas/calibra_tokens.py` (parametrizado para receber o termo
+do shader por CLI na Onda 3: `--shader-alfa-claro/--shader-alfa-escuro`).
+Validação R12d em TODOS os contextos reais (bg-page, bg-card opaco,
+bg-page+aurora, bg-page+pico, bg-card+foco-de-card 0.05) — 20/20 PASS para
+os quatro tokens recalibrados. Só a lightness mudou (H/S preservados);
+hierarquia de 3 níveis de tinta preservada nos dois temas.
+
+| Token | Antes | Depois | Pico antes | Pico depois |
+|---|---|---|---|---|
+| `--ink-tertiary` (claro) | `#5b5f67` | `#51545b` | 3.95:1 (FALHA) | 4.67:1 |
+| `--border-field` (claro) | `#7b7a72` | `#6f6e67` | 2.66:1 (FALHA) | 3.15:1 |
+| `--ink-tertiary` (escuro) | `#908e88` | `#9e9d97` | 3.84:1 (FALHA) | 4.62:1 |
+| `--border-field` (escuro) | `#6b727e` | `#78808c` | 2.59:1 (FALHA) | 3.15:1 |
+
+> **Superseded (2026-07-12, Onda 3):** os quatro hexes desta 1ª passada foram
+> substituídos pela 2ª passada com o termo REAL do shader — tabela abaixo.
+
+> **ALERTA para a Onda 3 (gate AA):** `--accent-text` CLARO (`#9e3c00`,
+> INTOCÁVEL — essência BRASA) cai a **4.17:1** no centro analítico do novo
+> pico, e o dial NÃO resolve (núcleo=0 → 4.46:1; recuo binário → 4.39:1,
+> ambos <4.5). No escuro passa com folga (5.75:1). Consequência de LAYOUT,
+> não de token: nenhum link/número em `--accent-text` nu sobre `bg-page`
+> pode habitar a zona de pico da luminária no hero — chip `bg-realce` opaco
+> por cima (trava M3) ou distância espacial; a prova por screenshot da Onda
+> 3 deve incluir esse par no pior enquadramento real.
+> **Resolução (Onda 3, abaixo): medido por pixel real, o par PASSA — 4.95:1
+> no pior enquadramento verdadeiro; nenhuma restrição de layout aplicada.**
+
+#### Recalibração AA — 2ª passada com o termo REAL do shader (Onda 3, calibração, 2026-07-12)
+
+**Termo do shader medido** (build de produção, Chromium/ANGLE D3D11 em GPU
+real, hook de `gl.readPixels` pós-`drawArrays`, buffer premultiplicado,
+viewport 1440×900): sob a coluna de texto o **cap do uMask segura exatamente
+o teto** — alfa efetivo máximo **0.051 claro / 0.0588 escuro** (13/255 e
+15/255; quantização de 8 bits do cap 0.05/0.06), idêntico na fase de
+abertura e no assentado com a luminária no pico. Cross-check por diff de
+screenshot (mesma cena com o canvas impedido de montar): p99,9 na zona
+mascarada 0.048/0.064 — consistente. Na zona LIVRE do canvas (direita, sem
+texto) o campo chega a 0.37 de alfa em fagulhas pontuais de brasa (por
+design; nunca sob texto). Termo passado ao `calibra_tokens.py`:
+`--shader-alfa-claro 0.051 --shader-alfa-escuro 0.059` (arredondado p/ cima),
+cor padrão `--luz-tinta` + cenário de sensibilidade com `--brasa-ember` no
+escuro (camada mais clara = pior caso lá) — mesmos candidatos nos dois
+cenários. Validação R12d 20/20 contextos reais, hierarquia de 3 tintas
+preservada nos dois temas (checagem do script).
+
+| Token | Antes (1ª passada) | Depois (2ª passada) | Pico c/ shader antes | Pico c/ shader depois |
+|---|---|---|---|---|
+| `--ink-tertiary` (claro) | `#51545b` | `#4c4f56` | 4.32:1 (FALHA) | 4.67:1 |
+| `--border-field` (claro) | `#6f6e67` | `#6a6963` | 2.91:1 (FALHA) | 3.13:1 |
+| `--ink-tertiary` (escuro) | `#9e9d97` | `#a5a49e` | 4.25:1 (FALHA) | 4.62:1 (brasa: 4.65) |
+| `--border-field` (escuro) | `#78808c` | `#7e8691` | 2.90:1 (FALHA) | 3.14:1 (brasa: 3.15) |
+
+**Prova AA por pixel REAL** (screenshots com a luminária parada em cima de
+cada alvo, pior pixel de fundo incluindo grão; evidências em
+`.maestro/evidencias/calibracao/` do worktree): `ink-3` metadados do hero
+5.51/5.23 e 5.51/5.10; `border-field` ao redor do CTA "Ver exemplo"
+3.51/3.40; `accent-text` no sup `[1]` do H1 (o pior enquadramento do ALERTA)
+**4.95 claro / 6.42 escuro — PASSA sem restrição de layout**: o pico
+analítico co-localizado (3.86:1 com shader) é teto INALCANÇÁVEL na prática —
+a penumbra é anel (contribuição ~0 no próprio centro), a aurora decai na
+altura do H1 e a clareira do shader reduz o campo a 35% sob o cursor.
+A doutrina de layout permanece de pé para elementos futuros: accent-text nu
+sobre `bg-page` na zona de pico só com prova por pixel.
+
+**Gates colaterais provados na mesma medição:** (a) hue do campo — 100% das
+amostras readPixels (abertura + pico, 2 temas) são explicadas pela mistura
+convexa `--luz-tinta`↔`--brasa-ember` com resíduo ≤0.86 unidade de 8 bits
+(quantização), e a trajetória de hue desse segmento nunca entra em 70–200°
+(safira 219–222° → magenta ~300° → brasa ~20°; ZERO pixel verde); (b) trava
+M3 — chips `bg-realce` (hero sob o pico da luminária e prova viva): 100% dos
+pixels de fundo do chip idênticos ao token puro (desvio máx 0 canal),
+opacidade computada 1.
+
+#### Carve-out CSSOM ampliado — motor GSAP (delta de CSP: ZERO)
+
+- GSAP escreve estilo via CSSOM (`element.style`) — governado por
+  `script-src` sob nonce; sem `unsafe-inline`, sem eval (grep provado no
+  dist), sem `<style>` injetada. O carve-out formal passa a cobrir
+  "**escritas CSSOM do motor GSAP em folhas decorativas**" (transform/
+  opacity e custom properties escritas NA FOLHA consumidora).
+- Seguem PROIBIDOS: `style={}` em JSX, `setAttribute('style')`, `<style>`
+  injetada, styled-jsx, **plugin Flip** (usa `setAttribute('style')`) e
+  `markers:true` em produção.
+- Véus de rota e modo pinado = apenas `classList`. `src/proxy.ts` com
+  **diff ZERO** é gate de merge.
+- Loader único: `src/lib/gsapSetup.ts` (`carregarGsap()`, memoizado,
+  `import()` dinâmico pós-idle/scroll-intent — R5). gsap JAMAIS em
+  layout.tsx/Header/TeseClient (R2: delta zero em /tese).
+
+#### Licença GSAP (registrada 2026-07-12)
+
+`gsap@3.15.0` (pin exato): licença **Webflow "Standard no-charge"** —
+gratuita inclusive para uso comercial, porém **não-MIT** (termos próprios;
+sem redistribuir o GSAP como ferramenta concorrente). `@gsap/react@2.1.2`:
+MIT. Citar no PR e manter no AGENTS.md.
+
+#### Doutrina worker-src (único delta futuro admissível de CSP)
+
+Sem worker nesta rodada. Se um dia houver OffscreenCanvas: worker **bundlado**
+via `new Worker(new URL(...))` + 1 linha `worker-src 'self'` no proxy —
+**nunca** `blob:` via `child-src`. Qualquer outro delta de CSP é defeito.
+
+#### Regras de arquitetura vinculantes (todas as ondas)
+
+1. **Um escritor por propriedade:** cada propriedade animável de um elemento
+   tem UM dono (GSAP *ou* transition *ou* animation CSS). Elemento migrado ao
+   CenaScrub PERDE `.reveal`/`.citacao-pin` na landing (diff explícito +
+   grep de auditoria na Onda 3); aurora: transform é do drift do globals.css,
+   opacity é do decaimento da `cinema/luz.css`.
+2. **R1 (pin × transform):** NENHUM tween de transform em ancestral de
+   elemento pinado; a seção do filmstrip fica FORA do CenaScrub; o pin nunca
+   é ancestral da Tarja z-50 nem da `.regua-leitura` z-55 (trava C2).
+3. **Folhas cinema (`src/styles/cinema/*.css`):** importadas no TOPO do
+   `globals.css` (spec CSS: `@import` antes de qualquer regra) → em
+   especificidade igual, o corpo do `globals.css` VENCE. Para sobrescrever
+   regra existente use especificidade maior (`html body::before`,
+   `.tem-foco .foco-luz`), nunca `!important` fora do bloco reduce. Cada
+   folha tem UM dono (cabeçalho de cada arquivo); ninguém toca `globals.css`
+   após a Onda 0.
+4. **Reduced-motion nominal:** todo efeito novo entra POR NOME no bloco
+   `@media (prefers-reduced-motion: reduce)` da SUA folha, classificado
+   "progress" (isento, precedente régua/aurora) ou "decorativo"
+   (`animation: none`/`display: none`) — o guard genérico NÃO zera
+   `animation-delay` nem neutraliza scroll-timeline.
+5. **Custom property dinâmica** escrita SEMPRE na folha consumidora
+   (CSSOM); `@property inherits:false` segue PROIBIDO.
+6. **Verde/jade banido** (hue 70–200°) em token, gradiente E interpolação de
+   shader (mix por luminância/dessaturação; QA reprova hue amostrado via
+   readPixels).
 
 ---
 
@@ -242,6 +428,16 @@ cada uma.
 Citação); nada quica/flutua em cards ou botões; reveals rodam 1x; zero
 `style=` inline (CSP com nonce); zero lib de animação runtime; zero parallax
 decorativo, shimmer em loop, `filter: blur` animado em grade.
+
+> **Emenda 2026-07-12 (MATÉRIA VIVA):** o "zero lib de animação runtime" foi
+> flexibilizado por decisão de conselho EXCLUSIVAMENTE para `gsap@3.15.0` +
+> `@gsap/react@2.1.2` (chunks da landing, `import()` dinâmico via
+> `src/lib/gsapSetup.ts`, carve-out CSSOM — ver emenda na §1). Framer
+> Motion, Lenis e afins seguem vetados. O retorno `elastic.out(1,0.45)` do
+> `.magnetico` é exceção REGISTRADA à regra do spring único (física de
+> cursor em CTA — nunca entrada de conteúdo, nunca card); reveals da landing
+> migrados ao CenaScrub deixam de ser one-shot (scrub reversível é o novo
+> contrato LÁ; motor Reveal segue one-shot nas demais rotas).
 
 **Emenda 2026-07-11 (missão cinematográfica):** `--ease-cena` é o único
 easing do follow/drift da luz ambiente — nunca reusar `ease-ink`/`ease-rule`/

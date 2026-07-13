@@ -14,14 +14,35 @@
 
 import { useEffect, useState } from "react";
 
+type OpcoesSecaoAtiva = {
+  /**
+   * Ambiente por seção (missão MATÉRIA VIVA, R7b/R11 — Onda 1A): quando
+   * `true`, o hook ESPELHA a seção ativa em `body[data-secao="…"]` para o
+   * CSS de ambiente (`cinema/luz.css` modula `--luz-aurora-alfa` por
+   * capítulo, corte seco — sem promessa de interpolação). Escopo R11 (LEI):
+   * default `false`; SÓ a ilha da landing passa `true` — /tese e
+   * /como-funciona seguem usando o hook sem tocar o body (grep de auditoria
+   * na Onda 3). O atributo é REMOVIDO no unmount da ilha e quando não há
+   * seção ativa. É escrita de ATRIBUTO (dataset), nunca de estilo — CSP
+   * intacta (mesma família do `classList` dos véus).
+   */
+  ambiente?: boolean;
+};
+
 /**
  * Observa os elementos com os `ids` informados e devolve o id da seção
  * "atual" (a mais próxima do topo da faixa de leitura, entre as visíveis).
  * `ids` pode conter ids que não existem no DOM desta página — o filtro
  * abaixo simplesmente os descarta, então é seguro passar uma lista fixa de
  * âncoras que dependem de conteúdo dinâmico (ex.: `secoes` de uma tese).
+ *
+ * Compat: a assinatura de 1 argumento (TeseView/IndiceNav) permanece
+ * intocada — `opcoes` é opcional e `ambiente` tem default `false`.
  */
-export function useSecaoAtiva(ids: readonly string[]): string | null {
+export function useSecaoAtiva(
+  ids: readonly string[],
+  { ambiente = false }: OpcoesSecaoAtiva = {},
+): string | null {
   const [ativo, setAtivo] = useState<string | null>(null);
   // Chave estável: evita reassinar o observer a cada re-render só porque o
   // array `ids` foi recriado (identidade nova, mesmo conteúdo).
@@ -53,6 +74,22 @@ export function useSecaoAtiva(ids: readonly string[]): string | null {
     elementos.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [chave]);
+
+  // Ambiente por seção (R7b/R11): espelha `ativo` em body[data-secao] — e
+  // GARANTE a remoção tanto ao trocar de seção/perder o ativo quanto no
+  // unmount da ilha (o cleanup roda em ambos): nenhuma outra rota herda o
+  // atributo (R11 é gate de auditoria da Onda 3).
+  useEffect(() => {
+    if (!ambiente) return;
+    if (ativo) {
+      document.body.setAttribute("data-secao", ativo);
+    } else {
+      document.body.removeAttribute("data-secao");
+    }
+    return () => {
+      document.body.removeAttribute("data-secao");
+    };
+  }, [ambiente, ativo]);
 
   return ativo;
 }

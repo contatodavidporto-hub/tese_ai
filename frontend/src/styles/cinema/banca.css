@@ -1,0 +1,74 @@
+/* ============================================================
+ * cinema/banca.css — IMPLEMENTADO (Onda 1E) · DONA: Onda 1E
+ * Missão MATÉRIA VIVA (§3 crit.3 — 2º momento horizontal: Banca de Teses)
+ * ============================================================
+ * CONTRATO (consumido por src/app/GaleriaBanca.tsx):
+ *
+ *   .banca-rail    — o <ul> do GradeFoco vira rail nativo horizontal
+ *       (overflow-x + snap-x mandatory via utilitários Tailwind no
+ *       componente; esta folha não redefine o layout do rail — um dono
+ *       por propriedade). Filhos <li> DIRETOS preservados (semântica de
+ *       lista + seletor .cartao-ticker da delegação do foco frio
+ *       intocados; hairline .cartao-ticker::before intocada). Controles
+ *       FORA do container clipado (anel de foco nunca cortado — C2).
+ *       ZERO listener de wheel; custo de JS ~zero.
+ *
+ *   .banca-carimbo — wrapper do card (NUNCA o próprio <li>: transform
+ *       animado no alvo de snap deslocaria a snap area — a spec usa a
+ *       bounding box TRANSFORMADA — o wrapper anima, o <li> fica
+ *       estável). Sob @supports, "carimbo" scrubbed no eixo INLINE do
+ *       rail: view(inline) anônimo — aqui o subject é um <div> com box
+ *       CSS de verdade, ao contrário dos <path> de /tese — opacity +
+ *       translateX apenas, fill both, 100% reversível (entra e sai com o
+ *       arrasto). FORA do @supports: estado final estático — conteúdo
+ *       NUNCA nasce oculto sem suporte (padrão .regua-leitura).
+ *       Geometria/valores factuais dos cards nunca escalam/mentem;
+ *       tilt/levitação/scale seguem proibidos.
+ *
+ * PEGADINHA (recon): a varredura de segurança do motor Reveal ignora
+ * clipagem por ancestral com overflow — NENHUM reveal por card dentro do
+ * rail (o carimbo view(inline) substitui; precedente FilmstripDimensoes).
+ * Verde 70–200° banido; classes literais por extenso (Tailwind v4 purga
+ * template string).
+ * ============================================================ */
+
+@supports (animation-timeline: view()) {
+  .banca-carimbo {
+    animation-name: banca-carimbo-entra;
+    animation-duration: 1ms; /* irrelevante: dirigido pela timeline, não pelo tempo */
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view(inline);
+    animation-range: entry 0% entry 100%;
+  }
+}
+
+/* Keyframes fora do @supports (inertes sem animation-name que os use).
+   Carimbo: o card "assenta" contra o sentido do arrasto enquanto cruza a
+   borda do rail — só opacity + translateX (compositor-only; nunca scale:
+   valor factual não deforma). O piso 0.3 nunca esconde conteúdo
+   alcançável: o próprio arrasto que revela o card completa o carimbo. */
+@keyframes banca-carimbo-entra {
+  from {
+    opacity: 0.3;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Rail segue navegável (setas/dots/teclado/scroll) com deslocamento
+     instantâneo; carimbo NOMINALMENTE desligado — "decorativo" (o guard
+     genérico do globals.css NÃO neutraliza scroll-timeline): */
+  .banca-rail {
+    scroll-behavior: auto !important;
+  }
+  .banca-carimbo {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

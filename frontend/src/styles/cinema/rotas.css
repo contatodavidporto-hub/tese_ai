@@ -1,0 +1,168 @@
+/* ============================================================
+ * cinema/rotas.css — IMPLEMENTAÇÃO (Onda 1D) · DONA: Onda 1D
+ * Missão MATÉRIA VIVA (§3 crit.5 rotas + emendas R2/R3/R10)
+ * ============================================================
+ * CONTRATO (cumprido abaixo):
+ *
+ *   .veu-rota       — véu de ENTRADA ("virada de página do jornal"),
+ *       renderizado pelo template.tsx do raiz (client mínimo):
+ *       position:fixed; inset:0; z-index:40 (contrato de pilha: véus z-40 <
+ *       Tarja z-50 < .regua-leitura z-55 — o aviso CVM fica visível ATRAVÉS
+ *       da transição, screenshot de prova no QA). Animação: scaleY 1→0,
+ *       transform-origin: top, 420ms --ease-rule, fill both — o véu anima o
+ *       PRÓPRIO transform; NENHUM wrapper de conteúdo é animado (trava C2).
+ *       R10 (DECISÃO): gateado por flag de sessionStorage setada pelo
+ *       LinkCinema imediatamente antes do router.push; o template.tsx
+ *       lê-e-limpa no mount e SÓ anima se a flag existir → primeira carga
+ *       SEM cortina (LCP intacto), popstate/voltar SEM véu, /tese SEM véu
+ *       duplo. Fundo: var(--bg-page) + mesma família de textura do grão
+ *       data-URI (nunca animado).
+ *
+ *   #veu-rota-saida — overlay de SAÍDA (VeuRotas.tsx client mínimo no
+ *       layout.tsx): scaleY 0→1 de baixo (transform-origin: bottom), 200ms;
+ *       router.push no animationend com TIMEOUT DE SEGURANÇA 240ms (sempre
+ *       navega). R3: usePathname + effect REMOVE a classe/estado do véu na
+ *       troca de rota; tratar clique duplo, popstate durante a animação,
+ *       animationcancel e navegação para a MESMA URL (não animar, não
+ *       navegar duplo). Matriz de bypass COMPLETA do LinkCinema: ctrl/cmd/
+ *       shift/alt, botão do meio, target/download, cross-origin, destino
+ *       /tese (o véu .virada-edicao especializado permanece lá; TeseClient
+ *       intocado). Sem JS = <Link> puro + @view-transition CSS.
+ *
+ * R2: o LinkCinema é JS puro (sem gsap) — first-load de /tese ≤ +3KB; gsap
+ * JAMAIS importado em layout.tsx/Header/TeseClient. React canary/
+ * experimental.viewTransition seguem BLOQUEADOS. Verde 70–200° banido.
+ *
+ * NOTAS DE IMPLEMENTAÇÃO (Onda 1D):
+ * - Os dois véus são elementos IRMÃOS do conteúdo (nunca wrappers): o
+ *   template.tsx renderiza <div class="veu-rota"/> ANTES de {children}; o
+ *   layout.tsx renderiza <div id="veu-rota-saida"/> DEPOIS de {children}.
+ *   Nenhum ancestral de .regua-leitura recebe transform (trava C2).
+ * - Estado dinâmico 100% via classList (.veu-rota-ativa / .veu-rota-saindo)
+ *   — zero gsap, zero style= inline, zero <style> injetada (CSP intacta).
+ * - Estados de repouso são invisíveis SEM JS: .veu-rota nasce display:none
+ *   (SSR nunca emite conteúdo coberto — LCP intacto) e #veu-rota-saida
+ *   nasce scaleY(0). Sem JS, nenhum véu jamais aparece (Link puro +
+ *   @view-transition CSS do globals.css cobrem a navegação).
+ * - Cores: só var(--bg-page) + grão neutro. Nenhum valor novo de cor
+ *   (verde 70–200° continua banido por ausência).
+ * ============================================================ */
+
+/* ---- base compartilhada dos dois véus (papel da nova edição) ---- */
+.veu-rota,
+#veu-rota-saida {
+  position: fixed;
+  inset: 0;
+  /* Contrato de pilha: véus z-40 < Tarja z-50 < .regua-leitura z-55 —
+     o aviso CVM permanece visível e clicável ATRAVÉS da transição. */
+  z-index: 40;
+  pointer-events: none;
+  background: var(--bg-page);
+}
+
+/* Mesma família de textura do grão do body::after (globals.css item 12):
+   data-URI ESTÁTICO, nunca animado, na MESMA opacidade tokenizada
+   (--grao-alfa). Vive num pseudo-elemento próprio porque o rect do SVG é
+   tinta cheia — só a opacidade baixa o faz ler como papel. O ::after herda
+   o transform do véu (escala junto), o que é desejado: o grão pertence à
+   folha que vira, não à página por baixo. */
+.veu-rota::after,
+#veu-rota-saida::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--grao-alfa);
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- véu de ENTRADA (template.tsx · R10) ---- */
+/* Repouso: display:none — só existe visualmente quando o template.tsx
+   encontra a flag do LinkCinema e liga .veu-rota-ativa via classList
+   (layout-effect pré-paint: o véu já cobre o primeiro frame da rota nova).
+   Primeira carga / refresh / popstate = sem classe = nada renderizado. */
+.veu-rota {
+  display: none;
+  transform-origin: top;
+}
+.veu-rota.veu-rota-ativa {
+  display: block;
+  /* A nova edição abre de cima: o véu recolhe scaleY 1→0 no PRÓPRIO
+     transform (nenhum wrapper de conteúdo — trava C2). fill both segura
+     scaleY(1) antes do primeiro frame e scaleY(0) ao final (mesma lição do
+     .virada-edicao::after: sem both o véu voltaria a cobrir a página). O
+     template.tsx remove a classe no animationend/animationcancel
+     (volta a display:none — DOM limpo). */
+  animation: veu-rota-entrada 420ms var(--ease-rule) both;
+}
+@keyframes veu-rota-entrada {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0);
+  }
+}
+
+/* ---- véu de SAÍDA (layout.tsx + VeuRotas.tsx + LinkCinema · R3) ---- */
+/* Repouso: scaleY(0) (invisível), origem embaixo. O LinkCinema liga
+   .veu-rota-saindo via classList SÓ em clique intencional elegível (matriz
+   de bypass completa) e navega no animationend (timeout de segurança
+   240ms). O VeuRotas remove a classe a cada troca de rota (usePathname) e
+   em animationcancel — o véu nunca fica preso cobrindo a página. */
+#veu-rota-saida {
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+#veu-rota-saida.veu-rota-saindo {
+  /* O véu fecha de baixo em 200ms — assinatura simétrica da entrada
+     (mesma --ease-rule de "régua que se imprime"). */
+  animation: veu-rota-saida 200ms var(--ease-rule) both;
+  /* Durante os ~200ms da saída o overlay engole cliques perdidos (cinto-e-
+     suspensório do guard de clique duplo do LinkCinema; ativação por
+     teclado não passa por hit-testing e é coberta pelo guard JS). A Tarja
+     z-50 segue ACIMA do véu: continua visível e clicável. */
+  pointer-events: auto;
+}
+@keyframes veu-rota-saida {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Keyframe do modo reduce declarado FORA do bloco de media (padrão da casa,
+   ver virada-edicao-veu-fade no globals.css). */
+@keyframes veu-rota-entrada-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL (plano §8 — o guard genérico não zera animation-delay
+     nem neutraliza scroll-timeline; aqui não há delay nem scroll-timeline,
+     mas o registro é explícito por contrato):
+     — ENTRADA (decorativa): vira fade 120ms, sem deslocamento (a flag do
+       LinkCinema continua valendo; só a coreografia muda). fill both +
+       delay 0 cobertos; animationend continua disparando → o template.tsx
+       remove a classe e o véu volta a display:none.
+     — SAÍDA (decorativa): NÃO roda — o LinkCinema detecta reduce e faz
+       router.push imediato sem véu (JS). */
+  .veu-rota.veu-rota-ativa {
+    animation: veu-rota-entrada-fade 120ms var(--ease-ink) both !important;
+    transform: none !important;
+  }
+  /* Cinto-e-suspensório contra overlay preso: mesmo que alguma via ligue a
+     classe de saída sob reduce, nada aparece — e o timeout de 240ms do
+     LinkCinema navega mesmo sem animationend. */
+  #veu-rota-saida {
+    display: none !important;
+  }
+}

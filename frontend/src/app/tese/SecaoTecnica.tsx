@@ -63,7 +63,16 @@ export function SecaoTecnica({ tecnica, graficos }: { tecnica: Tecnica; graficos
               PRÓPRIO card alcança o scroll — nunca os 6 juntos: por isso
               cada um recebe seu próprio `<Reveal>` aqui, em vez de herdar
               só o fade único de `SecaoEnvelope` (que cobre a seção inteira,
-              não teria como escopar por gráfico individual). */}
+              não teria como escopar por gráfico individual).
+
+              Missão MATÉRIA VIVA (Onda 1E): em browsers com
+              @supports (animation-timeline: view()), o desenho das séries
+              passa a ser SCRUBBED pelo scroll — `.grafico-scrub` no
+              <figure> de cada gráfico + cinema/graficos.css, zero JS novo.
+              Este <Reveal variant="entrada-grafico"> PERMANECE intacto
+              como fallback one-shot (Firefox <155/sem suporte): animation
+              vence transition na mesma propriedade, convivência limpa —
+              nada a mudar aqui. */}
           {graficosOrdenados.map((g) => (
             <Reveal key={g.id} variant="entrada-grafico">
               <GraficoTese grafico={g} />

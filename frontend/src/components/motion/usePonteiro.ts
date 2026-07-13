@@ -38,6 +38,9 @@ function usePrefereReduzidoLocal(): boolean {
 // direcao-de-arte-cinema.md §2/§4) — touch nunca liga o listener abaixo.
 const QUERY_HOVER_FINO = "(hover: hover) and (pointer: fine)";
 
+/** Uma folha que consome `--mx`/`--my` (sprite de luz, glifo-fantasma…). */
+type FolhaDeEscrita = RefObject<HTMLElement | null>;
+
 type OpcoesPonteiro = {
   /**
    * Seletor CSS do elemento que recebe `--mx`/`--my` sob o ponteiro,
@@ -48,16 +51,21 @@ type OpcoesPonteiro = {
    */
   seletorAlvo?: string;
   /**
-   * Elemento que RECEBE a escrita de `--mx`/`--my` (perf, gate 3.2): custom
+   * Folha(s) que RECEBEM a escrita de `--mx`/`--my` (perf, gate 3.2): custom
    * property herdada escrita num container invalida o estilo da subárvore
-   * inteira a cada quadro; escrever direto na folha que consome a var (o
-   * sprite `.foco-luz`) invalida 1 elemento (~-80% de custo de recálculo
-   * medido no hero). A GEOMETRIA continua medida no alvo/container (é a
-   * referência de centro). Só faz sentido no modo de superfície única —
-   * ignorado quando `seletorAlvo` está presente (nos cards o `::after`
-   * precisa da var no próprio card).
+   * inteira a cada quadro; escrever direto em cada FOLHA que consome a var
+   * (sprites `.foco-luz*`, `.glifo-fantasma`) invalida 1 elemento por folha
+   * (~-80% de custo de recálculo medido no hero). Missão MATÉRIA VIVA
+   * (Onda 1A): aceita também uma LISTA de folhas — a luminária dupla tem 3
+   * sprites + o glifo-fantasma, todos alimentados por UM listener/rAF (as
+   * escritas por quadro continuam O(nº de folhas), nunca de subárvore). A
+   * GEOMETRIA continua medida no alvo/container (é a referência de centro).
+   * A referência (ref único ou array) deve ser ESTÁVEL entre renders
+   * (useRef/useMemo) — é dependência do efeito. Só faz sentido no modo de
+   * superfície única — ignorado quando `seletorAlvo` está presente (nos
+   * cards o `::after` precisa da var no próprio card).
    */
-  escreverEm?: RefObject<HTMLElement | null>;
+  escreverEm?: FolhaDeEscrita | ReadonlyArray<FolhaDeEscrita>;
 };
 
 /**
@@ -102,22 +110,28 @@ export function usePonteiro<T extends HTMLElement>(
 
     function limpar(alvo: HTMLElement | null) {
       if (!alvo) return;
-      const destino = alvoDeEscrita(alvo);
-      destino.style.removeProperty("--mx");
-      destino.style.removeProperty("--my");
+      for (const destino of destinosDeEscrita(alvo)) {
+        destino.style.removeProperty("--mx");
+        destino.style.removeProperty("--my");
+      }
     }
 
     // Roda no máximo 1x por quadro (rAF): lê a geometria do alvo e escreve
-    // --mx/--my relativos ao CENTRO dele (a camada de luz já nasce
-    // centralizada — ver `calc(var(--mx) - 60vmax)` em globals.css — então
-    // um deslocamento a partir do centro é exatamente o que a mantém sob o
-    // ponteiro).
+    // --mx/--my relativos ao CENTRO dele (as camadas de luz já nascem
+    // centralizadas — ver os offsets `calc(var(--mx) - Nvmax)` em
+    // globals.css/cinema/luz.css — então um deslocamento a partir do centro
+    // é exatamente o que as mantém sob o ponteiro).
     // Onde escrever: na delegação, sempre o card sob o cursor (o `::after`
-    // dele precisa da var); em superfície única, a folha indicada por
-    // `escreverEm` (perf) ou o próprio container como fallback.
-    function alvoDeEscrita(alvo: HTMLElement): HTMLElement {
-      if (seletorAlvo) return alvo;
-      return escreverEm?.current ?? alvo;
+    // dele precisa da var); em superfície única, a(s) folha(s) indicada(s)
+    // por `escreverEm` (perf) ou o próprio container como fallback.
+    function destinosDeEscrita(alvo: HTMLElement): HTMLElement[] {
+      if (seletorAlvo || !escreverEm) return [alvo];
+      const refs = Array.isArray(escreverEm) ? escreverEm : [escreverEm];
+      const folhas: HTMLElement[] = [];
+      for (const ref of refs) {
+        if (ref.current) folhas.push(ref.current);
+      }
+      return folhas.length > 0 ? folhas : [alvo];
     }
 
     function aplicar() {
@@ -125,9 +139,12 @@ export function usePonteiro<T extends HTMLElement>(
       if (!pendente) return;
       const { x, y, alvo } = pendente;
       const r = alvo.getBoundingClientRect();
-      const destino = alvoDeEscrita(alvo);
-      destino.style.setProperty("--mx", `${x - (r.left + r.width / 2)}px`);
-      destino.style.setProperty("--my", `${y - (r.top + r.height / 2)}px`);
+      const mx = `${x - (r.left + r.width / 2)}px`;
+      const my = `${y - (r.top + r.height / 2)}px`;
+      for (const destino of destinosDeEscrita(alvo)) {
+        destino.style.setProperty("--mx", mx);
+        destino.style.setProperty("--my", my);
+      }
     }
 
     function aoMover(ev: PointerEvent) {

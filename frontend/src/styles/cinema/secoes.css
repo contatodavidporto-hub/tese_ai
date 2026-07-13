@@ -1,0 +1,111 @@
+/* ============================================================
+ * cinema/secoes.css — DONA: Onda 1B (CenaScrub + FioDaFonte)
+ * Missão MATÉRIA VIVA (§3 crit.2/crit.6 + emendas R1/R5/R12e/R12g)
+ * ============================================================
+ * CONTRATO:
+ *
+ *   [data-cena]      — seção scrubada por CenaScrub.tsx (GSAP ScrollTrigger
+ *       scrub 0.6, 1 timeline por seção; gsap SÓ via carregarGsap() de
+ *       src/lib/gsapSetup.ts, import() dinâmico pós-idle/scroll-intent —
+ *       R5). Escopo oficial (R12g): as seções da landing abaixo da dobra.
+ *       3 atos: entrada 0–35% (y 16px→0 + opacity 0→1, escalonada por
+ *       [data-cena-el]), platô 35–75%, saída 75–100% (y→−12px, opacity →
+ *       PISO 0.55; a saída só atua na borda superior do viewport).
+ *       Elementos [data-cvm]: opacity TRAVADA em 1 — só translateY (aviso
+ *       regulatório jamais esmaece). Estado dinâmico 100% via GSAP
+ *       element.style (carve-out CSSOM; transform/opacity apenas) — esta
+ *       folha guarda só estáticos + reduce.
+ *
+ *   [data-cena-el]   — alvo interno escalonado do scrub (marcação da Onda
+ *       2). UM ESCRITOR POR PROPRIEDADE: elemento com [data-cena-el] PERDE
+ *       .reveal/.citacao-pin na landing (transition do motor Reveal
+ *       brigaria com o estilo inline do GSAP; diff explícito na Onda 2 +
+ *       grep de auditoria na Onda 3). Motor Reveal intacto nas demais rotas.
+ *
+ *   [data-cvm]       — no elemento-alvo ou num ancestral: trava a opacity
+ *       do alvo em 1 (faixa CVM/aviso regulatório).
+ *
+ *   .cena-escopo     — wrapper client do CenaScrub, display:contents: zero
+ *       box, zero stacking context, zero containing block (trava C2 por
+ *       construção); a <section data-cena> segue filha direta do <main>.
+ *
+ *   .fio-da-fonte    — SVG decorativo (FioDaFonte.tsx) absoluto sobre o
+ *       container RELATIVO da seção (contrato: primeiro filho do container
+ *       position:relative). O <path data-fio-path pathLength=1> é desenhado
+ *       (stroke-dashoffset 1→0) pela TIMELINE do CenaScrub da seção —
+ *       decisão registrada nos dois componentes; GSAP é o único escritor
+ *       dinâmico de stroke-dashoffset. R12e: medidas por offsetLeft/Top
+ *       (layout, imune a transform) — nunca getBoundingClientRect durante
+ *       tween; recálculo só em resize/fonts.ready. Só progresso de desenho
+ *       — "números voando"/count-up PROIBIDOS.
+ *
+ * REGRA R1 (LEI DA MISSÃO): NENHUM tween de transform em ANCESTRAL de
+ * elemento pinado. A seção do filmstrip (dimensões) fica FORA do CenaScrub;
+ * entrada/saída ali só em irmãos internos que não sejam ancestrais do pin.
+ * (CenaScrub ainda expõe a prop `excluir` como válvula de segurança.)
+ *
+ * SSR NUNCA emite opacity:0 (hero é LCP; sem JS = página íntegra): estados
+ * iniciais só via gsap.fromTo no CLIENTE, dentro de
+ * gsap.matchMedia(MQ_SEM_REDUCE) pós-mount. Trava C2: nada de transform/
+ * filter/will-change/contain em body/main/ancestral de .regua-leitura.
+ * ============================================================ */
+
+/* Wrapper do CenaScrub — não gera caixa: layout, cascata (main > section)
+   e containing blocks ficam EXATAMENTE como na produção atual. */
+.cena-escopo {
+  display: contents;
+}
+
+/* Fio da fonte — camada decorativa absoluta; o pai (container da seção)
+   precisa ser position:relative (contrato de montagem da Onda 2). Sem
+   z-index próprio: como primeiro filho, pinta sob o conteúdo irmão. */
+.fio-da-fonte {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Traço do fio: safira --accent-confianca (papel "trilha de auditoria" do
+   DESIGN-TOKENS.md; hue ~215°, fora da faixa proibida 70–200°), keyline
+   1.5px = micro-área. pathLength=1 normaliza o comprimento, então
+   dasharray 1 = traço inteiro em uma unidade. */
+.fio-da-fonte [data-fio-path] {
+  fill: none;
+  stroke: var(--accent-confianca);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Estado recolhido do fio ANTES do scrub (o GSAP escreve o progresso
+     1→0 na timeline da seção — único escritor dinâmico). Fica FORA do
+     caminho reduce e não oculta conteúdo: sem JS o path não tem `d`
+     (nada existe para esconder); é decorativo por construção. */
+  .fio-da-fonte [data-fio-path] {
+    stroke-dashoffset: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Sob reduce o gsap.matchMedia NÃO cria trigger nenhum e nenhum estado
+     inicial é escrito — conteúdo 100% visível desde o SSR (se reduce está
+     ativo, o CenaScrub nem baixa o chunk do gsap). As regras abaixo são o
+     cinto-e-suspensório NOMINAL para quem LIGA reduce em pleno uso, antes
+     do revert() do matchMedia (declaração !important vence o estilo inline
+     escrito pelo GSAP) — classificação "decorativo" (guia do plano §8):
+       - alvos do scrub ([data-cena-el]) assentados e visíveis;
+       - fio da fonte COMPLETO e estático (o traço de auditoria não some;
+         só deixa de ser coreografado). */
+  [data-cena],
+  [data-cena] [data-cena-el] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .fio-da-fonte [data-fio-path] {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+}
