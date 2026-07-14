@@ -1,20 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { Reveal } from "@/components/motion/Reveal";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
+import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
+// Copy reescrita na missão APOTEOSE (crit. 11): tooltips consomem
+// lib/glossario.ts (D7); contagens seguem derivadas de exemplosProntos().
 export const metadata: Metadata = {
   title: "Cobertura",
   description:
-    "O que o Tese AI cobre hoje: teses completas para ações da B3, FIIs e títulos do Tesouro Direto, com exemplos pré-gerados que abrem na hora.",
+    "O que o Tese AI cobre hoje: teses completas para ações da B3, FIIs pelo informe mensal da CVM e títulos do Tesouro Direto — a mesma disciplina de fonte e citação nas três classes, com teses prontas que abrem na hora.",
+  openGraph: {
+    title: "Cobertura — Tese AI",
+    description:
+      "Ações da B3, FIIs e Tesouro Direto — a mesma disciplina de fonte e citação nas três classes, com teses prontas que abrem na hora.",
+  },
 };
 
 function formatDataIso(iso: string): string {
@@ -25,7 +34,7 @@ function formatDataIso(iso: string): string {
 type ClasseInvestimento = {
   numero: string;
   titulo: string;
-  descricao: string;
+  descricao: ReactNode;
   disponivel: boolean;
   // Exemplo pronto (cache aquecido) desta classe — cada classe leva a um
   // ticker distinto em vez do genérico "/tese" (Fase 2 multiativo).
@@ -36,24 +45,50 @@ const CLASSES: ClasseInvestimento[] = [
   {
     numero: "01",
     titulo: "Ações B3",
-    descricao:
-      "Qualquer companhia aberta com cadastro na CVM. A tese cruza fundamentos, pares globais, macro e geopolítica em cinco dimensões, fechada com síntese e contra-tese.",
+    descricao: (
+      <>
+        Qualquer companhia aberta com cadastro na CVM — do topo da carteira teórica do
+        Ibovespa a papéis fora do índice. A tese cruza fundamentos, pares globais, macro
+        Brasil, macro global e elos causais em até cinco dimensões, e fecha com síntese
+        e <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip> — cada
+        número com fonte e data.
+      </>
+    ),
     disponivel: true,
     href: "/tese",
   },
   {
     numero: "02",
     titulo: "FIIs",
-    descricao:
-      "Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e citação das ações, com o informe mensal da CVM como eixo próprio de fundamentos.",
+    descricao: (
+      <>
+        Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e
+        citação das ações, com o{" "}
+        <TermoTooltip {...tooltipDe("informe-mensal-cvm")}>
+          informe mensal da CVM
+        </TermoTooltip>{" "}
+        como eixo próprio de fundamentos: carteira, receitas e vacância lidos no dado
+        primário do regulador, cruzados com o cenário de juros e os elos causais.
+      </>
+    ),
     disponivel: true,
     href: "/tese?ticker=HGLG11",
   },
   {
     numero: "03",
     titulo: "Renda fixa / Tesouro",
-    descricao:
-      "Títulos públicos do Tesouro Direto — taxas e preços com Data Base, marcação a mercado e cenário de juros e inflação, sempre separados de qualquer sugestão de compra ou carrego.",
+    descricao: (
+      <>
+        Títulos públicos do Tesouro Direto — taxas e preços oficiais com{" "}
+        <TermoTooltip {...tooltipDe("data-base")}>Data Base</TermoTooltip>,{" "}
+        <TermoTooltip {...tooltipDe("marcacao-a-mercado")}>
+          marcação a mercado
+        </TermoTooltip>{" "}
+        explicada no texto e cenário de juros e inflação — sempre separados de qualquer
+        sugestão de compra ou de{" "}
+        <TermoTooltip {...tooltipDe("carrego")}>carrego</TermoTooltip>.
+      </>
+    ),
     disponivel: true,
     href: "/tese?ticker=TD-IPCA-2035",
   },
@@ -79,9 +114,9 @@ const TIPOS: TipoDeTese[] = [
   },
   {
     numero: "02",
-    titulo: "Exemplos pré-gerados",
+    titulo: "Teses prontas da galeria",
     descricao:
-      "Um lote fixo de ativos mantido em cache pelo motor e renovado a cada ciclo diário: abrem instantaneamente, sem custo de geração, com a mesma trilha de citações.",
+      "Um lote fixo de ativos que o motor mantém pronto e renova a cada ciclo diário: abrem na hora, sem custo de geração, com a mesma trilha de citações de uma tese sob demanda — a régua de auditoria não muda por ser exemplo.",
   },
 ];
 
@@ -116,10 +151,11 @@ export default function Cobertura() {
             </Reveal>
             <Reveal className="i-3">
               <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                Cobertura completa para as ações da B3; FIIs pelo informe
-                mensal da CVM; em renda fixa, os títulos públicos do Tesouro
-                Direto — a mesma disciplina de fonte e citação nas três
-                classes.
+                Cobertura para as ações da B3; FIIs pelo informe mensal da
+                CVM; em renda fixa, os títulos públicos do Tesouro Direto — a
+                mesma disciplina de fonte e citação nas três classes. O que
+                muda por classe é o conjunto de dimensões; o que nunca muda é
+                a regra: todo número com fonte e data, toda lacuna declarada.
               </p>
             </Reveal>
           </div>
@@ -267,9 +303,12 @@ export default function Cobertura() {
               ))}
             </ul>
             <p className="font-mono text-meta text-ink-3">
-              {exemplos.length} exemplos em cache · os {acoes} maiores pesos da
-              carteira teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}
-              ) + {fiis} FII + {rendaFixa} Tesouro Direto ·{" "}
+              {exemplos.length} teses prontas na galeria · os {acoes} maiores pesos da{" "}
+              <TermoTooltip {...tooltipDe("carteira-teorica")}>
+                carteira teórica do Ibovespa
+              </TermoTooltip>{" "}
+              (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}) + {fiis} FII + {rendaFixa}{" "}
+              Tesouro Direto ·{" "}
               <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
                 ver a galeria completa
               </Link>

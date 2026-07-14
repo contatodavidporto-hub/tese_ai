@@ -1,0 +1,99 @@
+/* ============================================================
+ * cinema/ticker-luz.css — IMPLEMENTAÇÃO COMPLETA · DONA ÚNICA: Onda 0
+ * Missão "APOTEOSE" (2026-07-13) — critério 7 (tickers com luz) + S2
+ * ("brilho especular do palco/tickers" — glow autorizado como set-piece).
+ * ============================================================
+ * Primitiva COMPARTILHADA. Ninguém além da Onda 0 edita este arquivo.
+ * BANCA (cards `.cartao-ticker` da galeria), TESE (masthead `h2` de /tese —
+ * ilha `usePonteiro` própria, ZERO gsap) e CHROME (`TickerCombobox` input
+ * habilitado, tickers do /historico) só:
+ *   1) aplicam a classe `.ticker-luz` no elemento-alvo;
+ *   2) garantem `--mx`/`--my` NESSE elemento — reaproveitando o padrão já
+ *      estabelecido por `usePonteiro.ts`/`GradeFoco.tsx` (globals.css,
+ *      `.tem-foco`/`.foco-luz`/`.cartao-ticker.tem-foco::after`): zero
+ *      listener NOVO, zero hook novo. Um elemento pode acumular
+ *      `.tem-foco` (luz fria ambiente) e `.ticker-luz` (specular quente) —
+ *      são camadas independentes (`::before` vs `::after`), nenhum
+ *      conflito de escritor.
+ * EXCLUÍDOS explicitamente (spec C7 do plano): opções do `<li>` dentro do
+ * listbox do combobox (o `overflow` do popup clipa/distorce o sprite) e o
+ * input quando `disabled` (A5) — quem aplica a classe respeita isso.
+ *
+ * CONTRATO:
+ *   .ticker-luz         — position:relative + isolation:isolate (stacking
+ *       context PRÓPRIO — mesmo raciocínio de `.tem-foco` em globals.css:
+ *       contém o z-index negativo do sprite, evita vazamento para seções
+ *       irmãs). Deliberadamente SEM `overflow:hidden` (ao contrário de
+ *       `.tem-foco`): o especular é mais contido por tamanho de sprite (ver
+ *       abaixo), e alguns alvos (h2 do masthead, input do combobox) não
+ *       podem clipar o próprio conteúdo/caret. Quem precisar clipar
+ *       localmente adiciona `overflow:hidden` NA SUA classe — nunca
+ *       reabrindo esta folha.
+ *   .ticker-luz::after  — sprite radial especular, cor `--valor-brilho`
+ *       (mesma família do sheen do hero/marca — "ouro só lê metal com
+ *       highlight deslocado", Meert et al. 2014) via `color-mix` (idioma já
+ *       usado no corpo do globals.css, linha do `.sublinhado-brasa` dark),
+ *       alfa tokenizado `--ticker-luz-alfa` (claro/escuro, teto <=0.10 —
+ *       ver globals.css :root/dark e DESIGN-TOKENS.md). Movido SÓ por
+ *       `transform: translate3d(...)` a partir de `--mx`/`--my` — MESMO
+ *       contrato de `.foco-luz`/`.cartao-ticker.tem-foco::after`
+ *       (globals.css): zero mecanismo novo. Gate
+ *       `@media (hover:hover) and (pointer:fine)` (opacity 0→1, decidido
+ *       pela CAPACIDADE do dispositivo, não por :hover — mesmo padrão dos
+ *       primitivos irmãos). Glide em `--ease-cena` (escopo estrito: só a
+ *       luz — DESIGN-TOKENS.md §3).
+ *
+ * TAMANHO — "specular CONTIDO" (S2, doutrina: "keyline luminosa + specular
+ * contido" no escuro): sprite MENOR e queda MAIS agressiva que a luz
+ * ambiente do hero/card (120vmax, stop 60%) — 46vmax com stop em 42%, para
+ * ler como reflexo pontual de superfície, não névoa ambiente.
+ *
+ * AA — calibração ANALÍTICA desta Onda (src-over sRGB gama, método idêntico
+ * a `.maestro/ferramentas/calibra_tokens.py`; números completos em
+ * DESIGN-TOKENS.md "Emenda APOTEOSE"): `--ticker-luz-alfa` 0.08 claro /
+ * 0.10 escuro PASSA com folga nos 4 contextos reais (bg-card/bg-elevated ×
+ * claro/escuro) contra ink-tertiary/ink-secondary/border-field/ink-primary
+ * — pior caso 4.96:1 (ink-tertiary sobre bg-elevated escuro, mínimo 4.5:1).
+ * PROVISÓRIO: a calibração final por screenshot no pico real (QA) pode
+ * ajustar dentro do teto <=0.10.
+ * ============================================================ */
+
+.ticker-luz {
+  position: relative;
+  isolation: isolate;
+}
+
+.ticker-luz::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--valor-brilho) calc(var(--ticker-luz-alfa) * 100%), transparent) 0%,
+    transparent 42%
+  );
+  transform: translate3d(calc(var(--mx) - 23vmax), calc(var(--my) - 23vmax), 0);
+  transition: transform var(--dur-set) var(--ease-cena);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ticker-luz::after {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Decorativo (não é scroll-progress) — some por completo, mesmo
+     tratamento de `.foco-luz`/`.cartao-ticker.tem-foco::after` no bloco de
+     redução do globals.css. Registro NOMINAL por nome (regra da casa,
+     DESIGN-TOKENS.md §1.4). */
+  .ticker-luz::after {
+    display: none !important;
+  }
+}

@@ -33,6 +33,15 @@
  *       segue com o motor Reveal). Nenhuma regra estática aqui além do
  *       guard de reduce.
  *
+ *   Constelação D1→D5 (missão APOTEOSE 2026-07-13, crit. 8): folha PRÓPRIA
+ *       cinema/constelacao.css (mesma dona — onda FILMSTRIP). Offsets
+ *       verticais por nth sob .filmstrip-pinado (translate: zero impacto
+ *       em offsetLeft → snap/teclado intactos por construção), overlay
+ *       .filmstrip-constelacao (svg irmão do <ol>, SEGUNDO alvo do tween
+ *       único do travelling) e contorno .filmstrip-painel--ativa. Nada
+ *       daqui muda; `--prog` ganha uma SEGUNDA escrita (no svg) no mesmo
+ *       onUpdate — a hairline continua consumindo a dela.
+ *
  *   html.rolagem-pinada — R4: desliga o scroll-behavior:smooth global
  *       enquanto o modo pinado existe (smooth interceptaria cada escrita
  *       de scrollTop do snap do ST e do ScrollToPlugin); teclado

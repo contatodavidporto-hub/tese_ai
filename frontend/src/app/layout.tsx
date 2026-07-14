@@ -43,14 +43,57 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Base absoluta dos metadados (og:image, canonical). SERVER-ONLY por decisão
+// da LEI (§2 D2 / M-b): `SITE_URL` sem prefixo NEXT_PUBLIC nunca entra no
+// bundle do cliente (mesma convenção de `API_URL` em src/lib/backend.ts).
+// O fallback literal é o domínio PÚBLICO do produto — não é segredo; sem ele
+// o og:image sairia relativo e crawlers (WhatsApp/X) não resolveriam.
+const siteUrl = process.env.SITE_URL ?? "https://tese-ai.vercel.app";
+
+const descricaoDaCasa =
+  "Teses de investimento estruturadas e rastreáveis: fundamentos + macro + pares globais + geopolítica, com cada afirmação ligada à sua fonte. Ferramenta de análise — não é recomendação de investimento.";
+
+// Metadados da casa (missão APOTEOSE, onda META — LEI §3.1 + veredito-marca).
+// Ícones/OG/manifest são file conventions do App Router (src/app/icon.svg,
+// favicon.ico, apple-icon.png, opengraph-image.png, manifest.ts) — servidos
+// same-origin, CSP diff-zero. O `icons` abaixo declara os mesmos caminhos
+// explicitamente (as file conventions têm precedência; a declaração documenta
+// a intenção e cobre user-agents que só leem o metadata config).
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Tese AI — Teses de investimento auditáveis",
-    template: "%s — Tese AI",
+    template: "%s · Tese AI",
   },
-  description:
-    "Teses de investimento estruturadas e rastreáveis: fundamentos + macro + pares globais + geopolítica, com cada afirmação ligada à sua fonte. Não é recomendação de investimento.",
+  description: descricaoDaCasa,
   applicationName: "Tese AI",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "/",
+    siteName: "Tese AI",
+    title: "Tese AI — Teses de investimento auditáveis",
+    description: descricaoDaCasa,
+    // og:image vem da file convention `opengraph-image.png` (PNG estático,
+    // 1200×630, gerado por harness local — ImageResponse PROIBIDO pela LEI D2).
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tese AI — Teses de investimento auditáveis",
+    description: descricaoDaCasa,
+    // twitter:image cai no og:image da file convention (fallback nativo do X).
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+    ],
+    apple: "/apple-icon.png",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport: Viewport = {

@@ -103,30 +103,43 @@ export function TickerCombobox({ value, onChange, disabled, inputId, erroId }: P
 
   return (
     <div ref={raizRef} className="relative">
-      <input
-        id={inputId}
-        name="ticker"
-        role="combobox"
-        aria-expanded={aberto && sugestoes.length > 0}
-        aria-controls={listboxId}
-        aria-autocomplete="list"
-        aria-activedescendant={idAtivo}
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value.toUpperCase());
-          setAberto(true);
-          setAtivo(-1);
-        }}
-        onKeyDown={aoTeclar}
-        onFocus={() => setAberto(true)}
-        placeholder="PETR4"
-        autoComplete="off"
-        spellCheck={false}
-        disabled={disabled}
-        aria-invalid={!!erroId}
-        aria-describedby={erroId ? `${inputId}-hint ${erroId}` : `${inputId}-hint`}
-        className="min-h-11 w-full border border-field bg-card px-3 py-2.5 font-mono text-ui text-ink placeholder:text-ink-3 focus:border-brasa-texto disabled:opacity-60"
-      />
+      {/* Wrapper do specular (crit. 7, missão APOTEOSE): <input> é elemento
+          REPLACED — não gera ::after — então a `.ticker-luz` (primitiva da
+          Onda 0) vive neste <span>, que também assume o `bg-card` (o sprite
+          z:-1 pinta ACIMA do fundo do PRÓPRIO elemento, mas ficaria ATRÁS do
+          fundo de um filho — por isso o input abaixo virou bg-transparent;
+          delta visual zero: o form em volta já é bg-card). `overflow-hidden`
+          clipa o sprite no box do campo ("specular contido", S2) sem clipar
+          o caret — o box do wrapper coincide com o do input. Input DISABLED
+          não recebe a classe (exclusão A5 da LEI): sem alvo, sem luz — as
+          opções do listbox (irmão, fora deste wrapper) seguem excluídas por
+          construção. `--mx`/`--my` chegam pela ilha delegada do TeseClient. */}
+      <span className={`block overflow-hidden bg-card${disabled ? "" : " ticker-luz"}`}>
+        <input
+          id={inputId}
+          name="ticker"
+          role="combobox"
+          aria-expanded={aberto && sugestoes.length > 0}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={idAtivo}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value.toUpperCase());
+            setAberto(true);
+            setAtivo(-1);
+          }}
+          onKeyDown={aoTeclar}
+          onFocus={() => setAberto(true)}
+          placeholder="PETR4"
+          autoComplete="off"
+          spellCheck={false}
+          disabled={disabled}
+          aria-invalid={!!erroId}
+          aria-describedby={erroId ? `${inputId}-hint ${erroId}` : `${inputId}-hint`}
+          className="min-h-11 w-full border border-field bg-transparent px-3 py-2.5 font-mono text-ui text-ink placeholder:text-ink-3 focus:border-brasa-texto disabled:opacity-60"
+        />
+      </span>
       <span id={`${inputId}-hint`} className="mt-1.5 block text-label text-ink-3">
         {exato ? (
           exato.participacaoPct > 0 ? (

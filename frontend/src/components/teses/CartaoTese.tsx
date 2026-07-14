@@ -1,5 +1,15 @@
+"use client";
+
+// APOTEOSE (2026-07-13, onda BANCA): o card vira client component para o
+// clique da Virada (useViradaCartao — View Transition nativa same-document,
+// gate quádruplo com fallback = navegação atual). Props INALTERADAS
+// (retrocompatível: /teses e landing consomem igual); no contexto da
+// landing ele JÁ era client (importado por GaleriaBanca) — o delta real é
+// só o chunk de /teses. Zero gsap aqui (R2 preservado).
+
 import Link from "next/link";
 
+import { useViradaCartao } from "@/components/motion/useViradaCartao";
 import { slotVirada, type ClasseAtivo, type PapelB3 } from "@/lib/tickers";
 
 // Régua D1..D5: rótulos mono FACTUAIS (D5, CORRECOES-RODADA-1.md) — a fonte
@@ -54,17 +64,28 @@ export function CartaoTese({ papel, dataCarteira }: CartaoTeseProps) {
   const slot = slotVirada(papel.ticker);
   // Ausente == "acao" (mesma convenção de PapelB3.classe, lib/tickers.ts).
   const { regua, sublabel } = REGUA_POR_CLASSE[papel.classe ?? "acao"];
+  const href = `/tese?ticker=${encodeURIComponent(papel.ticker)}`;
+  // Virada same-document (APOTEOSE crit. 4): morph nativo no clique comum;
+  // gate quádruplo dentro do hook — falhou, o Link navega exatamente como
+  // antes (véu de /tese cobre). Cross-document (.vt-tese-N) intocado.
+  const aoClicar = useViradaCartao(papel.ticker, href);
   return (
     <Link
-      href={`/tese?ticker=${encodeURIComponent(papel.ticker)}`}
+      href={href}
+      onClick={aoClicar}
       // `tem-foco` (spike cinema, §4): foco frio de ponteiro escopado ao
       // card (`.cartao-ticker.tem-foco::after`, globals.css) — pico ~5%,
       // só com pointer:fine+hover; `--mx`/`--my` chegam por delegação do
       // grid (ver GradeFoco.tsx). Hairline `::before` existente intacta.
       className="cartao-ticker tem-foco group flex h-full flex-col gap-3 border border-line bg-card p-5 transition-colors duration-[var(--dur-tick)] hover:border-field"
     >
+      {/* `.ticker-luz` (primitiva Onda 0, crit. 7/S2): specular dourado
+          contido no glifo do ticker — HERDA --mx/--my já escritas no card
+          pela delegação do GradeFoco (custom properties herdam: zero
+          listener novo, zero hook novo). O overflow:hidden do `.tem-foco`
+          do card clipa o sprite no box do cartão. */}
       <span
-        className={`font-mono text-h2 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}
+        className={`ticker-luz font-mono text-h2 font-semibold tracking-tight text-ink${slot ? ` vt-tese-${slot}` : ""}`}
       >
         {papel.ticker}
       </span>

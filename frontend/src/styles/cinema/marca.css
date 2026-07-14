@@ -1,0 +1,186 @@
+/* ============================================================
+ * cinema/marca.css — IMPLEMENTAÇÃO · DONA: onda CHROME
+ * Missão "APOTEOSE" (2026-07-13) — critério 1 (Marca viva "O Um
+ * Lastreado"). SPEC: .maestro/marca/veredito-marca.md §4.5/§4.6 +
+ * plano-apoteose.md §2 D1 e §3 crit.1. Componente: Marca.tsx (Server
+ * Component, SVG inline; classes .marca-* abaixo). ZERO JS no Header (R2);
+ * estado 100% declarativo (hover/focus/active/scroll) — CSP intacta.
+ *
+ * ENTRADA ZERO (enxerto MANDATÓRIO do C1, cura dos 2 defeitos técnicos do
+ * C2): NADA anima no load — sem .reveal, sem .entrada-hero, sem keyframe
+ * incondicional. O selo nasce 100% visível (LCP/CLS zero).
+ *
+ * TABELA DE ESCRITOR-ÚNICO (artefato obrigatório do PR — veredito §4.6):
+ * | Propriedade         | Elemento      | Escritor ÚNICO                              |
+ * |---------------------|---------------|---------------------------------------------|
+ * | opacity             | .marca-fio    | transition de hover (.55→1)                 |
+ * | stroke              | .marca-fio    | transition de hover (ink→safira)            |
+ * | stroke              | .marca-regra  | transition de hover (ink→safira)            |
+ * | transform           | .marca-um     | hover (translateY) + :active (scale) — o    |
+ * |                     |               | MESMO grupo declarativo (:active vence por  |
+ * |                     |               | ordem, mesma especificidade)                |
+ * | opacity+transform   | .marca-brilho | animation one-shot de hover (sheen)         |
+ * | transform           | .marca-fio    | animation por scroll (marca-fio-recolhe) —  |
+ * |                     |               | ÚNICO dono (a entrada foi morta; hover só   |
+ * |                     |               | escreve opacity/stroke no fio)              |
+ * | transform           | .marca-svg    | NINGUÉM (fase 2/ilha de inércia NÃO adotada)|
+ * Nenhuma propriedade tem dois donos.
+ *
+ * NOTA DE SPRING (registro para o QA): LEI §2 D1 manda "física por
+ * transitions da casa (--dur-set/ease-settle na joia)". O selo É o Pin de
+ * Citação da marca — o "1" usa a MESMA assinatura de assentamento do
+ * .citacao-pin (não é um spring novo em card/botão; é o mesmo gesto do pin
+ * aplicado ao próprio símbolo da citação, autorizado nominalmente pela LEI).
+ * ============================================================ */
+
+/* ---- Lockup do header: alinhamento óptico + altura reservada ----
+   O selo entra INLINE no fluxo do LinkCinema (deliberadamente NÃO flex no
+   lockup: o Header alinha marca/divisor/timbre por items-baseline, e um
+   flex container com align-items:center exportaria como baseline a borda
+   inferior do 1º item — o svg — deslocando o timbre; inline preserva a
+   baseline do wordmark como referência do masthead, EXATAMENTE como hoje).
+   CLS zero (enxerto mandatório): width/height 28 declarados no atributo;
+   com vertical-align -6px o svg ocupa ~22px acima/6px abaixo da baseline,
+   dentro do line box de 32px do wordmark text-2xl — a ALTURA DO HEADER NÃO
+   MUDA (o sticky top-10 do /historico e o scroll-margin-top globais seguem
+   válidos por construção). A régua da fonte assenta ~1px acima da baseline
+   do wordmark (ajuste óptico do croqui do veredito §4.4). */
+.marca-svg {
+  vertical-align: -6px;
+  margin-inline-end: 0.625rem; /* o gap-2.5 do croqui, sem flex */
+}
+
+/* ---- REPOUSO = 2 materiais (tinta + brasa) — dosagem C3 ----
+   Safira NUNCA permanente <32px: fio/régua descansam em tinta (fio meio
+   afundado no papel, eco do glifo-fantasma); a trilha de auditoria acende
+   em safira quando o leitor ENGAJA. Ouro só como sheen de hover (≥24px). */
+.marca-colchete {
+  fill: var(--ink-primary);
+}
+.marca-um {
+  fill: var(--accent-action);
+  transform-box: fill-box;
+  transform-origin: center;
+  /* Física da casa na joia (LEI §2 D1) — ver NOTA DE SPRING no cabeçalho. */
+  transition: transform var(--dur-set) var(--ease-settle);
+}
+.marca-fio {
+  stroke: var(--ink-primary);
+  opacity: 0.55;
+  transform-box: fill-box;
+  transform-origin: 50% 0%; /* recolhe a partir do "1" (solta a régua) */
+  transition:
+    opacity var(--dur-tick) var(--ease-ink),
+    stroke var(--dur-tick) var(--ease-ink);
+}
+.marca-regra {
+  stroke: var(--ink-primary);
+  transition: stroke var(--dur-tick) var(--ease-ink);
+}
+.marca-brilho {
+  stroke: var(--valor-brilho);
+  opacity: 0; /* ouro: só o sheen de hover — nunca em repouso */
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ---- HOVER / FOCUS — a trilha de auditoria acende em safira ---- */
+.marca-lockup:hover .marca-fio,
+.marca-lockup:focus-visible .marca-fio {
+  opacity: 1;
+  stroke: var(--accent-confianca);
+}
+.marca-lockup:hover .marca-regra,
+.marca-lockup:focus-visible .marca-regra {
+  stroke: var(--accent-confianca);
+}
+.marca-lockup:hover .marca-um,
+.marca-lockup:focus-visible .marca-um {
+  transform: translateY(-0.5px); /* o pin responde ao toque */
+}
+/* :active depois de :hover (mesma especificidade — a ordem decide, e o
+   clique vence o hover): peso de pedra no índice (enxerto C3/Juiz 2). */
+.marca-lockup:active .marca-um {
+  transform: scale(0.96);
+}
+
+/* ---- SHEEN de ouro — UMA varredura por entrada de hover, nunca loop
+   (mesma física do sheen da palavra "fonte" no hero). `both` segura
+   opacity 0 no fim; sair e re-entrar no hover re-dispara a animação. ---- */
+.marca-lockup:hover .marca-brilho,
+.marca-lockup:focus-visible .marca-brilho {
+  animation: marca-sheen 700ms var(--ease-rule) both;
+}
+@keyframes marca-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(5px);
+  }
+}
+
+/* ---- SCROLL — recolhimento do detalhe (LEI §2 D1) ----
+   Nos primeiros 160px de rolagem o fio encurta a scaleY(.85) (origem no
+   "1": o selo "solta" a página quando o leitor mergulha). Scroll-driven
+   animation nativa SOB @supports (mesmo idioma da aurora do globals.css:
+   progresso vem do scroll, duration 1ms é irrelevante); SEM o recurso o
+   fallback é ESTÁTICO E DIGNO: o selo pleno de repouso, nada quebra (sem
+   paridade tri-engine prometida — D1). Escritor único do transform do fio:
+   esta animação (a entrada foi morta; hover não escreve transform no fio). */
+@supports (animation-timeline: scroll(root block)) and (animation-range: 0px 160px) {
+  .marca-fio {
+    animation-name: marca-fio-recolhe;
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+    animation-range: 0px 160px;
+  }
+}
+@keyframes marca-fio-recolhe {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.85);
+  }
+}
+
+/* ---- REDUCED-MOTION — registro NOMINAL por efeito (LEI §0): estado
+   digno, marca PLENA (não apagada — veredito §4.5). ----
+   — física de hover do "1" (decorativa): sem transição, sem lift; o
+     :active scale(.96) vira troca INSTANTÂNEA de estado (não é movimento
+     ao longo do tempo — feedback de clique permanece);
+   — acender da safira (decorativa): a COR ainda troca no hover ("cor sim,
+     lift não"), só que instantânea (transition: none);
+   — sheen de ouro (decorativo): nunca roda;
+   — recolhimento do fio por scroll (decorativo): não roda — fio PLENO
+     (opacity 1) e parado. */
+@media (prefers-reduced-motion: reduce) {
+  .marca-um,
+  .marca-fio,
+  .marca-regra,
+  .marca-brilho {
+    transition: none;
+    animation: none !important;
+  }
+  .marca-fio {
+    opacity: 1;
+    transform: none;
+  }
+  .marca-lockup:hover .marca-um,
+  .marca-lockup:focus-visible .marca-um {
+    transform: none;
+  }
+  .marca-brilho,
+  .marca-lockup:hover .marca-brilho,
+  .marca-lockup:focus-visible .marca-brilho {
+    opacity: 0;
+  }
+}

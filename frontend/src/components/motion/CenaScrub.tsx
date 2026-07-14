@@ -11,16 +11,35 @@
  * imprime, subir desimprime, repetir repete.
  *
  *   ato 1 · entrada (0–35%):  [data-cena-el] escalonados, y 16px→0 +
- *                             opacity 0→1 (stagger por amount).
+ *                             opacity 0→1 + scale 0.985→1 (eixo Z —
+ *                             APOTEOSE C6; stagger por amount).
  *   ato 2 · platô  (35–75%):  nada muda (leitura).
  *   ato 3 · saída  (75–100%): y→−12px, opacity→PISO 0.55 — nunca abaixo
- *                             (conteúdo permanece legível p/ Tab/âncora).
+ *                             (conteúdo permanece legível p/ Tab/âncora) —
+ *                             + scale 1→0.99 (recua para a profundidade).
  *
  * A saída SÓ atua na borda superior do viewport: com o trigger em
  * `start: "top 85%" / end: "bottom 15%"`, o trecho 75–100% do progresso
  * corresponde à seção atravessando a borda de cima (verificado para
  * h≈0.4vh–2vh). Elementos [data-cvm] (faixa CVM / aviso regulatório):
- * opacity TRAVADA em 1 — recebem só translateY, nos dois atos.
+ * opacity TRAVADA em 1 e SEM scale — recebem só translateY, nos dois atos
+ * (D5 APOTEOSE: o aviso não esmaece nem encolhe).
+ *
+ * EIXO Z (missão APOTEOSE 2026-07-13, LEI §3.6/A6): a profundidade é FAKE —
+ * só `scale` UNIFORME composto nos MESMOS fromTo/to dos atos 1 e 3 (o GSAP
+ * serializa y+scale numa ÚNICA string `transform`: um-escritor-por-
+ * propriedade preservado por construção; nunca um segundo tween/keyframe de
+ * transform no mesmo elemento). ZERO `perspective` em qualquer container
+ * (perspective cria containing block p/ position:fixed — quebraria o pin do
+ * filmstrip e o sticky da Tarja; trava C2). TOPOLOGIA VERIFICADA: o scale
+ * entra nas MESMAS FOLHAS [data-cena-el] que já recebiam transform(y) —
+ * nenhum stacking context/containing block NOVO nasce em relação à produção
+ * atual, logo os sprites de luz z-index:-1 (.foco-luz/.tem-foco::after) e o
+ * fio da fonte NÃO reordenam. O container da seção segue SEM transform (o
+ * tl.set(secao,{},1) é marcador VAZIO — não escreve propriedade). FioDaFonte
+ * mede por offsetLeft/Top (layout, pré-transform — R12e): o path casa com o
+ * layout; durante o tween a folha fica ≤1.5% menor que a âncora do path —
+ * desvio decorativo aceito, zero no assentamento (scale=1 no platô).
  *
  * CONTRATO DE MARCAÇÃO (Onda 2):
  *   <CenaScrub><section className="capitulo ..." data-cena="prova"> ...
@@ -88,9 +107,14 @@ type MatchMediaGsap = ReturnType<MotorGsap["gsap"]["matchMedia"]>;
 const ENTRADA_DURACAO = 0.2;
 const ENTRADA_STAGGER = 0.15;
 const ENTRADA_Y = 16;
+/** Eixo Z (APOTEOSE C6): profundidade fake por scale UNIFORME nas folhas —
+ *  entra aproximando (0.985→1) e sai recuando (1→0.99). Sem perspective
+ *  (A6); ramo [data-cvm] NUNCA recebe scale (D5). */
+const ENTRADA_SCALE = 0.985;
 const SAIDA_INICIO = 0.75;
 const SAIDA_DURACAO = 0.25;
 const SAIDA_Y = -12;
+const SAIDA_SCALE = 0.99;
 /** Piso de opacidade da saída (≥0.55 é LEI — conteúdo nunca fica oculto). */
 const PISO_OPACIDADE = 0.55;
 /** Fio da fonte: desenha do meio da entrada ao fim do platô (0.20–0.65). */
@@ -224,10 +248,11 @@ export function CenaScrub({ excluir, children }: PropsCenaScrub) {
         if (alvosLivres.length > 0) {
           tl.fromTo(
             alvosLivres,
-            { y: ENTRADA_Y, opacity: 0 },
+            { y: ENTRADA_Y, opacity: 0, scale: ENTRADA_SCALE },
             {
               y: 0,
               opacity: 1,
+              scale: 1,
               duration: ENTRADA_DURACAO,
               stagger: { amount: ENTRADA_STAGGER },
             },
@@ -235,11 +260,18 @@ export function CenaScrub({ excluir, children }: PropsCenaScrub) {
           );
           tl.to(
             alvosLivres,
-            { y: SAIDA_Y, opacity: PISO_OPACIDADE, duration: SAIDA_DURACAO },
+            {
+              y: SAIDA_Y,
+              opacity: PISO_OPACIDADE,
+              scale: SAIDA_SCALE,
+              duration: SAIDA_DURACAO,
+            },
             SAIDA_INICIO,
           );
         }
-        // Faixa CVM: opacity travada em 1 — só translateY (LEI).
+        // Faixa CVM: opacity travada em 1 e SEM scale — só translateY
+        // (LEI + D5 APOTEOSE: o aviso regulatório não esmaece nem encolhe;
+        // o eixo Z passa ao largo deste ramo por decisão, não por acaso).
         if (alvosCvm.length > 0) {
           tl.fromTo(
             alvosCvm,

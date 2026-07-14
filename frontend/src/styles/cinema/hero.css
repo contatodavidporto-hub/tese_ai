@@ -1,6 +1,10 @@
 /* ============================================================
- * cinema/hero.css — IMPLEMENTADA (Onda 1A) · DONA: Onda 1A
+ * cinema/hero.css — IMPLEMENTADA (Onda 1A) · DONA ATUAL: onda HERO
  * Missão MATÉRIA VIVA (.maestro/plano-imersivo.md §3 crit.1 + §12)
+ * Missão APOTEOSE 2026-07-13 (LEI §3.2/§4): posse desta folha passa à
+ * onda HERO — §5 abaixo (H1-organismo: --palavra-prox/--palavra-x por
+ * span, escritas por usePonteiro modo proximidade via useOrganismoH1;
+ * classe .sheen-vivo = troca de dono do sheen pós-animationend).
  * ============================================================
  * CONTRATO (cumprido abaixo; a Onda 2 marca o DOM da landing com ele):
  *
@@ -189,6 +193,92 @@
   pointer-events: none;
 }
 
+/* ---------- 5. H1-organismo (APOTEOSE crit.2, LEI §3.2 — dona: onda HERO)
+   Reatividade CONTÍNUA ao cursor, palavra a palavra. As custom props
+   chegam POR SPAN via CSSOM (usePonteiro modo proximidade, plugado por
+   useOrganismoH1): `--palavra-prox` 0..1 (smoothstep da distância do
+   ponteiro ao retângulo da palavra) e, só na palavra "fonte",
+   `--palavra-x` 0..1 (posição X do cursor dentro dela). Sem escrita JS,
+   os fallbacks var(...,0) resolvem para o estado NEUTRO exato — a regra é
+   inerte por construção (touch/reduce/pré-hidratação), nada nasce oculto
+   e nenhum valor participa de layout (zero CLS; LCP intacto).
+
+   UM-ESCRITOR: o keyframe `palavra-compoe` (§1) segue dono único do
+   `transform`; a profundidade entra por `translate`/`scale` — propriedades
+   INDIVIDUAIS, escritores separados que COMPÕEM nativamente (recon
+   hero-h1 §5, opção (a) recomendada). Transições em --dur-set/--ease-cena
+   (a gramática do glide de luz da casa — mesmo par do specular
+   .ticker-luz). WCAG 2.2.2: só responde a input; parado = assentado. */
+@media (hover: hover) and (pointer: fine) {
+  .palavra-hero {
+    /* Profundidade proporcional à proximidade: leve levitação (-0.03em no
+       pico) + scale 1.018 máx. Sub-pixel, orgânico; transform-origin
+       0% 100% herdado do §1 (compartilhado com o keyframe — não mudar). */
+    translate: 0 calc(var(--palavra-prox, 0) * -0.03em);
+    scale: calc(1 + var(--palavra-prox, 0) * 0.018);
+    transition:
+      translate var(--dur-set) var(--ease-cena),
+      scale var(--dur-set) var(--ease-cena),
+      color var(--dur-set) var(--ease-cena);
+  }
+  /* Luz: a tinta esquenta na direção do OURO-BASE (--accent-valor) em alfa
+     contido (22% no pico). Por que --accent-valor e NÃO --valor-brilho:
+     a interpolação sRGB ink→brilho tem janela G-dominante em t∈(0.093,
+     0.105) (G−R=2−19t>0 p/ t<0.105 e G−B=−5+54t>0 p/ t>0.093) — hue
+     formalmente na faixa banida 70–200° (mesmo com chroma ~0.7%, o veto é
+     categórico). Já ink→accent-valor NUNCA tem G máximo (claro: G>R exige
+     t<0.05 e G>B exige t>0.0595 — vazio; escuro: G−R=−2−36t<0 sempre) e o
+     trecho B-máximo (t<0.0565) fica em hue 222–240° (azul-violeta) —
+     nenhum ponto da curva cai em 70–200°, nos dois temas.
+     AA (analítico, pior caso prox=1): claro rgb(48,41,27) sobre #f6f6f3 =
+     12.8:1; escuro rgb(231,221,196) sobre #101216 = 13.9:1 — folga enorme
+     sobre 4.5:1 (o hero é large text, mínimo 3:1). QA re-amostra no pico
+     composto real (C12 re-enumera emissores sob texto).
+     Base explícita var(--ink-primary) (= text-ink do h1 hoje): com prox=0
+     o mix resolve para EXATAMENTE a tinta herdada — delta zero em repouso.
+     :not(.palavra-hero-fonte): "fonte" tem color:transparent (§2) — o clip
+     de ouro não pode ser vencido por esta regra (mesma especificidade,
+     ordem posterior venceria; o :not() exclui e ainda sobe a
+     especificidade). */
+  .palavra-hero:not(.palavra-hero-fonte) {
+    color: color-mix(
+      in srgb,
+      var(--accent-valor) calc(var(--palavra-prox, 0) * 22%),
+      var(--ink-primary)
+    );
+  }
+  /* Sheen responsivo da palavra "fonte" — SÓ após animationend da
+     varredura única (LEI §3.2): useOrganismoH1 adiciona .sheen-vivo via
+     classList (troca de dono CSP-safe), e `animation:none` aqui solta o
+     background-position do keyframe fill:both. Dentro do MESMO @supports
+     do §2: sem background-clip:text não existe varredura nem clip — a
+     classe fica inerte e o `animation:none` jamais mata a cascata
+     palavra-compoe do fallback (que já terá terminado de todo modo: a
+     classe só chega ≥2.5s, e o estado final do keyframe == estado
+     estático).
+     Posição: repouso 55% (idêntico ao §2); com proximidade, o highlight
+     desliza até o cursor — x=0 → 95% (esquerda), x=1 → 5% (direita).
+     RANGE [5%,95%] POR CONSTRUÇÃO: prox e x são clampados 0..1 no hook,
+     então calc ∈ [5%,95%] sempre — nunca descobre o glifo (bug do "f",
+     hero.css §2/smoke 12/07). A transition também cobre o instante da
+     troca de dono: o highlight desliza 5%→55% em vez de saltar.
+     A lista de transition REDECLARA translate/scale: esta regra (0,2,0)
+     vence a de .palavra-hero para a propriedade `transition` inteira —
+     sem a redeclaração a palavra "fonte" perderia o glide de
+     profundidade. */
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .palavra-hero-fonte.sheen-vivo {
+      animation: none;
+      background-position:
+        calc(55% + (40% - var(--palavra-x, 0.5) * 90%) * var(--palavra-prox, 0)) 0;
+      transition:
+        background-position var(--dur-set) var(--ease-cena),
+        translate var(--dur-set) var(--ease-cena),
+        scale var(--dur-set) var(--ease-cena);
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Entrada NOMINAL por efeito (o guard genérico do globals.css NÃO zera
      animation-delay nem neutraliza scroll-timeline — pegadinha .pin-hero). */
@@ -199,10 +289,30 @@
     animation: none !important;
     transform: none !important;
     opacity: 1 !important;
+    /* H1-organismo (APOTEOSE §5, profundidade por proximidade): NOMINAL —
+       sem levitação/scale nem glide sob reduce (o hook nem arma listener e
+       limpa --palavra-prox/--palavra-x no toggle ao vivo; cinto CSS). */
+    translate: none !important;
+    scale: none !important;
+    transition: none !important;
+  }
+  /* H1-organismo (APOTEOSE §5, luz por proximidade): NOMINAL — tinta de
+     repouso sempre (mesmo com resíduo de --palavra-prox, o mix é vencido
+     aqui). Escopo :not(): jamais tocar a cor da palavra "fonte"
+     (color:transparent do clip de ouro). */
+  .palavra-hero:not(.palavra-hero-fonte) {
+    color: var(--ink-primary) !important;
   }
   .palavra-hero-fonte {
     /* o sheen vira highlight ESTÁTICO: brilho parado sobre a palavra
        (animation:none acima já matou a varredura). */
+    background-position: 55% 0 !important;
+  }
+  /* H1-organismo (APOTEOSE §5, sheen responsivo): NOMINAL — com ou sem
+     .sheen-vivo entregue, o highlight fica em repouso 55% (a regra acima
+     já vence por !important; entrada explícita = registro por efeito,
+     regra da casa). */
+  .palavra-hero-fonte.sheen-vivo {
     background-position: 55% 0 !important;
   }
   .glifo-fantasma {

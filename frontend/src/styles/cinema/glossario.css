@@ -1,0 +1,48 @@
+/* ============================================================
+ * cinema/glossario.css — IMPLEMENTAÇÃO · DONA: onda COPY
+ * Missão "APOTEOSE" (2026-07-13) — critério 11: rota /glossario.
+ * ============================================================
+ * Escopo desta folha (contrato do stub da Onda 0): SÓ o que o Tailwind não
+ * expressa na PRÓPRIA página /glossario — o realce de chegada por âncora
+ * (`:target`). Layout, hairlines (Reveal `reveal-regua` + bg-line-strong),
+ * tipografia e sumário usam a gramática existente direto no JSX.
+ * O popup do tooltip é de cinema/tooltip.css (dona: Onda 0) — nada dele aqui.
+ *
+ * CSP: zero style inline/injetado — só classes estáticas. Um escritor por
+ * propriedade: `background-color`/`box-shadow` do `.verbete-glossario` têm
+ * UM dono (esta folha); o Reveal do wrapper anima opacity/transform no
+ * ELEMENTO PAI (o <div> do <Reveal>), nunca neste. Verde banido: o realce
+ * usa os tokens quentes da casa (--color-realce / --color-brasa).
+ * ============================================================ */
+
+/* Chegada por âncora (tooltip "ver glossário →" ou índice A–Z): o verbete
+   alvo acende com o banho de realce da casa (o mesmo --color-realce dos
+   chips de citação) e assenta de volta ao fundo da página — evidência de
+   "é este aqui", sem tocar layout (zero CLS: background + box-shadow
+   inset, nunca border/padding). A keyline brasa à esquerda é ESTÁTICA
+   enquanto o :target valer — wayfinding que sobrevive ao fim da animação
+   e também serve de indicador completo no modo reduce. */
+.verbete-glossario:target {
+  box-shadow: inset 2px 0 0 var(--color-brasa);
+  animation: verbete-acende var(--dur-edition) var(--ease-ink) both;
+}
+
+@keyframes verbete-acende {
+  from {
+    background-color: var(--color-realce);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL por efeito (LEI §0 — reduce-motion nominal na folha):
+     - `verbete-acende` (banho de realce na chegada por âncora): decorativo —
+       vai direto ao estado final (fundo transparente), sem flash. O
+       wayfinding NÃO se perde: a keyline brasa estática do `:target` acima
+       continua marcando o verbete alvo sem nenhum movimento. */
+  .verbete-glossario:target {
+    animation: none;
+  }
+}

@@ -7,6 +7,7 @@
 // ainda vê o aviso sem precisar subir a página.
 
 import { Reveal } from "@/components/motion/Reveal";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
 
 import { FonteChip, NotaFixa, RotuloChip } from "./EnvelopeNovo";
 import { formatarValor } from "./formatacao";
@@ -19,19 +20,29 @@ function ordenarGraficos(graficos: Grafico[]): Grafico[] {
   return [...graficos].sort((a, b) => (posicao.get(a.id) ?? ORDEM_CANONICA_GRAFICOS.length) - (posicao.get(b.id) ?? ORDEM_CANONICA_GRAFICOS.length));
 }
 
+// Missão APOTEOSE (crit. 11, D7): o NOME do indicador (RSI, MACD, Bandas de
+// Bollinger…) vira gatilho de `TermoTooltip` com a definição REAL do payload
+// (`o_que_mede`) — zero definição inventada; sem definição => texto puro
+// (fallback silencioso). Mesma decisão de SecaoMetricasSetor: a definição
+// saiu do corpo do card para o tooltip (evita a string duplicada colada ao
+// termo); `leitura` (template determinístico, já passou pelo gate) e
+// `detalhe` seguem visíveis e intocados.
 function CardIndicador({ indicador }: { indicador: Tecnica["indicadores"][number] }) {
   const valorFmt = formatarValor(indicador.valor, indicador.unidade);
   return (
     <div className="flex flex-col gap-2 border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h4 className="font-display text-lede font-semibold text-ink">{indicador.nome}</h4>
+        <h4 className="font-display text-lede font-semibold text-ink">
+          <TermoTooltip termo={indicador.nome} definicao={indicador.o_que_mede?.trim() || undefined}>
+            {indicador.nome}
+          </TermoTooltip>
+        </h4>
         {valorFmt ? (
           <span className="font-mono text-h3 font-semibold text-brasa-texto">{valorFmt}</span>
         ) : (
           <BadgeLacuna texto="Dado não encontrado" />
         )}
       </div>
-      <p className="text-ui text-ink-2">{indicador.o_que_mede}</p>
       {indicador.detalhe && <p className="font-mono text-meta text-ink-3">{indicador.detalhe}</p>}
       <p className="text-body text-ink">{indicador.leitura}</p>
     </div>

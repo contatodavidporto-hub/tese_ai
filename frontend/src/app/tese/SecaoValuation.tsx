@@ -4,6 +4,14 @@
 // otimista) e a tabela de sensibilidade em seu PRÓPRIO scroll horizontal
 // (`overflow-x-auto` local — não deixa a tabela empurrar a página inteira
 // para o lado em telas estreitas).
+//
+// Missão APOTEOSE (crit. 11, D7 — decisão registrada): NENHUM TermoTooltip
+// aqui. O contrato de valuation não traz campo definicional (`o_que_mede`
+// não existe em modelo/premissa/cenário; `descricao` do modelo já é visível
+// no card) e inventar definição no front é proibido — termo sem definição
+// de payload = fallback SILENCIOSO (sem tooltip). Se um dia o glossário
+// curado (`lib/glossario.ts`, dono COPY) cobrir "Gordon/DDM"/"custo de
+// capital", o aproveitamento é follow-up de integração, não desta onda.
 
 import { RotuloChip } from "./EnvelopeNovo";
 import { formatarValorLivre } from "./formatacao";

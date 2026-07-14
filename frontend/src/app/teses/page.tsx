@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -6,16 +7,27 @@ import { Reveal } from "@/components/motion/Reveal";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { CartaoTese } from "@/components/teses/CartaoTese";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
+import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
 // ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
-export const metadata = {
+// Copy reescrita na missão APOTEOSE (crit. 11): o jargão "warm-cache" saiu
+// da UI (vira "teses prontas da galeria"; o termo técnico vive no
+// /glossario#warm-cache, linkado pelo tooltip). Contagens seguem derivadas
+// de exemplosProntos() — nunca literais.
+export const metadata: Metadata = {
   title: "Teses",
   description:
-    "Teses pré-geradas pelo motor do Tese AI: os maiores pesos da carteira teórica do Ibovespa, mais um FII e um título do Tesouro Direto — prova viva do motor multiativo, cada número com fonte e data.",
+    "Teses prontas da galeria do Tese AI: os maiores pesos da carteira teórica do Ibovespa, mais um FII e um título do Tesouro Direto — prova viva do motor multiativo, cada número com fonte e data.",
+  openGraph: {
+    title: "Teses — Tese AI",
+    description:
+      "A galeria de teses prontas: ações do Ibovespa, FII e Tesouro Direto — abrem na hora, cada número com fonte e data.",
+  },
 };
 
 function formatDataIso(iso: string): string {
@@ -40,10 +52,10 @@ export default function TesesPage() {
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-14 sm:px-6">
             {/* D4 (brasa gratuita no eyebrow): a brasa é acento de ação/evidência,
                 não decoração de rótulo — padrão dos demais eyebrows do site
-                (text-ink-3). */}
+                (text-ink-3). Crit. 11: o jargão "warm-cache" saiu da UI. */}
             <Reveal>
               <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-                Galeria warm-cache
+                Galeria de teses prontas
               </p>
             </Reveal>
             <Reveal className="i-1">
@@ -56,17 +68,22 @@ export default function TesesPage() {
             </Reveal>
             <Reveal className="i-2">
               <p className="max-w-2xl font-sans text-ui leading-relaxed text-ink-2">
-                Pré-geradas pelo motor: os {acoes} maiores pesos da carteira
-                teórica do Ibovespa (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}),
-                mais {fiis} FII e {rendaFixa} título do Tesouro Direto — prova
-                viva do motor multiativo. Abrem na hora — se o cache tiver
-                expirado, a tese é regenerada automaticamente.
+                Pré-geradas pelo motor e mantidas prontas: os {acoes} maiores pesos da{" "}
+                <TermoTooltip {...tooltipDe("carteira-teorica")}>
+                  carteira teórica do Ibovespa
+                </TermoTooltip>{" "}
+                (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}), mais {fiis} FII e {rendaFixa}{" "}
+                título do Tesouro Direto — prova viva do motor multiativo, com a mesma
+                trilha de citações de uma tese sob demanda. Abrem na hora; se o cache
+                tiver expirado, a tese é regenerada automaticamente.
               </p>
             </Reveal>
             <Reveal className="i-3">
               <p className="font-mono text-meta text-ink-3">
-                {exemplos.length} teses no warm-cache diário · {acoes} ações do
-                Ibovespa + {fiis} FII + {rendaFixa} Tesouro Direto
+                {exemplos.length}{" "}
+                <TermoTooltip {...tooltipDe("warm-cache")}>teses prontas</TermoTooltip> ·
+                renovadas a cada ciclo diário · {acoes} ações do Ibovespa + {fiis} FII +{" "}
+                {rendaFixa} Tesouro Direto
               </p>
             </Reveal>
           </div>
@@ -113,9 +130,11 @@ export default function TesesPage() {
                   Não achou o ticker que procura?
                 </h2>
                 <p className="max-w-xl font-sans text-ui text-ink-2">
-                  O motor gera a tese completa de qualquer companhia aberta,
-                  FII ou título do Tesouro Direto, sob demanda — as mesmas
-                  dimensões e citações da classe, sem cache prévio.
+                  O motor gera a tese completa de qualquer companhia aberta, FII ou
+                  título do Tesouro Direto sob demanda — basta o{" "}
+                  <TermoTooltip {...tooltipDe("ticker")}>ticker</TermoTooltip>. As
+                  mesmas dimensões e citações da classe; a única diferença é o tempo de
+                  geração.
                 </p>
               </div>
               <Link

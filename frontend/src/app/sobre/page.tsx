@@ -1,53 +1,95 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
+import { LinkCinema } from "@/components/motion/LinkCinema";
+import { Reveal } from "@/components/motion/Reveal";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
-import { Reveal } from "@/components/motion/Reveal";
+import { TermoTooltip } from "@/components/ui/TermoTooltip";
+import { tooltipDe } from "@/lib/glossario";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
+// Copy reescrita na missão APOTEOSE (crit. 11): vendedora pela verdade
+// auditável — zero superlativo não-auditável, zero recomendação, número só
+// derivado do catálogo. Tooltips consomem lib/glossario.ts (D7).
 export const metadata: Metadata = {
   title: "Sobre",
   description:
-    "Os princípios do Tese AI: não recomenda compra ou venda, todo número vem com fonte e data, lacuna é declarada e nunca preenchida por chute.",
+    "O contrato de leitura do Tese AI: nenhuma ordem de compra ou de venda, todo número com fonte e data, lacuna declarada — e elos causais com fonte nas duas pontas. A postura da regulação CVM tratada como honra, não como letra miúda.",
+  openGraph: {
+    title: "Sobre — Tese AI",
+    description:
+      "Quatro cláusulas auditáveis: sem ordem de compra ou de venda, todo número com fonte e data, lacuna declarada, elo causal com fonte nas duas pontas.",
+  },
 };
 
 type Clausula = {
   numero: string;
   titulo: string;
-  texto: string;
+  texto: ReactNode;
 };
 
 // Enxerto NORMA #3 (unânime): os princípios inegociáveis do produto, não
 // slogans — cada um corresponde a uma regra aplicada no motor (AGENTS.md /
-// ARQUITETURA.md).
+// ARQUITETURA.md). Reescrita APOTEOSE: mesmo contrato, mais contexto — a
+// cláusula diz o que o motor faz E por que isso protege quem lê.
 const CLAUSULAS: Clausula[] = [
   {
     numero: "01",
-    titulo: "Não recomendamos compra nem venda.",
-    texto:
-      "O Tese AI estrutura o raciocínio de investimento; não emite “compre”, “venda” ou preço-alvo. A decisão é sempre do leitor — postura alinhada à regulação da CVM.",
+    titulo: "Não emitimos ordem de compra nem de venda.",
+    texto: (
+      <>
+        A plataforma estrutura a tese — síntese,{" "}
+        <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip>, riscos e
+        elos — e para ali, deliberadamente. Nenhuma frase diz o que fazer com o ativo:
+        sem ordem de compra ou de venda, sem “alvo” de preço, sem timing. A decisão é
+        sempre do leitor. Tratamos a postura que a regulação da CVM espera de uma
+        ferramenta de estruturação como honra da casa, não como letra miúda — é o que
+        separa análise organizada de recomendação disfarçada.
+      </>
+    ),
   },
   {
     numero: "02",
     titulo: "Todo número com fonte e data.",
-    texto:
-      "Cada afirmação factual sai ancorada em citações verificáveis (Anthropic Citations), com link e data da fonte pública de origem. Sem citação, a afirmação não entra como fato.",
+    texto: (
+      <>
+        Cada afirmação factual sai ancorada em citação verificável (
+        <TermoTooltip {...tooltipDe("citations")}>Anthropic Citations</TermoTooltip>
+        ): link, hospedeiro e o trecho exato do documento público de origem, com a data.
+        Sem citação, a afirmação não entra como fato — ou vira interpretação rotulada,
+        ou sai do texto. Qualquer leitor pode refazer o caminho de qualquer número até a
+        fonte.
+      </>
+    ),
   },
   {
     numero: "03",
     titulo: "Lacuna declarada, nunca preenchida.",
-    texto:
-      "Quando o dado público não existe ou não foi encontrado, a tese registra “dado não encontrado” e segue adiante. Abster é mais honesto do que estimar — uma lacuna nunca vira número inventado.",
+    texto: (
+      <>
+        Quando o dado público não existe, não foi publicado ou não foi encontrado, a
+        tese registra “dado não encontrado” no lugar exato onde o número estaria — e
+        segue. Abster é mais honesto do que estimar: a lacuna visível preserva a
+        auditoria; um número inventado contaminaria a tese inteira.
+      </>
+    ),
   },
   {
     numero: "04",
     titulo: "O diferencial: elos causais narrados, com fonte nas duas pontas.",
-    texto:
-      "A camada que liga evento, commodity, setor e empresa é interpretação — marcada como tal, em cenários condicionais — mas nunca solta: cada ponta do elo carrega sua própria fonte e data.",
+    texto: (
+      <>
+        A camada que liga evento, commodity, setor e empresa é interpretação — e é
+        apresentada como tal, em cenários condicionais, nunca como fato. A disciplina:
+        cada ponta do <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>{" "}
+        carrega sua própria fonte e data. É o diferencial do motor — e, por isso mesmo,
+        a parte mais vigiada dele.
+      </>
+    ),
   },
 ];
 
@@ -88,8 +130,17 @@ export default function Sobre() {
                 id="sobre-titulo"
                 className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink"
               >
-                Quatro cláusulas que valem mais do que qualquer slogan.
+                Quatro cláusulas. Nenhuma promessa que não se possa auditar.
               </h1>
+            </Reveal>
+            <Reveal className="i-3">
+              <p className="max-w-2xl text-body leading-relaxed text-ink-2">
+                O Tese AI faz uma coisa: estrutura o raciocínio de investimento com
+                evidência verificável. O que a plataforma afirma, ela mostra de onde
+                veio; o que não consegue sustentar, declara que falta. Esta página é o
+                contrato de leitura — e ele vale para toda tese que sai do motor, sem
+                exceção.
+              </p>
             </Reveal>
           </div>
         </section>
@@ -158,8 +209,9 @@ export default function Sobre() {
                 ))}
               </ol>
               <p className="font-mono text-meta text-ink-3">
-                O quadro completo vale para as ações da B3; FIIs e títulos do Tesouro Direto usam
-                um subconjunto próprio de dimensões, cada uma com sua fonte.
+                O quadro completo vale para as ações da B3; FIIs e títulos do Tesouro
+                Direto usam um subconjunto próprio de dimensões, cada uma com sua fonte —
+                a régua impressa em cada tese mostra exatamente quais entraram.
               </p>
             </div>
 
@@ -172,9 +224,34 @@ export default function Sobre() {
                   <li key={fonte}>{fonte}</li>
                 ))}
               </ul>
+              <p className="font-mono text-meta text-ink-3">
+                Todas abertas: qualquer citação de qualquer tese pode ser conferida na
+                origem, sem cadastro e sem intermediário.
+              </p>
             </div>
           </aside>
         </div>
+
+        {/* Fecho — o contrato aplicado, não prometido. */}
+        <section aria-labelledby="fecho-titulo" className="border-t border-line">
+          <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
+            <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
+              <p className="flex-1 text-ui text-ink-2">
+                <span id="fecho-titulo" className="font-semibold text-ink">
+                  O contrato acima não é aspiração
+                </span>{" "}
+                — é o que está impresso em cada tese da galeria, hoje. Abra uma com olho
+                de auditor: siga um número qualquer até a fonte.
+              </p>
+              <LinkCinema
+                href="/teses"
+                className="sublinhado-brasa w-fit font-sans text-ui font-semibold text-brasa-texto"
+              >
+                Ver as teses prontas →
+              </LinkCinema>
+            </div>
+          </div>
+        </section>
       </main>
       <Footer
         saudeSlot={
