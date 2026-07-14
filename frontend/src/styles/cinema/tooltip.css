@@ -5,6 +5,13 @@
  * hoverable/persistent). COPY (critério 11) só entra no CONTEÚDO consumido
  * pelo componente (`lib/glossario.ts`: termo/definição/slug) — NUNCA na
  * lógica ou no CSS deste arquivo.
+ *
+ * Emenda HORIZONTE (Onda 0 de fundação, 2026-07-14, DONA segue Onda 0):
+ * D34 — clamp único de largura (`.tt-popup` abaixo) e E13 — colisão
+ * HORIZONTAL (a var `--tt-dx` consumida em `left`, abaixo): a bolha do
+ * Salão que "espia pela borda" abre um popup que o clamp sozinho não
+ * mantém 100% visível (o clamp limita LARGURA, não POSIÇÃO). Ver
+ * DESIGN-TOKENS.md "Emenda HORIZONTE 2026-07-14".
  * ============================================================
  * CONTRATO:
  *   .tt-wrapper — <span> `position:relative` (containing block do popup
@@ -21,12 +28,23 @@
  *       adiciona classe Tailwind de transform/position aqui. Entrada: fade
  *       curto + 4px de assentamento, `--dur-tick`/`ease-ink` (feedback de
  *       UI, não reveal de conteúdo — por isso NÃO usa `--ease-settle`,
- *       exclusivo do Pin de Citação).
+ *       exclusivo do Pin de Citação). `max-inline-size` (D34, HORIZONTE):
+ *       clampa a largura em TODOS os palcos novos, inclusive full-bleed —
+ *       mapeia para a mesma propriedade física de `max-width`, então
+ *       prevalece sobre o `max-w-[...]` arbitrário do componente por ordem
+ *       de cascata (esta folha é importada depois de `@import
+ *       "tailwindcss"`), sem precisar de `!important`.
  *   .tt-abaixo  — modificador alternado PELO COMPONENTE via `classList`,
  *       UMA vez por abertura, medindo `getBoundingClientRect()` do gatilho
  *       — ZERO `style` inline (CSP; regra da casa). Quando o gatilho está
  *       perto do teto do viewport, o popup abre para BAIXO em vez de para
  *       cima.
+ *   --tt-dx     — (E13, HORIZONTE) correção horizontal em px, escrita SÓ
+ *       via `popup.style.setProperty("--tt-dx", ...)` (CSSOM — zero style
+ *       inline JSX) pelo componente, uma vez por abertura, contra as
+ *       bordas do viewport. Consumida em `left` (não no `transform` das
+ *       keyframes de entrada, que seguem intocadas): o ANCORAMENTO
+ *       horizontal desloca, a centralização relativa a ele continua igual.
  * ============================================================ */
 
 .tt-wrapper {
@@ -37,9 +55,10 @@
 .tt-popup {
   position: absolute;
   bottom: calc(100% + 8px);
-  left: 50%;
+  left: calc(50% + var(--tt-dx, 0px));
   z-index: 40; /* < Tarja z-50 (contrato de pilha do recon csp-seguranca) */
   width: max-content;
+  max-inline-size: min(20rem, calc(100vw - 2 * var(--sangria))); /* D34 */
   animation: tt-entra-cima var(--dur-tick) var(--ease-ink) both;
 }
 .tt-popup.tt-abaixo {

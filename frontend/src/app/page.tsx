@@ -12,6 +12,7 @@ import { FioDaFonte } from "@/components/motion/FioDaFonte";
 import { FocoLuz } from "@/components/motion/FocoLuz";
 import { Reveal } from "@/components/motion/Reveal";
 import { IlhaMagnetica } from "@/components/motion/useMagnetico";
+import { MedidaCromo } from "@/components/motion/MedidaCromo";
 import { OrganismoH1 } from "@/components/motion/useOrganismoH1";
 import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
@@ -125,9 +126,16 @@ export default function Home() {
               cinema/luz.css; SÓ aqui em todo o produto, removido no unmount.
             - IlhaMagnetica (R2/R5): delegação em document que liga a física
               de cursor nos .magnetico da landing (CTAs do hero/faixa final,
-              setas/dots do filmstrip); gsap só desce no 1º pointerenter. */}
+              setas/dots do filmstrip); gsap só desce no 1º pointerenter.
+            - MedidaCromo (HORIZONTE E4c): backstop dos contratos de altura —
+              mede Tarja/Header (ResizeObserver + fonts.ready) e corrige
+              --altura-tarja/--altura-header por CSSOM quando zoom de texto
+              200%/text-spacing refluem o chrome. As vars estáticas do
+              globals.css seguem donas do first-paint (CLS zero); só a landing
+              consome as vars, então só ela paga esta ilha. */}
         <AmbienteLanding />
         <IlhaMagnetica />
+        <MedidaCromo />
 
         {/* Hero — P2 (CORRECOES-RODADA-1.md): acima da dobra, então SEM Reveal
             e SEM CenaScrub (hero é LCP; nada aqui nasce opacity:0 nem depende

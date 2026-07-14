@@ -1,0 +1,222 @@
+/* ============================================================
+ * cinema/bancada.css — IMPLEMENTAÇÃO COMPLETA · DONA ÚNICA: Onda 0
+ * (FUNDAÇÃO, missão "FRONTEND HORIZONTE", 2026-07-14). Ninguém mais edita
+ * esta folha (D7/§4 do plano). LEI: .maestro/plano-horizonte.md (§0 vetos,
+ * §5 emendas E1-E30 PREVALECEM) + .maestro/direcao-horizonte.md (D3/D6/D9-
+ * E1/D10, §2 e §12).
+ * ============================================================
+ * CONTEÚDO desta folha (D7 — "grid/fios/capa"):
+ *   1. A BANCADA — sistema full-bleed oficial (D3): grid de colunas
+ *      nomeadas, medida <=68ch DEFAULT, palco opt-in.
+ *   2. `.fio-travessa` — assinatura de abertura de seção (D6).
+ *   3. Vocabulário da CAPA (D10): orelhas, cartola, linha-fina em 2
+ *      colunas com fio de goteira, vinco da dobra, fio de prumo scrubbed.
+ *
+ * `--sangria`/`--medida`/`--palco-max` são tokens GLOBAIS declarados em
+ * `globals.css` (:root) — decisão desta Onda 0: o bloco ilustrativo da
+ * direção (§2) os declara localmente dentro de `.bancada`, mas
+ * `cinema/tooltip.css` (D34) também consome `var(--sangria)` fora de
+ * qualquer ancestral `.bancada` garantido; centralizar evita depender de
+ * herança por posição no DOM. Esta folha só CONSOME os três.
+ *
+ * E1 (red-team) — **NÃO existe `.dobra-capa`**: a altura de 100svh da capa
+ * vive numa regra do PRÓPRIO `#hero` (`min-block-size: calc(100svh -
+ * var(--altura-tarja) - var(--altura-header))`), escrita por
+ * `cinema/hero.css` (dona: Onda 1D — CAPA). Esta folha só declara o
+ * VOCABULÁRIO estático da capa (tipografia/geometria); o markup e a regra
+ * de altura do `#hero` não são desta folha.
+ *
+ * E3 (red-team) — `vw` PROIBIDO em largura de palco: `100vw` inclui a
+ * barra de rolagem clássica do Windows (~15px) — overflow-x global
+ * permanente. Todo full-bleed nesta folha usa `inline-size`/colunas do
+ * grid, nunca `vw`. Vale para TODA a missão (não só o Salão).
+ *
+ * Trava C2 herdada: nenhum wrapper desta grade recebe transform/filter/
+ * will-change/contain (auditado por grep na Onda 4). `order` CSS proibido
+ * em conteúdo — a grade só POSICIONA, ordem do DOM = ordem de leitura.
+ * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 1. A BANCADA — sistema full-bleed oficial (D3)
+ * ------------------------------------------------------------
+ * `.bancada > * { grid-column: medida }` é o DEFAULT: torna impossível
+ * esticar prosa por acidente (o grid de 12 colunas alternativo foi
+ * rejeitado pelo conselho — D3). Opt-ins de largura: `.b-palco` (teto
+ * editorial ~96rem), `.b-sangria` (borda a borda), `.b-vazante-esq/-dir`
+ * (assimetria — ocupa metade do palco + a medida inteira de um lado) e
+ * `.b-medida-esq/-dir` (a medida ancorada numa borda do palco, sem sangrar
+ * até a beirada física). Aninhável: um `.bancada` dentro de um `.b-sangria`
+ * recria as colunas dentro de um palco (ex.: veludo da vitrine) — zero CSS
+ * extra, é a mecânica normal de grid aninhado. RTL-safe (grid-column por
+ * nome de linha, não por índice físico); CLS-safe (first-paint puro, zero
+ * medição JS).
+ * ------------------------------------------------------------ */
+.bancada {
+  display: grid;
+  grid-template-columns:
+    [sangria-inicio] minmax(var(--sangria), 1fr)
+    [palco-inicio] minmax(0, calc((var(--palco-max) - var(--medida)) / 2))
+    [medida-inicio] min(100% - 2 * var(--sangria), var(--medida))
+    [medida-fim] minmax(0, calc((var(--palco-max) - var(--medida)) / 2))
+    [palco-fim] minmax(var(--sangria), 1fr)
+    [sangria-fim];
+}
+.bancada > * {
+  grid-column: medida; /* DEFAULT — prosa nunca esticada por acidente */
+}
+.b-palco {
+  grid-column: palco;
+}
+.b-sangria {
+  grid-column: sangria; /* full-bleed borda a borda (E3: nunca via vw) */
+}
+.b-vazante-dir {
+  grid-column: medida-inicio / sangria-fim;
+}
+.b-vazante-esq {
+  grid-column: sangria-inicio / medida-fim;
+}
+.b-medida-esq {
+  grid-column: palco-inicio / medida-fim;
+}
+.b-medida-dir {
+  grid-column: medida-inicio / palco-fim;
+}
+
+/* Variantes de medida (D3): títulos/cenas ganham palco largo;
+   fichas/listas densas ganham medida um pouco mais generosa que a prosa
+   padrão. Prosa (`.bancada` sem variante) NUNCA sai de <=68ch. */
+.bancada--display {
+  --medida: 88rem;
+}
+.bancada--densa {
+  --medida: 76ch;
+}
+
+/* ------------------------------------------------------------
+ * 2. `.fio-travessa` — assinatura de abertura de seção (D6)
+ * ------------------------------------------------------------
+ * Hairline full-bleed (sangria a sangria) que abre cada capítulo da
+ * landing/rota. Geometria estática aqui; a ENTRADA ("clac" de régua) é a
+ * classe `.reveal-regua` já existente em `globals.css` (scaleX 0->1,
+ * `--dur-press`/`ease-rule`, IntersectionObserver via `useReveal`) — zero
+ * mecanismo de animação novo, a página aplica as duas classes juntas
+ * (`className="fio-travessa reveal-regua"`) num `<hr>`/`<div>` aria-hidden.
+ * Ritmo de capítulos da landing (D6, documentação — não é CSS):
+ * papel-claro (capa) -> papel (prova) -> papel (nascimento) -> veludo
+ * (vitrine) -> veludo escurecendo (salão) -> papel (contrato).
+ * ------------------------------------------------------------ */
+.fio-travessa {
+  grid-column: sangria;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+/* ------------------------------------------------------------
+ * 3. VOCABULÁRIO DA CAPA (D10) — orelhas, cartola, linha-fina em 2
+ *    colunas, vinco da dobra, fio de prumo. Markup fica para o integrador
+ *    (Onda 2, `page.tsx`) — esta folha só declara a tipografia/geometria.
+ * ------------------------------------------------------------ */
+
+/* Orelhas: mono, caixa alta discreta. Posicionamento nas bordas físicas é
+   `.b-vazante-esq`/`.b-vazante-dir` (já declaradas acima) — a orelha
+   esquerda carrega o verbatim CVM (D11), a direita "EDIÇÃO DE {data} ·
+   fontes: ...". Zero jargão/tooltip aqui (D12 — hero é jargão-zero). */
+.capa-orelha {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.06em;
+  color: var(--ink-tertiary);
+}
+
+/* Cartola: rótulo de seção acima da manchete (Archivo caps condensada). */
+.capa-cartola {
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  font-stretch: 72%;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* Linha-fina em DUAS colunas (D10): <=34ch cada, com "fio de goteira"
+   (hairline vertical) entre elas. Mobile: coluna única <=34ch (o container
+   já nasce de largura limitada; o grid de 2 colunas só liga a partir de
+   640px). O fio é um pseudo-elemento decorativo (fora da árvore de a11y
+   por definição) — nunca um wrapper com transform (trava C2: nenhum
+   ancestral aqui recebe transform/filter). */
+.capa-linha-fina {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 34ch;
+}
+@media (min-width: 640px) {
+  .capa-linha-fina {
+    position: relative;
+    grid-template-columns: repeat(2, minmax(0, 34ch));
+    column-gap: 1.5rem;
+    max-width: none;
+  }
+  .capa-linha-fina::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--line-strong);
+    transform: translateX(-50%);
+  }
+}
+
+/* Vinco da dobra: rótulo mono centralizado sobre o `.fio-travessa` que
+   marca o limite de 100svh ("continua abaixo da dobra ↓"). Decorativo —
+   a página aplica `aria-hidden` no markup (fora do escopo desta folha). */
+.capa-vinco {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.08em;
+  color: var(--ink-tertiary);
+}
+
+/* Fio de prumo: hairline 1px vertical em ouro (`--fio-lapidario`) que "se
+   desenha" com o scroll e mergulha na seção seguinte. Mesmo PADRÃO de
+   `marca-fio-recolhe` (cinema/marca.css: scroll(root block), duration 1ms
+   irrelevante — o progresso vem da timeline, não do tempo), keyframe
+   próprio desta folha (marca.css segue com o seu, ninguém compartilha
+   keyframe entre folhas de donos diferentes). `@supports` com fallback
+   estático (fio em repouso, scaleY(0) — nunca invisível/quebrado: o
+   fallback SEM o recurso mostra o traço parado no início, digno).
+   REDUCED-MOTION: este efeito é "progress" (isento) — mesma doutrina de
+   `.regua-leitura`/`aurora-drift` em globals.css (o progresso reflete o
+   scroll que o leitor decidiu fazer, não é movimento autônomo); por isso
+   NÃO entra no bloco `@media (prefers-reduced-motion: reduce)` — registro
+   nominal por comentário, como o precedente. */
+.fio-de-prumo {
+  width: 1px;
+  background: var(--fio-lapidario);
+  transform: scaleY(0);
+  transform-origin: top;
+}
+@supports (animation-timeline: scroll(root block)) and (animation-range: 0 120svh) {
+  .fio-de-prumo {
+    animation-name: capa-fio-prumo;
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 120svh;
+  }
+}
+@keyframes capa-fio-prumo {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}

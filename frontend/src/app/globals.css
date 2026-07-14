@@ -34,6 +34,23 @@
 @import "../styles/cinema/ticker-luz.css";
 @import "../styles/cinema/tooltip.css";
 @import "../styles/cinema/glossario.css";
+/* ---------- Folhas da missão "FRONTEND HORIZONTE" (2026-07-14, Onda 0 —
+   Fundação). Ordem MANDATÓRIA (plano-horizonte.md §4/D7,
+   direcao-horizonte.md §12): depois de TODAS as folhas Apoteose acima,
+   ANTES de `tese-apoteose.css` (que segue por último — ver comentário
+   original acima, ainda válido: a supressão do véu de chegada do morph
+   precisa vencer a cascata). `bancada.css` é conteúdo COMPLETO desta Onda 0
+   (grid/fios/capa); `gema.css`/`vitrine.css`/`salao.css`/`lapidacao.css` são
+   ESQUELETOS vazios (só cabeçalho com a dona) nesta Onda — cada raia da
+   Onda 1 preenche a sua própria folha (posse disjunta; ninguém edita a
+   folha alheia). NÃO removidos ainda: `filmstrip.css`/`constelacao.css`
+   (import acima) — o swap para `salao.css` é da Onda 2 (D25/E3), não desta
+   fundação. Ninguém edita este bloco de @import além da Onda 0/2. */
+@import "../styles/cinema/bancada.css";
+@import "../styles/cinema/gema.css";
+@import "../styles/cinema/vitrine.css";
+@import "../styles/cinema/salao.css";
+@import "../styles/cinema/lapidacao.css";
 @import "../styles/cinema/tese-apoteose.css";
 
 /*
@@ -263,6 +280,124 @@
     7.09:1 em 0.08 até 6.31:1 em 0.15 — folga grande, teto conservador.
     Cláusula de recuo: falhou AA -> contorno também vira borda sólida no
     claro (sem glow), igualando ao tratamento do escuro. */
+
+  /* ---------- Missão "FRONTEND HORIZONTE" (2026-07-14, Onda 0 —
+     Fundação). Lastro/tetos/recuo binário completos em DESIGN-TOKENS.md
+     ("Emenda HORIZONTE 2026-07-14"); LEI da missão em
+     .maestro/plano-horizonte.md (§5 emendas E1-E30 PREVALECEM) e
+     .maestro/direcao-horizonte.md §12. Consumidores: cinema/bancada.css
+     (Onda 0), cinema/gema.css|vitrine.css|salao.css|lapidacao.css (Onda 1,
+     esqueletos nesta Onda). ---------- */
+
+  /* Contrato de altura — DUAS constantes (E1 do red-team substitui o
+     `.dobra-capa` único de D9: um wrapper único puxaria <header> para
+     dentro de <main>, perdendo o role banner). Declaradas SEM alterar
+     nenhuma propriedade computada da Tarja/Header — só DOCUMENTAM a altura
+     que cada componente já tem.
+
+     CALIBRAÇÃO E4 (gate da Onda 0 REPROVOU a 1ª estimativa: 202/202
+     medições divergiram): os degraus abaixo são os PLATÔS REAIS medidos por
+     varredura 320->1920px passo 16px (evidencias/onda0/gate_e4_resultado.json),
+     não os breakpoints do Tailwind. A Tarja quebra de linha em ~400px e de
+     novo em ~880px; o Header tem um platô anômalo de ~138px entre 768-943px
+     (a nav envolve em 2 linhas — comportamento PRÉ-EXISTENTE do chrome, que
+     é intocado nesta missão: a var apenas o documenta).
+     Erro residual <=0,5px em todas as larguras, com zoom/text-spacing
+     padrão -> first-paint EXATO, CLS zero.
+     Zoom de texto 200% e text-spacing (1.4.4/1.4.12) mudam os platôs de
+     forma não-linear (o texto reflui): quem corrige é o escritor CSSOM
+     único de MedidaCromo.tsx (E4c) — ResizeObserver + fonts.ready, passivo,
+     rAF-coalescido. A var estática é o DEFAULT de first-paint; o escritor é
+     o backstop de correção. Consumidores são TOLERANTES (min-*, nunca
+     height exata). */
+  --altura-tarja: 6.0625rem; /* <400px (2 linhas + rótulo) — real 96,97px */
+  --altura-header: 5.875rem; /* <768px (nav mobile, summary min-h-11) — real 94px */
+
+  /* Sistema full-bleed "A Bancada" (crit.1, D3) — colunas nomeadas
+     consumidas por cinema/bancada.css. Centralizados aqui (não redeclarados
+     localmente em `.bancada`) porque `--sangria` também alimenta o clamp de
+     tooltip.css (D34) fora de qualquer ancestral `.bancada` garantido. */
+  --sangria: 1rem; /* >=640px: 1.5rem via @media abaixo */
+  --medida: 68ch; /* prosa — lei tipográfica (D3), nunca ultrapassada por default */
+  --palco-max: 96rem; /* teto do palco editorial (~1536px) */
+
+  /* Veludo — S5: a ameixa promovida a superfície OPACA de palco (vitrine +
+     salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
+     binário registrado: se o dono vetar no wow-gate, re-skin sobre
+     --bg-page com vinheta fria (nenhuma onda acopla lógica a este valor). */
+  --veludo-fundo: #241e2b;
+  --veludo-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --veludo-fundo */
+  --veludo-tinta-2: #beb3c6; /* metadados/legendas/controles sobre veludo —
+    >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 4) */
+  --veludo-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
+    veludo (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
+  --veludo-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
+
+  /* Gema-chip (crit.3, D14/S4/M3-b) — bisel 1px + sombra dupla (claro) /
+     keyline (escuro, S2). Arestas (--gema-aresta/--gema-quilha) ficam FORA
+     do campo interno de texto aferido por M3-b (provadas como decorativas). */
+  --gema-aresta: var(--valor-brilho); /* alias — aresta de luz (topo/esquerda) */
+  --gema-quilha: rgb(90 49 83 / 0.28); /* aresta de sombra (baixo/direita); teto <=0.30 */
+  --gema-elevacao: 0 2px 6px rgb(42 54 84 / 0.16), 0 14px 32px rgb(42 54 84 / 0.1); /* dark: none (elevação=borda, S2) */
+
+  /* Fio lapidário + faísca (crit.5, D29/S4) — aliases semânticos; reusado
+     também pelo `.fio-de-prumo` da capa (cinema/bancada.css, mesmo motivo
+     estético do "traço do joalheiro"). */
+  --fio-lapidario: var(--accent-valor);
+  --fio-faisca: var(--valor-brilho);
+
+  /* Bolha-bancada (crit.5, D27/S4) — teto de PARTIDA; 0.12 só com prova por
+     pixel dedicada (arbitragem §11.7 da direção). Recuo binário -> keyline
+     sem specular, nunca iterar às cegas. */
+  --bolha-specular-alfa: 0.1;
+
+  /* Deriva da vitrine (crit.4, D21/E7) — lida 1x por getComputedStyle pelo
+     hook useVitrineDeriva.ts; teto <=16px/s. Mobile (<640px): 8, via @media
+     logo abaixo. Reduce: nem monta (nenhum valor consumido). */
+  --deriva-vel: 12;
+}
+
+/* ---------- Contratos estruturais responsivos (HORIZONTE, Onda 0) ----------
+   --altura-tarja/--altura-header/--sangria/--deriva-vel não dependem de tema
+   (claro/escuro idênticos) — só de viewport. Mobile-first: o :root acima já
+   cobre o rung mais estreito; os media queries abaixo sobrepõem os rungs
+   mais largos, na ordem crescente.
+
+   Os breakpoints de ALTURA (400/768/880/944) são os pontos REAIS de wrap
+   medidos no gate E4 — deliberadamente diferentes dos breakpoints do
+   Tailwind (640/768/1024), que é justamente onde a 1ª estimativa reprovou.
+   --sangria segue o breakpoint de design (640). */
+@media (min-width: 400px) {
+  :root {
+    --altura-tarja: 4.8438rem; /* 400-767px — real 77,38px */
+  }
+}
+@media (min-width: 640px) {
+  :root {
+    --sangria: 1.5rem;
+  }
+}
+@media (min-width: 768px) {
+  :root {
+    --altura-tarja: 3.625rem; /* 768-879px — real 57,78px */
+    --altura-header: 8.625rem; /* 768-943px — real 137,59px: a nav envolve em
+      2 linhas nesta faixa (comportamento pré-existente do chrome intocado) */
+  }
+}
+@media (min-width: 880px) {
+  :root {
+    --altura-tarja: 2.375rem; /* >=880px — real 37,59px (linha única) */
+  }
+}
+@media (min-width: 944px) {
+  :root {
+    --altura-header: 5.875rem; /* >=944px — real 94px (nav em linha única) */
+  }
+}
+@media (max-width: 639px) {
+  :root {
+    --deriva-vel: 8;
+  }
 }
 
 /* ---------- TEMA ESCURO — "Fechamento de mercado" ----------
@@ -346,6 +481,16 @@
       4.96:1 (ink-tertiary sobre bg-elevated escuro) — a reprovação real só
       começa entre 0.12–0.14 (bisecção em DESIGN-TOKENS.md): folga
       confortável dentro do teto. */
+
+    /* HORIZONTE (Onda 0) — únicos tokens novos desta missão que trocam de
+       valor por tema (os demais são geometria fixa ou aliases que já
+       trocam sozinhos via --valor-brilho/--accent-valor acima). */
+    --veludo-fundo: #16121c;
+    --veludo-tinta: #e9e5df;
+    --veludo-tinta-2: #b3a9bc;
+    --veludo-vinheta-alfa: 0.45;
+    --gema-quilha: rgb(0 0 0 / 0.45);
+    --gema-elevacao: none; /* dark: elevação = borda/keyline (S2), nunca sombra */
   }
 }
 
@@ -465,6 +610,13 @@
   --text-hero: clamp(4rem, 8vw, 5.5rem); /* Newsreader opsz alto */
   --text-hero--line-height: 0.98;
   --text-hero--letter-spacing: -0.015em;
+  /* HORIZONTE (crit.2, D10/E11) — manchete de capa. Teto svh (13svh) evita
+     o estouro em 1366x768 do gate de fold (E2E obrigatório); recuo LCP
+     8rem->7rem só se esse gate reprovar. Consumida por hero.css (Onda 1D)
+     via utilitário `text-capa`; mobile usa clamp próprio ali. */
+  --text-capa: min(clamp(3rem, 9.5vw, 8rem), 13svh);
+  --text-capa--line-height: 0.94;
+  --text-capa--letter-spacing: -0.02em;
 }
 
 /* ---------- Base ---------- */

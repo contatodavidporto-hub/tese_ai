@@ -1,0 +1,12 @@
+/* ============================================================
+ * cinema/gema.css — ESQUELETO (Onda 0, missão "FRONTEND HORIZONTE",
+ * 2026-07-14). Arquivo vazio de propósito: existe só para o @import de
+ * `globals.css` não quebrar o build antes da Onda 1 preencher.
+ *
+ * DONA: raia 1A GEMA+CENA (Onda 1). Preenche com: `.gema-chip` (bisel D14 —
+ * `--gema-aresta`/`--gema-quilha`/`--gema-elevacao`, campo `bg-realce`
+ * intocado M3-b, lift 2px em filho `.gema-chip__corpo`), `.placa-gravada`
+ * (numeral baixo-relevo, C6) e `.exemplo-vivo` (espaço reservado + reveal
+ * opacity, D35) — ver plano-horizonte.md §3 (C3/C6) e
+ * direcao-horizonte.md §5b/§8.
+ * ============================================================ */
