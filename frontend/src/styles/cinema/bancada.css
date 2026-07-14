@@ -61,14 +61,23 @@
     [palco-fim] minmax(var(--sangria), 1fr)
     [sangria-fim];
 }
+/* ATENÇÃO — RANGE EXPLÍCITO OBRIGATÓRIO (bug achado e provado na Onda 1D):
+   `grid-column: medida` (forma curta de UM nome) NÃO resolve para o par de
+   linhas `[medida-inicio] … [medida-fim]`. O atalho de um nome só vira range
+   quando as linhas terminam literalmente em `-start`/`-end` (é a regra do
+   spec de Grid, que gera esses nomes a partir de uma grid-area). Como as
+   linhas da casa são em português (`-inicio`/`-fim`), a forma curta cai em
+   AUTO-PLACEMENT e o item era espremido numa faixa de ~141px na borda —
+   isto é: o sistema full-bleed inteiro (a correção-mãe do dono) não
+   funcionava. Sempre `X-inicio / X-fim`. */
 .bancada > * {
-  grid-column: medida; /* DEFAULT — prosa nunca esticada por acidente */
+  grid-column: medida-inicio / medida-fim; /* DEFAULT — prosa nunca esticada por acidente */
 }
 .b-palco {
-  grid-column: palco;
+  grid-column: palco-inicio / palco-fim;
 }
 .b-sangria {
-  grid-column: sangria; /* full-bleed borda a borda (E3: nunca via vw) */
+  grid-column: sangria-inicio / sangria-fim; /* full-bleed borda a borda (E3: nunca via vw) */
 }
 .b-vazante-dir {
   grid-column: medida-inicio / sangria-fim;
@@ -107,7 +116,7 @@
  * (vitrine) -> veludo escurecendo (salão) -> papel (contrato).
  * ------------------------------------------------------------ */
 .fio-travessa {
-  grid-column: sangria;
+  grid-column: sangria-inicio / sangria-fim; /* range explícito — ver §1 */
   height: 1px;
   background: var(--line-strong);
 }

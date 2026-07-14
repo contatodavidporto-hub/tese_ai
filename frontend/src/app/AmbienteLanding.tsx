@@ -13,11 +13,19 @@
 
 import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
 
-// IDs canônicos do contrato cinema/luz.css (Onda 1A): as 5 seções da
-// landing levam id hero/prova/galeria/dimensoes/postura (page.tsx).
+// IDs canônicos do contrato cinema/luz.css: as seções da landing levam id
+// hero/prova/nascimento/galeria/dimensoes/postura (page.tsx).
+//
+// E25 (missão FRONTEND HORIZONTE, Onda 2 — integração): "nascimento" entrou
+// nesta lista. A raia 1A escreveu a regra `body[data-secao="nascimento"]` em
+// cinema/luz.css (capítulo "papel" entre #prova e #galeria, ritmo D6), mas a
+// lista de ids observados vive AQUI — sem esta linha a regra seria dead code
+// e a seção nova herdaria o ambiente da anterior (a aurora ficaria no alfa de
+// #prova durante os 240svh da cena). Ordem = ordem de leitura do DOM.
 const SECOES_LANDING = [
   "hero",
   "prova",
+  "nascimento",
   "galeria",
   "dimensoes",
   "postura",

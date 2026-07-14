@@ -13,7 +13,6 @@
 @import "../styles/cinema/luz.css";
 @import "../styles/cinema/secoes.css";
 @import "../styles/cinema/graficos.css";
-@import "../styles/cinema/filmstrip.css";
 @import "../styles/cinema/rotas.css";
 @import "../styles/cinema/magnetico.css";
 @import "../styles/cinema/banca.css";
@@ -30,7 +29,6 @@
 @import "../styles/cinema/marca.css";
 @import "../styles/cinema/palco.css";
 @import "../styles/cinema/virada.css";
-@import "../styles/cinema/constelacao.css";
 @import "../styles/cinema/ticker-luz.css";
 @import "../styles/cinema/tooltip.css";
 @import "../styles/cinema/glossario.css";
@@ -43,9 +41,13 @@
    (grid/fios/capa); `gema.css`/`vitrine.css`/`salao.css`/`lapidacao.css` são
    ESQUELETOS vazios (só cabeçalho com a dona) nesta Onda — cada raia da
    Onda 1 preenche a sua própria folha (posse disjunta; ninguém edita a
-   folha alheia). NÃO removidos ainda: `filmstrip.css`/`constelacao.css`
-   (import acima) — o swap para `salao.css` é da Onda 2 (D25/E3), não desta
-   fundação. Ninguém edita este bloco de @import além da Onda 0/2. */
+   folha alheia). Ninguém edita este bloco de @import além da Onda 0/2.
+   ONDA 2 (integração, 2026-07-14): `filmstrip.css` e `constelacao.css` foram
+   REMOVIDAS (demolição D25 — o Salão as substitui; `FilmstripDimensoes.tsx`
+   deletado no mesmo commit). A única regra daquelas folhas que NÃO era do
+   filmstrip — `html.rolagem-pinada` (R4) — foi resgatada para o corpo deste
+   arquivo, ao lado do `html { scroll-behavior: smooth }` que ela nega (o
+   `SalaoDimensoes.tsx` continua alternando a classe durante o pin). */
 @import "../styles/cinema/bancada.css";
 @import "../styles/cinema/gema.css";
 @import "../styles/cinema/vitrine.css";
@@ -670,6 +672,20 @@ body {
 
 html {
   scroll-behavior: smooth;
+}
+
+/* R4 — trava do modo pinado (regra RESGATADA de cinema/filmstrip.css na
+   demolição D25, Onda 2 da missão HORIZONTE: a folha morreu, esta regra não
+   é dela). Inerte sem a classe; quem a alterna é o `SalaoDimensoes.tsx`,
+   dentro do gsap.matchMedia do travelling (e a RESTAURA no revert). Sem ela,
+   o `scroll-behavior: smooth` global interceptaria CADA escrita de scroll do
+   snap do ScrollTrigger e do ScrollToPlugin (teclado ←/→/Home/End, talhas,
+   focusin) — o salão brigaria com o próprio navegador. Especificidade
+   html.rolagem-pinada (0,1,1) > html (0,0,1). Sob reduce, o bloco
+   `prefers-reduced-motion` no fim deste arquivo já força `auto !important` em
+   tudo (e o modo pinado nem nasce). */
+html.rolagem-pinada {
+  scroll-behavior: auto;
 }
 
 /* Elevação (camada componente): sombra fria só no claro; no escuro, a

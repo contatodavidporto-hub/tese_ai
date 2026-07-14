@@ -1,12 +1,205 @@
 /* ============================================================
- * cinema/vitrine.css — ESQUELETO (Onda 0, missão "FRONTEND HORIZONTE",
- * 2026-07-14). Arquivo vazio de propósito: existe só para o @import de
- * `globals.css` não quebrar o build antes da Onda 1 preencher.
+ * cinema/vitrine.css — IMPLEMENTAÇÃO (raia 1B VITRINE, missão FRONTEND
+ * HORIZONTE, 2026-07-14) · DONA: raia 1B (Onda 1). LEI:
+ * .maestro/plano-horizonte.md §3 (C4) + §5 (E5/E6/E7/E8/E15/E16/E17/E18/
+ * E21/E24) + .maestro/direcao-horizonte.md §6 (D19-D24) + §12 (tokens).
+ * ============================================================
+ * CONTEÚDO desta folha ("veludo/pedestais/deriva/controle", D7):
+ *   1. `.vitrine-veludo` — a faixa de veludo full-bleed (~72svh), vinheta
+ *      radial, keylines ouro-alfa no dark (D19).
+ *   2. `.veludo-escopo` — mecanismo REUSÁVEL (D20, corrigido por E5/E6):
+ *      aplique em QUALQUER superfície opaca de veludo — `.vitrine-veludo`
+ *      aqui; `.salao-fundo` no Salão (raia 1C) e o aside de método do
+ *      /sobre (raia 3D) REUSAM esta mesma classe, definida aqui uma vez.
+ *   3. Pedestais (`.vitrine-pedestal`, D19).
+ *   4. Estilos do controle da deriva (`.vitrine-controle`, D22/E16-E18).
  *
- * DONA: raia 1B VITRINE (Onda 1). Preenche com: `.vitrine-veludo` (faixa
- * ~72svh + vinheta + pedestais, D19), escopo-veludo (`.veludo-escopo`,
- * pares COMPLETOS de semânticos re-declarados — E5/E6), estilos do
- * controle da deriva (D22) e `--veludo-anel` só nos elementos cujo anel
- * desenha sobre o veludo (E15) — ver plano-horizonte.md §3 (C4) e
- * direcao-horizonte.md §6.
+ * CONSUMO (GaleriaBanca.tsx, page.tsx — integrador da Onda 2):
+ *   <section id="galeria" className="vitrine-veludo veludo-escopo b-sangria">
+ *     ...título/lede em --veludo-tinta, GaleriaBanca...
+ *   </section>
  * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 1. `.vitrine-veludo` — a faixa (D19)
+ * ------------------------------------------------------------
+ * `min-block-size` (nunca `height`): o conteúdo pode crescer além de 72svh
+ * sem clipar (D19 é um alvo visual, não um teto rígido). `isolation:isolate`
+ * cria stacking context próprio para a vinheta `::before` (z-index:-1)
+ * ficar contida, sem vazar para seções irmãs (mesmo raciocínio de
+ * `.tem-foco`/`.ticker-luz`, globals.css/ticker-luz.css). Full-bleed
+ * chega pela coluna `.b-sangria` da Bancada (cinema/bancada.css) aplicada
+ * no MESMO elemento pelo integrador — E3: nunca `vw` aqui.
+ * ------------------------------------------------------------ */
+.vitrine-veludo {
+  position: relative;
+  isolation: isolate;
+  background: var(--veludo-fundo);
+  min-block-size: 72svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+  padding-block: 2.5rem;
+}
+@media (max-width: 639px) {
+  .vitrine-veludo {
+    min-block-size: auto;
+    padding-block: 2rem;
+  }
+}
+
+/* Vinheta radial — anel nas bordas, centro LIMPO (nunca sob texto/cartão:
+   o conteúdo vive no centro vertical da faixa por construção do flex
+   acima). Decorativa, `pointer-events:none`, sem reduced-motion (estática,
+   não é movimento — isenta por definição, não por nome). */
+.vitrine-veludo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 45%,
+    rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
+  );
+}
+
+/* Dark: o veludo (#16121c) e a página escura (#101216) ficam próximos
+   demais em luminância para a faixa se anunciar sozinha — keylines
+   ouro-alfa delimitam borda a borda (D19). Isto reage ao TEMA DO SITE
+   (não é o mesmo mecanismo do escopo-veludo/E6, que reage à CLASSE); é
+   legítimo aqui porque é a fronteira faixa↔página, não um herdado interno. */
+@media (prefers-color-scheme: dark) {
+  .vitrine-veludo {
+    border-block: 1px solid color-mix(in srgb, var(--accent-valor) 35%, transparent);
+  }
+}
+
+/* ------------------------------------------------------------
+ * 2. ESCOPO-VELUDO (D20, corrigido por E5/E6) — MECANISMO REUSÁVEL
+ * ------------------------------------------------------------
+ * Aplique `.veludo-escopo` em QUALQUER superfície opaca de veludo desta
+ * missão (`.vitrine-veludo` aqui · `.salao-fundo` do Salão, raia 1C · o
+ * aside de método do /sobre, raia 3D) — todas reusam esta MESMA definição;
+ * nenhuma outra folha redeclara os tokens abaixo (uma fonte, D7).
+ *
+ * Re-declara PARES COMPLETOS (superfície + tinta + on-accent + brasa) —
+ * nunca meio-par (E5): um `--bg-card` claro herdando `--ink-primary` do
+ * tema errado é quase-branco sobre branco; um CTA `bg-brasa` sem
+ * `--accent-on-action` re-declarado cairia a ~2,5:1. Os valores são SEMPRE
+ * os do tema ESCURO do site (o veludo é escuro nos dois temas) — por
+ * CLASSE, nunca por `@media (prefers-color-scheme)` (E6): no tema CLARO
+ * do site, sem isto, os herdados (palco.css/banca.css) pegariam o ramo
+ * "sombra fria"/claro dos seus PRÓPRIOS `@media` internos — invisível
+ * sobre o veludo escuro.
+ *
+ * Sub-superfícies opacas internas (cartões, bolhas) HERDAM este conjunto
+ * por cascata normal de custom property (`--bg-card`/etc. são herdáveis)
+ * — nenhuma delas precisa redeclarar nada: o "reset ao conjunto escuro
+ * inteiro" da lei acontece de graça, por construção, ao declarar o
+ * conjunto COMPLETO uma única vez aqui.
+ *
+ * Valores idênticos aos do bloco `@media (prefers-color-scheme:dark)` de
+ * globals.css — mesma fonte de verdade, copiados (não `var()`-referenciados
+ * de volta a si mesmos) porque este bloco PRECISA vencer independente do
+ * tema do site.
+ * ------------------------------------------------------------ */
+.veludo-escopo {
+  --bg-card: #16181d;
+  --bg-elevated: #1d2027;
+  --ink-primary: #ebe9e4;
+  --ink-secondary: #b5b3ac;
+  --ink-tertiary: #a5a49e;
+  --line-subtle: #23262d;
+  --line-strong: #383c45;
+  --border-field: #7e8691;
+  --accent-action: #e97b3c;
+  --accent-action-hover: #f28a50;
+  --accent-on-action: #1c0e05;
+  --accent-text: #f4996a;
+}
+
+/* E6 — força por CLASSE o ramo "keyline dark" dos herdados do palco
+   (cinema/palco.css) dentro do veludo: sem isto, no tema CLARO do site o
+   palco aplicaria a sombra fria (condicionada só a
+   `@media(prefers-color-scheme:dark)` naquela folha), invisível sobre o
+   veludo escuro. Repete EXATAMENTE a regra dark de palco.css, por classe
+   (especificidade + ordem de @import — vitrine.css entra DEPOIS de
+   palco.css — garantem a vitória sem !important). */
+.veludo-escopo .banca-rail .cartao-ticker:hover,
+.veludo-escopo .banca-rail .cartao-ticker:focus-visible {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
+}
+
+/* E15 — anel de foco escopado: SÓ para elementos cujo `:focus-visible`
+   desenha diretamente SOBRE o veludo (cartão, controle, dot, seta) — o
+   `--accent-text` global cai a ~2,39:1 ali (reprova 2.4.7). Elementos
+   sobre uma sub-superfície CLARA interna (nenhuma existe hoje dentro da
+   vitrine) manteriam o anel padrão por simplesmente NÃO entrar nesta
+   lista — registro do padrão para o Salão/aside reusarem. */
+.veludo-escopo .cartao-ticker:focus-visible,
+.veludo-escopo .vitrine-controle:focus-visible,
+.veludo-escopo .banca-dot:focus-visible,
+.veludo-escopo .seta-filmstrip:focus-visible {
+  outline-color: var(--veludo-anel);
+}
+
+/* ------------------------------------------------------------
+ * 3. PEDESTAIS (D19) — elipse de sombra no "chão" + keyline ouro no aro.
+ * ------------------------------------------------------------
+ * Wrapper próprio em volta de `.banca-carimbo` (GaleriaBanca.tsx) — NUNCA
+ * no `<li>` (deslocaria a snap area — mesma razão do `.banca-carimbo`) nem
+ * dentro de CartaoTese.tsx (D24, intocado): a sombra é um `::after`
+ * decorativo, o keyline é um anel EXTERNO por `box-shadow` no wrapper —
+ * zero pseudo-elemento sobre o texto do cartão (M3-b preservada por
+ * construção: nada disto toca o campo interno).
+ * ------------------------------------------------------------ */
+.vitrine-pedestal {
+  position: relative;
+  isolation: isolate;
+}
+.vitrine-pedestal::after {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  block-size: 14px;
+  inset-block-end: -10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(0 0 0 / 0.4) 0%, transparent 72%);
+  pointer-events: none;
+  z-index: -1;
+}
+.vitrine-pedestal > * {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-valor) 55%, transparent);
+}
+
+/* ------------------------------------------------------------
+ * 4. CONTROLE DA VITRINE (D22/E16-E18) — 1º controle on-page 2.2.2 do
+ *    site. Alvo >=44px; rótulo textual FIXO ("Movimento da vitrine",
+ *    E16) fica no markup (GaleriaBanca.tsx) — aqui só geometria/cor.
+ * ------------------------------------------------------------ */
+.vitrine-controle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.75rem; /* >=44px (D22) */
+  padding-inline: 0.875rem;
+  border: 1px solid var(--border-field);
+  background: transparent;
+  color: var(--veludo-tinta-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  transition:
+    border-color var(--dur-tick) var(--ease-ink),
+    color var(--dur-tick) var(--ease-ink);
+}
+.vitrine-controle:hover {
+  border-color: var(--veludo-tinta-2);
+  color: var(--veludo-tinta);
+}
+.vitrine-controle__icone {
+  font-size: 1rem;
+  line-height: 1;
+}

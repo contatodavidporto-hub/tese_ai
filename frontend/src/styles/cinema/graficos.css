@@ -130,6 +130,56 @@
   border-color: var(--accent-confianca);
 }
 
+/* ---------- MOLDURA-ENGASTE — missão "HORIZONTE" (2026-07-14, raia 3A
+   /tese, C7 direção §9: "6 gráficos com moldura-engaste — keyline ouro 1px
+   + canto gravado"). Emenda ADITIVA, CSS-only, zero JS: box-shadow, NUNCA
+   `border`/`border-color` — essas duas já têm ESCRITOR ÚNICO acima (o
+   contorno de hover/foco em --accent-confianca); box-shadow é uma
+   propriedade DIFERENTE no MESMO nó, zero colisão (um-escritor-por-
+   propriedade continua valendo, propriedade a propriedade).
+
+   1. Keyline ouro contínua: `--gema-aresta` (alias de `--valor-brilho`,
+      cinema/gema.css) é o mesmo "ouro do engaste" do bisel das gemas —
+      reuso de token, nenhum novo. `inset 0 0 0 1px` desenha por DENTRO da
+      caixa do <figure> (nunca disputa layout com o `border` existente).
+   2. Canto gravado: pseudo-elemento PRÓPRIO (nenhum outro escritor o
+      possui) no canto inferior-direito, com a MESMA técnica de baixo-
+      relevo de `.placa-gravada__numeral` (gema.css) — luz no canto oposto
+      à sombra (luminária do alto-esquerdo da casa), 2 inset-shadows de
+      1px. Decorativo (`pointer-events:none`), pintado ATRÁS do conteúdo
+      SVG (dentro da MESMA caixa, sem afetar geometria/eixo/série — a
+      fidelidade factual do gráfico não muda um pixel).
+
+   Recuo binário S4 (doutrina da casa): reprovou AA por pixel no canto
+   gravado -> `.grafico-scrub--recuo` remove só o canto, mantém a keyline
+   plana (nunca itera às cegas). */
+.grafico-scrub {
+  position: relative;
+  box-shadow: inset 0 0 0 1px var(--gema-aresta);
+}
+.grafico-scrub::after {
+  content: "";
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  width: 16px;
+  height: 16px;
+  box-shadow:
+    inset 1px 1px 0 0 rgb(0 0 0 / 0.14),
+    inset -1px -1px 0 0 var(--gema-aresta);
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .grafico-scrub::after {
+    box-shadow:
+      inset 1px 1px 0 0 rgb(0 0 0 / 0.35),
+      inset -1px -1px 0 0 var(--gema-aresta);
+  }
+}
+.grafico-scrub.grafico-scrub--recuo::after {
+  box-shadow: none;
+}
+
 /* Keyframes fora do @supports (inertes sem um animation-name que os use;
    mesmo padrão do .paralaxe-numero no globals.css). */
 @keyframes tinta-scrub {

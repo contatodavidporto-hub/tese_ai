@@ -1,14 +1,755 @@
 /* ============================================================
- * cinema/salao.css — ESQUELETO (Onda 0, missão "FRONTEND HORIZONTE",
- * 2026-07-14). Arquivo vazio de propósito: existe só para o @import de
- * `globals.css` não quebrar o build antes da Onda 1 preencher. Substitui
- * `filmstrip.css`+`constelacao.css` (demolição D25) — o SWAP dos @imports
- * (remoção das folhas antigas) é da Onda 2, não desta fundação.
+ * cinema/salao.css — IMPLEMENTAÇÃO (raia 1C SALÃO, missão FRONTEND
+ * HORIZONTE, 2026-07-14) · DONA: raia 1C (Onda 1). LEI:
+ * .maestro/plano-horizonte.md §3 (C5) + §5 (E2/E3/E9/E10/E19/E20/E29) +
+ * .maestro/direcao-horizonte.md §7 (D25-D34) + §12 (tokens).
+ * Substitui `filmstrip.css` + `constelacao.css` (demolição D25 — a remoção
+ * dos @imports antigos é da Onda 2).
+ * ============================================================
+ * CLIENTE ÚNICO: `src/app/SalaoDimensoes.tsx`.
  *
- * DONA: raia 1C SALÃO (Onda 1). Preenche com: `.salao-fundo` (veludo
- * escurecendo, escopo-veludo), bolhas-bancada (D27, offset publicado como
- * `--bolha-dy-1..5` — E2), `overflow-x: clip` sob `.salao-pinado`,
- * `bolha-assenta` nascendo `animation-play-state: paused` (E9), colar de
- * contas vertical (fallback D33/E19/E20) — ver plano-horizonte.md §3 (C5)
- * e direcao-horizonte.md §7.
+ * OS DOIS MODOS (MESMO DOM — D33):
+ *   (a) COLAR DE CONTAS VERTICAL = o DEFAULT desta folha. Bolhas
+ *       empilhadas alternando os lados, fio em trechos verticais POR FORA
+ *       (banda livre entre as bolhas), ZERO rail horizontal em QUALQUER
+ *       largura (a "box rolando" do diagnóstico do dono morre em todas as
+ *       telas). É o que o visitante vê sem JS, sob reduce, no mobile, no
+ *       tablet e num desktop sem hover.
+ *   (b) SALÃO PINADO = tudo que vive sob `.salao-pinado`, classe que o JS
+ *       aplica na PRÓPRIA seção dentro do `gsap.matchMedia` do gate
+ *       (>=1024px + pointer:fine + hover + no-preference). Travelling de
+ *       página inteira: a seção ocupa `calc(100svh - var(--altura-tarja))`,
+ *       pina sob a Tarja e o trilho anda em x.
+ *
+ * CONTRATOS COM O JS (quebrar aqui quebra a geometria lá):
+ *   - `--bolha-dy-1..5` (E2): FONTE ÚNICA do deslocamento vertical das
+ *     bolhas. O `translate` do <li> CONSOME a var; o JS LÊ a MESMA var por
+ *     `getComputedStyle(li).getPropertyValue("--bolha-dy")` para compor o
+ *     centro do círculo publicado (`cy = offsetTop + offsetHeight/2 + dy`)
+ *     — `translate` NÃO altera `offsetTop`, e medir só por offset publicaria
+ *     círculos nas posições ERRADAS (o "corredor" seria falso e a catenária
+ *     cortaria por dentro da bolha: exatamente o defeito demolido).
+ *     ⚠ PEGADINHA: o valor computado de uma custom property é o TOKEN,
+ *     não um comprimento resolvido — `min(8vh, 80px)` voltaria como a
+ *     string "min(8vh, 80px)" no getComputedStyle. Por isso os `--bolha-dy-*`
+ *     são SEMPRE px puros (variações por viewport vêm de @media, nunca de
+ *     min()/clamp()/vh dentro do valor).
+ *   - `--prog` (0→1): escrita por CSSOM pelo onUpdate do ScrollTrigger no
+ *     <svg> do fio e na hairline (custom property NÃO herda entre irmãos —
+ *     duas escritas, padrão herdado da constelacao.css). Consumida aqui.
+ *   - `--seg-fim` / `--seg-escala`: escritas por segmento SÓ no onRefresh
+ *     (pontos de snap reais). O CSS só MULTIPLICA (escala pré-computada no
+ *     JS — nunca dividir por var no CSS).
+ *   - `--ilum` (0→1): "iluminação" da costura (6% de entrada / 6% de saída
+ *     espelhada, D25). Escrita na seção, só quando MUDA. Default 1 (fora do
+ *     pin a cena está iluminada — nunca nasce apagada).
+ *   - `--poeira-x`: paralaxe da poeira a 0.55× (a tabela §7b dá o x da
+ *     poeira ao tween; aqui ele chega como var escrita no MESMO onUpdate do
+ *     `--prog` — mesmo relógio, mesmo quadro, um único escritor, e sem
+ *     precisar de um 2º alvo com distância diferente no tween que serve de
+ *     `containerAnimation` das camadas).
+ *   - `.salao-acordado` (E9): classe aplicada UMA vez no onEnter (ou pelo IO
+ *     one-shot do colar) — libera o keyframe `bolha-assenta`, que NASCE
+ *     `animation-play-state: paused`. Sem isso o assentamento dispararia no
+ *     LOAD (seção fora da tela) e ninguém veria; e `infinite` violaria a
+ *     WCAG 2.2.2 (a única contínua do site é a vitrine, COM controle).
+ *     `infinite` é PROIBIDO por grep nesta folha.
+ *
+ * UM-ESCRITOR-POR-PROPRIEDADE (tabela §7b, nó a nó):
+ *   <ol.salao-trilho> + <svg.salao-fio> → `transform: x` do tween ÚNICO.
+ *   <li.bolha-bancada>                  → `translate`/`scale` ESTÁTICOS
+ *                                         desta folha (nunca animados).
+ *   <div.bolha-miolo>                   → keyframe `bolha-assenta` (2.8s,
+ *                                         1×, fill both) desta folha.
+ *   .salao-camada                       → x/opacity por containerAnimation.
+ *   .salao-poeira                       → `translate` via `--poeira-x`.
+ * Nenhum nó tem dois donos. GSAP jamais toca box-shadow/translate do <li>.
+ *
+ * VETOS RESPEITADOS: zero `vw` em largura de palco (E3 — `100vw` inclui a
+ * barra de rolagem clássica do Windows = scroll-x global); `overflow-x: clip`
+ * (NUNCA `hidden`: `clip` não cria scroll container, então o navegador não
+ * "auto-rola" o palco ao focar uma bolha fora de cena — quem traz a bolha é
+ * o focusin→ScrollToPlugin); zero hue 70–200°; zero animação contínua.
  * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 1. O VELUDO QUE ESCURECE (D25/7a) — pórtico + salão
+ * ------------------------------------------------------------
+ * "O veludo da vitrine NÃO termina: escurece." O pórtico (cabeçalho +
+ * parágrafo, markup do integrador via `children`) e o salão são IRMÃOS
+ * diretos do <main> (E1: zero ancestral flex acima do pinado — o bug
+ * histórico do pinSpacing) e compartilham a MESMA superfície.
+ *
+ * `.veludo-escopo` (definida em cinema/vitrine.css, raia 1B — mecanismo
+ * REUSÁVEL, D20/E5/E6) é aplicada nos DOIS pelo TSX: é ela que re-declara
+ * os PARES COMPLETOS de tokens semânticos e força o ramo de elevação por
+ * CLASSE. Esta folha NÃO redeclara nenhum token do escopo — só consome.
+ * ------------------------------------------------------------ */
+.salao-portico,
+.salao-fundo {
+  /* Veludo escurecendo: mesma ameixa (~285°, fora do hue banido), 22% mais
+     funda. Escurecer só AUMENTA o contraste da tinta (AA anda a favor). */
+  --salao-veludo: color-mix(in srgb, var(--veludo-fundo) 78%, black);
+  background: var(--salao-veludo);
+  color: var(--veludo-tinta);
+}
+
+.salao-portico {
+  padding-block: 3.5rem 2rem;
+}
+
+.salao-fundo {
+  position: relative;
+  isolation: isolate; /* contém a vinheta/sombras z-index:-1 (nunca vazam) */
+  display: grid;
+  grid-template-rows: 1fr auto auto; /* palco · HUD · hairline (ordem do DOM
+     = ordem de leitura; `order` CSS é PROIBIDO em conteúdo) */
+  /* ⚠ `minmax(0, 1fr)` NÃO é preciosismo: a coluna implícita `auto` do grid
+     é minmax(auto, max-content) — com o trilho de 5 bolhas em fileira, o
+     max-content dá ~2900px, a COLUNA cresce, o palco cresce, o <ol> cresce
+     junto e nada mais transborda: `scrollWidth − clientWidth` vira 0, o
+     tween anda 0px e o travelling simplesmente NÃO ACONTECE (sem erro
+     nenhum no console — falha silenciosa). Pegadinha paga na raia. */
+  grid-template-columns: minmax(0, 1fr);
+  padding-block-end: 1rem;
+
+  /* Geometria do salão (consumida pelo layout E pela geometria do fio). */
+  --bolha-largura: 22rem;
+  --salao-gap: 14rem;
+  --salao-recuo: 2rem;
+  --bolha-raio: 36px; /* D27 */
+
+  /* E2 — FONTE ÚNICA dos offsets verticais (px puros; ver pegadinha no topo).
+     3 planos de profundidade, alturas alternadas (baixo-alto-centro-alto-
+     baixo): é esta alternância que GARANTE, antes da curva existir, um
+     corredor livre do lado do sag entre duas bolhas consecutivas. */
+  --bolha-dy-1: 64px;
+  --bolha-dy-2: -72px;
+  --bolha-dy-3: 0px;
+  --bolha-dy-4: -80px;
+  --bolha-dy-5: 56px;
+
+  /* Iluminação da costura (D25): 1 = cena acesa. Fora do pin fica em 1 —
+     a seção nunca nasce apagada (SSR/no-JS/reduce). */
+  --ilum: 1;
+
+  /* E3: `clip` (não `hidden`) e SEMPRE ligado — mesmo antes do boot do
+     modo pinado o trilho não pode vazar scroll-x para o documento. `clip`
+     no eixo x com y `visible` é legal e mantém o fio livre no eixo y. */
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Vinheta radial (anel nas bordas, centro LIMPO — nunca sob texto).
+   Decorativa. A opacidade é modulada por `--ilum`: fecha nos 6% de chegada
+   e abre nos 6% de saída, dentro da timeline scrubbed (zero movimento
+   autônomo — 2.2.2 isento por ser progresso de scroll). */
+.salao-fundo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--ilum, 1);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 42%,
+    rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
+  );
+}
+
+/* Anel de foco DENTRO do veludo (E15): o `--accent-text` global cai a
+   ~2,39:1 sobre o veludo (reprova 2.4.7). A lista abaixo é só de elementos
+   cujo anel desenha SOBRE o veludo — o miolo da bolha é `bg-elevated`
+   ESCURO (escopo-veludo), então links internos também ficam nela. */
+.veludo-escopo .salao-trilho:focus-visible,
+.veludo-escopo .salao-talha:focus-visible,
+.veludo-escopo .bolha-bancada a:focus-visible {
+  outline-color: var(--veludo-anel);
+}
+
+/* ------------------------------------------------------------
+ * 2. POEIRA DE LUZ (D27) — paralaxe 0.55×
+ * ------------------------------------------------------------
+ * Camada de fundo com pontos ouro/safira a 3%. Larga o bastante (240%) para
+ * cobrir a viewport durante todo o deslocamento de 0.55×d. `translate` (não
+ * `transform`) — o GSAP nunca toca este nó; o único escritor é o
+ * `--poeira-x` do onUpdate.
+ * ------------------------------------------------------------ */
+.salao-poeira {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 240%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: calc(var(--ilum, 1) * 0.9);
+  translate: var(--poeira-x, 0px) 0;
+  background-image:
+    radial-gradient(
+      circle at 12% 22%,
+      color-mix(in srgb, var(--valor-brilho) 3%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 68% 74%,
+      color-mix(in srgb, var(--accent-confianca) 3%, transparent) 0 2px,
+      transparent 3px
+    );
+  background-size:
+    148px 132px,
+    196px 174px;
+}
+.salao-pinado .salao-poeira {
+  will-change: transform;
+}
+
+/* ------------------------------------------------------------
+ * 3. O PALCO e o TRILHO — default = COLAR DE CONTAS VERTICAL (D33)
+ * ------------------------------------------------------------
+ * `.salao-palco` é `position: relative` (NÃO é transform/filter/contain —
+ * trava C2 intacta) para ser o offsetParent tanto dos <li> quanto do <svg>
+ * do fio: os dois passam a viver no MESMO sistema de coordenadas, que é
+ * exatamente o que a geometria por offsets (E2) exige. `inset:0` do svg e
+ * `offsetLeft/offsetTop` dos <li> compartilham a origem (padding box).
+ * ------------------------------------------------------------ */
+.salao-palco {
+  position: relative;
+  min-inline-size: 0; /* item de grid: sem isto o min-content do trilho o
+     estica (mesma armadilha da coluna acima) */
+  padding-inline: var(--sangria);
+  padding-block: 1.5rem 2rem;
+}
+
+.salao-trilho {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem; /* a BANDA LIVRE do colar: o fio vertical vive aqui (E19) */
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-inline-size: 44rem;
+  margin-inline: auto;
+}
+.salao-trilho:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 4px;
+}
+
+/* Colar: bolhas alternando lados. A alternância + a banda livre do `gap`
+   são a LEI DE LAYOUT do colar (E19): entre duas bolhas consecutivas existe
+   sempre uma faixa horizontal SEM nenhuma bolha — é dentro dela que o fio
+   corre. Como uma Bézier está contida no fecho convexo dos seus pontos de
+   controle e os 4 pontos vivem nessa faixa, o fio NÃO PODE entrar numa
+   bolha, por construção, inclusive em 375px. */
+/* ⚠ O `:not(.salao-pinado)` NÃO é decorativo: `.salao-trilho > li:nth-child()`
+   tem especificidade (0,2,1) e VENCIA o reset `.salao-pinado .bolha-bancada`
+   (0,2,0) — as margens do colar vazavam para a fileira, o passo entre bolhas
+   virava 1094px em vez de 576px, `distancia` ficava menor que o percurso
+   real, os pontos de snap das bolhas 3–5 colapsavam todos em 1 e o teclado
+   parava na bolha 3 (End não chegava na 5). Pegadinha paga na raia. */
+.salao-fundo:not(.salao-pinado) .salao-trilho > li:nth-child(odd) {
+  margin-inline-end: 18%;
+}
+.salao-fundo:not(.salao-pinado) .salao-trilho > li:nth-child(even) {
+  margin-inline-start: 18%;
+}
+
+/* ------------------------------------------------------------
+ * 4. AS BOLHAS-BANCADA (D27)
+ * ------------------------------------------------------------ */
+.bolha-bancada {
+  position: relative;
+  display: flex;
+  /* E20: `translate` só sob `.salao-pinado`. Aqui, no colar, é zero — a
+     regra do pinado é que o liga (senão as bolhas do colar desceriam até
+     ~104px e sobrepunham conteúdo em toda tela touch). */
+  translate: 0 0;
+}
+
+/* Sombra elíptica projetada no CHÃO do veludo — é ela que dá o peso 3D
+   (o disco não é um adesivo: ele PAIRA sobre a mesa). Decorativa; z-index
+   -1 dentro do stacking context da seção (acima da vinheta, abaixo do
+   miolo). A distância varia com o plano de profundidade (nth abaixo). */
+.bolha-bancada::after {
+  content: "";
+  position: absolute;
+  inset-inline: 8%;
+  inset-block-end: calc(-1 * var(--bolha-sombra-dist, 26px));
+  block-size: 18px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(0 0 0 / 0.5) 0%, transparent 72%);
+}
+
+.bolha-miolo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  inline-size: 100%;
+  padding: 2rem;
+  border-radius: var(--bolha-raio);
+  /* Volume: calota specular no quadrante superior-esquerdo (a luz da casa
+     vem do alto-esquerda — mesma luminária das gemas) SOBRE a superfície
+     opaca. Duas camadas de background, ZERO pseudo-elemento sobre texto. */
+  background:
+    radial-gradient(
+      64% 56% at 22% 16%,
+      color-mix(
+          in srgb,
+          var(--valor-brilho) calc(var(--bolha-specular-alfa) * 100%),
+          transparent
+        )
+        0%,
+      transparent 72%
+    ),
+    var(--bg-elevated);
+  /* Keyline-engaste ouro 1px + sombra curta de peso (o veludo é escuro nos
+     DOIS temas: a elevação aqui é keyline + sombra, doutrina S5). */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-valor) 55%, transparent),
+    0 18px 38px -22px rgb(0 0 0 / 0.75);
+}
+
+/* Estratos internos (alvos do containerAnimation no pinado — no colar
+   ficam estáticos e completos). */
+.salao-camada {
+  margin: 0;
+}
+.bolha-numeral {
+  font-family: var(--font-mono);
+  font-size: var(--text-h1);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent-valor);
+}
+.bolha-titulo {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--veludo-tinta);
+}
+.bolha-texto {
+  max-inline-size: 34ch; /* D27 — medida interna */
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--ink-secondary);
+}
+/* Selo da fonte — a MESMA gramática dos selos da cena do nascimento
+   (`.nascimento-selo`, cinema/lapidacao.css): aro fino, mono, caixa alta.
+   Rima visual pedida na direção §7c; aqui em HTML (lá é SVG). */
+.bolha-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--accent-confianca);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--veludo-tinta-2);
+}
+.bolha-selo__marca {
+  font-weight: 600;
+  color: var(--accent-valor);
+}
+
+/* ------------------------------------------------------------
+ * 5. MODO PINADO — o travelling de página inteira (D25/7b)
+ * ------------------------------------------------------------ */
+.salao-pinado {
+  /* E3: `inline-size: 100%`, NUNCA `100vw` (a barra de rolagem clássica do
+     Windows entra no vw e vira overflow-x permanente do documento).
+     `block-size` exata é seguro AQUI porque é o palco do pin (o conteúdo é
+     dimensionado à altura), e `min-block-size` deixaria a seção crescer e o
+     pin descolar da Tarja. */
+  inline-size: 100%;
+  block-size: calc(100svh - var(--altura-tarja));
+}
+
+.salao-pinado .salao-palco {
+  overflow: visible;
+  padding-block: 0;
+  padding-inline: 0;
+  align-self: stretch;
+  min-block-size: 0; /* o palco é a linha 1fr do grid: sem isto, o conteúdo
+     que transborda em x esticaria a linha */
+}
+
+/* O trilho vira fileira; o transbordo horizontal é do tween (o <ol> NÃO é
+   scroll container em modo nenhum — "zero rail horizontal em qualquer
+   largura" é lei desta missão). `will-change` SÓ aqui (camada-folha movida
+   por quadro). */
+.salao-pinado .salao-trilho {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--salao-gap);
+  block-size: 100%;
+  max-inline-size: none;
+  margin-inline: 0;
+  padding-inline-start: var(--salao-recuo);
+  will-change: transform;
+}
+
+/* O ESPAÇADOR DE FIM — `<li class="salao-espaco" aria-hidden>` (elemento
+   REAL, fora da árvore de a11y).
+   Sem ele, `distancia = scrollWidth - clientWidth` fica MENOR que o
+   deslocamento entre a 1ª e a última bolha, os pontos de snap das últimas
+   bolhas colapsam todos em 1 (duas bolhas no mesmo ponto = contador e
+   aria-current mentem) e a bolha 5 nunca pousa no palco. Com ele,
+   distancia == 4 × passo EXATAMENTE: os pontos viram [0, .25, .5, .75, 1] e
+   CADA bolha pousa na MESMA posição de palco em que a bolha 1 nasceu.
+   ⚠ PEGADINHA (medida na raia, Chromium): um `::after` de flex container
+   GERA caixa e ocupa espaço, mas NÃO entra no `scrollWidth` (layout
+   overflow) — o espaçador tinha que ser um elemento REAL. Com ::after:
+   scrollWidth 2688 (= borda da última bolha); com <li>: 3729. `padding-
+   inline-end` no <ol> também não conta. */
+.salao-espaco {
+  display: none;
+}
+.salao-pinado .salao-espaco {
+  display: block;
+  flex: 0 0 auto;
+  inline-size: calc(100% - var(--bolha-largura) - var(--salao-gap));
+  /* ⚠ PEGADINHA IRMÃ: um espaçador de ALTURA ZERO tem retângulo VAZIO e o
+     Blink o ignora na união do layout overflow — `scrollWidth` continuava
+     parando na última bolha (2688) mesmo com o <li> de 817px posicionado em
+     x=2912. 1px de altura basta para ele contar. */
+  block-size: 1px;
+}
+
+.salao-pinado .bolha-bancada {
+  flex: 0 0 auto;
+  inline-size: var(--bolha-largura);
+  /* ⚠ PEGADINHA CARA (paga na raia): as margens que alternam os lados no
+     COLAR (18%) vazavam para a fileira e o passo entre bolhas alternava
+     1613/576/1613/576 px — a lei de layout (bandas de x disjuntas) morria, o
+     `distancia` inchava, os pontos de snap deixavam de ser equidistantes e a
+     guarda de projeção passava a "cuspir" a navegação por teclado de volta.
+     Resetar aqui é obrigatório. */
+  margin-inline: 0;
+  /* E2/E20: o offset vertical entra AQUI, e só aqui. `translate` não altera
+     `offsetTop` — por isso o JS soma a MESMA var na hora de publicar o
+     centro do círculo. `scale` (individual, estática) dá os 3 planos de
+     profundidade; ela NÃO muda offsetWidth/Height, então o círculo publicado
+     é levemente maior que a bolha pintada — conservador a favor do fio. */
+  translate: 0 var(--bolha-dy, 0px);
+}
+.salao-pinado .salao-trilho > li:nth-child(1) {
+  --bolha-dy: var(--bolha-dy-1);
+  --bolha-sombra-dist: 30px;
+}
+.salao-pinado .salao-trilho > li:nth-child(2) {
+  --bolha-dy: var(--bolha-dy-2);
+  --bolha-sombra-dist: 60px;
+  scale: 0.965;
+}
+.salao-pinado .salao-trilho > li:nth-child(3) {
+  --bolha-dy: var(--bolha-dy-3);
+  --bolha-sombra-dist: 34px;
+}
+.salao-pinado .salao-trilho > li:nth-child(4) {
+  --bolha-dy: var(--bolha-dy-4);
+  --bolha-sombra-dist: 72px;
+  scale: 0.94;
+}
+.salao-pinado .salao-trilho > li:nth-child(5) {
+  --bolha-dy: var(--bolha-dy-5);
+  --bolha-sombra-dist: 30px;
+}
+
+/* Viewports baixos (1366×768, 1280×720): os offsets encolhem para o fio
+   caber no palco sem raspar as bordas (recuo declarado da §7f). px puros —
+   o JS lê estas MESMAS vars (E2). */
+@media (max-height: 800px) {
+  .salao-fundo {
+    --bolha-dy-1: 44px;
+    --bolha-dy-2: -50px;
+    --bolha-dy-3: 0px;
+    --bolha-dy-4: -56px;
+    --bolha-dy-5: 40px;
+  }
+  .salao-pinado .bolha-miolo {
+    padding: 1.5rem;
+    gap: 0.5rem;
+  }
+}
+
+/* ------------------------------------------------------------
+ * 6. O FIO POR FORA (D29/E2/E19) — catenária + faísca
+ * ------------------------------------------------------------
+ * O <svg> é IRMÃO do <ol> (nunca ancestral de nada), `pointer-events:none`,
+ * `aria-hidden`. No pinado é o SEGUNDO alvo do MESMO tween do travelling —
+ * um escritor de transform por elemento, x idêntico ao do trilho a cada
+ * quadro. `overflow: visible`: os arcos vivem fora da caixa do svg.
+ *
+ * O `d` de cada segmento vem do JS por `setAttribute("d")` (atributo SVG ≠
+ * style inline — canal CSP homologado), recalculado só em onRefresh/resize.
+ * ------------------------------------------------------------ */
+.salao-fio {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.salao-pinado .salao-fio {
+  will-change: transform;
+}
+
+/* Traço: desenho REVERSÍVEL como função PURA do progresso (fórmula herdada
+   da constelacao.css). `pathLength=1` normaliza o dash; a escala é
+   pré-computada no JS (o CSS só multiplica). */
+.salao-fio-seg,
+.salao-fio-faisca {
+  fill: none;
+  stroke-linecap: butt; /* redondo estacionaria um ponto espúrio na origem */
+  stroke-dasharray: 1;
+}
+.salao-fio-seg {
+  stroke: var(--fio-lapidario);
+  stroke-width: calc(var(--constelacao-traco-largura) + 0.5px);
+  stroke-opacity: 0.72;
+}
+/* Faísca: 2º path IDÊNTICO, com um grão de 2% viajando na frente de corte —
+   mesmo dashoffset, custo zero (nenhum relógio novo). */
+.salao-fio-faisca {
+  stroke: var(--fio-faisca);
+  stroke-width: calc(var(--constelacao-traco-largura) + 1.5px);
+  stroke-dasharray: 0.02 1;
+}
+
+/* COLAR: o fio nasce DESENHADO (estado final = default — nunca uma tela com
+   fio pela metade se o @supports faltar). Sob @supports, o desenho é
+   scrubbed por `view()` NO PRÓPRIO <svg>: `stroke-dashoffset` é propriedade
+   SVG HERDADA, então animá-la no <svg> alimenta os <path> filhos — sem
+   depender de view-timeline em elemento SVG (que não gera caixa CSS em todo
+   engine). Progresso de scroll = isento de 2.2.2 (não é movimento autônomo). */
+.salao-fio {
+  stroke-dashoffset: 0;
+}
+@supports (animation-timeline: view()) {
+  .salao-fio {
+    animation: salao-fio-desenha 1ms linear both;
+    animation-timeline: view();
+    animation-range: entry 15% cover 55%;
+  }
+}
+@keyframes salao-fio-desenha {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* PINADO: o dono do desenho é o scrub (`--prog`), e cada segmento completa
+   exatamente quando a bolha seguinte aterrissa (`--seg-fim` = ponto de snap
+   real). Vence a herança do <svg> por ser declaração no PRÓPRIO path. */
+.salao-pinado .salao-fio {
+  animation: none;
+}
+.salao-pinado .salao-fio-seg,
+.salao-pinado .salao-fio-faisca {
+  stroke-dashoffset: clamp(
+    0,
+    calc((var(--seg-fim, 1) - var(--prog, 0)) * var(--seg-escala, 1)),
+    1
+  );
+}
+
+/* ------------------------------------------------------------
+ * 7. HUD — contador, talhas, hairline (D30: SEM SETAS nos dois modos)
+ * ------------------------------------------------------------ */
+.salao-hud {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-inline: var(--sangria);
+  padding-block-start: 1rem;
+}
+
+/* Marcas de talha: <button> de traço vertical. Alvo >=24px nos dois eixos
+   (WCAG 2.5.8 — corrige o ÚNICO alvo sub-mínimo do recon: os dots do
+   filmstrip eram texto sem piso de altura). O traço é o filho; o alvo é o
+   botão. NÃO é seta: é redundância de acesso por clique (arbitragem §11.8). */
+.salao-talhas {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.salao-talha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 24px;
+  min-block-size: 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.salao-talha__traco {
+  display: block;
+  inline-size: 2px;
+  block-size: 12px;
+  background: var(--veludo-tinta-2);
+  opacity: 0.5;
+  transition:
+    block-size var(--dur-tick) var(--ease-ink),
+    opacity var(--dur-tick) var(--ease-ink),
+    background-color var(--dur-tick) var(--ease-ink);
+}
+.salao-talha:hover .salao-talha__traco {
+  opacity: 0.85;
+}
+.salao-talha[aria-current="location"] .salao-talha__traco {
+  block-size: 18px;
+  opacity: 1;
+  background: var(--accent-valor);
+}
+
+/* Contador "01 / 05" (aria-hidden — as talhas com aria-current já contam a
+   posição para leitores de tela). E29: na 1ª interação ele exibe a dica
+   "← →" por um ciclo e ASSENTA (nunca pisca em loop). */
+.salao-contador {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.08em;
+  color: var(--veludo-tinta-2);
+}
+.salao-contador--dica {
+  color: var(--accent-valor);
+}
+
+/* Hairline de progresso (2px, ouro): só existe no travelling. */
+.salao-progresso {
+  display: none;
+  block-size: 2px;
+  inline-size: 100%;
+  margin-block-start: 0.75rem;
+  background: var(--fio-lapidario);
+  transform-origin: left;
+  transform: scaleX(var(--prog, 0));
+  pointer-events: none;
+}
+.salao-pinado .salao-progresso {
+  display: block;
+}
+.salao-contador {
+  display: none;
+}
+.salao-pinado .salao-contador {
+  display: inline;
+}
+
+/* ------------------------------------------------------------
+ * 8. ASSENTAMENTO DAS BOLHAS (E9) — o keyframe que NASCE PAUSADO
+ * ------------------------------------------------------------
+ * Um keyframe CSS de 2.8s dispara na APLICAÇÃO do estilo — isto é, no LOAD,
+ * com o salão fora da tela: quando o visitante chega, as bolhas assentaram
+ * há minutos e o "flutuar vivo que assenta" simplesmente não existe. Trocar
+ * por `infinite` violaria a 2.2.2. Solução: nasce `paused`; `.salao-acordado`
+ * (aplicada UMA vez no onEnter/IO one-shot) libera. 1×, <=5s, fill both, e o
+ * quadro 0% é IDÊNTICO ao repouso — se a classe nunca chegar (JS morto), a
+ * bolha fica exatamente onde deveria (nunca invisível/deslocada).
+ * ------------------------------------------------------------ */
+@keyframes bolha-assenta {
+  0% {
+    translate: 0 0;
+  }
+  16% {
+    translate: 0 -7px;
+  }
+  44% {
+    translate: 0 4px;
+  }
+  70% {
+    translate: 0 -2px;
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+.bolha-miolo {
+  animation: bolha-assenta 2.8s var(--ease-settle) 1 both;
+  animation-play-state: paused;
+}
+.salao-acordado .bolha-miolo {
+  animation-play-state: running;
+}
+/* Escalonamento: as 5 bolhas não assentam no mesmo instante (o atraso é
+   parte da animação pausada — só corre depois do onEnter). */
+.salao-trilho > li:nth-child(2) .bolha-miolo {
+  animation-delay: 90ms;
+}
+.salao-trilho > li:nth-child(3) .bolha-miolo {
+  animation-delay: 180ms;
+}
+.salao-trilho > li:nth-child(4) .bolha-miolo {
+  animation-delay: 270ms;
+}
+.salao-trilho > li:nth-child(5) .bolha-miolo {
+  animation-delay: 360ms;
+}
+
+/* ------------------------------------------------------------
+ * 9. REDUCED-MOTION — registro NOMINAL por efeito (LEI §0.7)
+ * ------------------------------------------------------------
+ * O modo pinado NUNCA nasce sob reduce (o gate exige no-preference e o
+ * gsap.matchMedia reverte ao vivo). O que segue é o registro por NOME de
+ * cada efeito novo desta folha + cinto de segurança para um quadro de
+ * corrida de toggle (o !important vence até o element.style do GSAP).
+ *   · `bolha-assenta`   → DECORATIVO: none (a bolha já está no repouso).
+ *   · faísca            → DECORATIVA: display:none.
+ *   · poeira            → DECORATIVA: estática (sem paralaxe).
+ *   · fio (desenho)     → PROGRESSO: ISENTO (reflete o scroll que o leitor
+ *                         decidiu fazer — mesma doutrina de .regua-leitura /
+ *                         .fio-de-prumo). Fica, mas sem `view()`: desenhado.
+ *   · offsets/scale     → geometria estática, não é movimento: mantidos no
+ *                         colar (que é o modo sob reduce) por serem zero lá.
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .bolha-miolo {
+    animation: none !important;
+  }
+  .salao-fio-faisca {
+    display: none !important;
+  }
+  .salao-poeira {
+    translate: none !important;
+    will-change: auto !important;
+  }
+  .salao-fio {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .salao-pinado {
+    block-size: auto !important;
+    overflow-x: visible !important;
+  }
+  .salao-pinado .salao-trilho {
+    flex-direction: column !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+  .salao-pinado .bolha-bancada {
+    translate: none !important;
+    scale: none !important;
+  }
+  .salao-pinado .salao-camada {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .salao-progresso {
+    display: none !important;
+  }
+}

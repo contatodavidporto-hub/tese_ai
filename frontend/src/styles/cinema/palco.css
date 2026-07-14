@@ -111,3 +111,235 @@
     transform: none !important;
   }
 }
+
+/* ============================================================
+ * EMENDA ADITIVA — RITO S3 · missão FRONTEND HORIZONTE (2026-07-14)
+ * ONDA 3 · RAIA 3B (/teses "O Mostruário" + /cobertura "As Três Vitrines").
+ * Assinada pela dona da raia 3B; a folha continua sendo "relevo/estados 3D
+ * de cartão" — nada aqui muda uma linha do bloco original acima (escopo
+ * `.banca-rail`), que segue INTOCADO (D24 / §6.6 do plano).
+ * LEI: plano-horizonte.md §3 C7 + §5 (E27/E30) · direcao-horizonte.md §9 +
+ * §12 (tetos S1: ativo <=1.045 · irmãos >=0.96 · tilt <=2.5deg reversível).
+ *
+ * O QUE ENTRA (dois escopos novos e disjuntos):
+ *   A. `.grade-teses`   — delegação do PALCO S1 à grade de /teses (D36).
+ *      SEM DERIVA (a vitrine viva é exceção 2.2.2 exclusiva da landing).
+ *   B. `.painel-vitrine` — aro specular contido (S4) + selo que imprime
+ *      (elemento-novo RESERVA, E27) nos 3 painéis do tríptico de /cobertura.
+ *
+ * POR QUE O TILT AQUI É 100% CSS (e não `usePalco`): a direção previa a
+ * delegação do hook num 2º seletor, mas `usePalco.ts` não está na posse
+ * desta raia — e não é preciso: a grade de /teses já tem `GradeFoco`
+ * (`usePonteiro`: UM listener passivo delegado) escrevendo `--mx`/`--my` por
+ * CSSOM no cartão sob o cursor. O tilt CONSOME essas vars — zero JS novo,
+ * zero listener novo, ZERO gsap na rota (melhor que o previsto: /teses não
+ * baixa o motor). `usePalco` fica intocado, exclusivo da Banca.
+ * Um-escritor-por-propriedade: `--mx`/`--my` = usePonteiro (CSSOM);
+ * transform/scale/opacity/box-shadow de `.grade-teses .cartao-ticker` = SÓ
+ * estas regras (nenhum motor JS escreve transform nesta rota).
+ * ============================================================ */
+
+/* ------------------------------------------------------------
+ * A. PALCO S1 NA GRADE DE /teses (D36) — mesmos tokens e tetos da Banca.
+ * ------------------------------------------------------------ */
+.grade-teses .cartao-ticker {
+  scale: var(--palco-s, 1);
+  opacity: var(--palco-o, 1);
+  transition:
+    scale var(--dur-set) var(--ease-ink),
+    opacity var(--dur-set) var(--ease-ink),
+    transform var(--dur-tick) var(--ease-ink),
+    box-shadow var(--dur-set) var(--ease-ink),
+    background-color var(--dur-set) var(--ease-ink),
+    border-color var(--dur-set) var(--ease-ink);
+}
+
+.grade-teses .cartao-ticker:focus-visible {
+  --palco-s: var(--palco-scale-ativo);
+  box-shadow:
+    0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
+    0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
+}
+
+/* ELEMENTO-NOVO RESERVA de /teses (E27) — independente de glow/specular/
+   sombra: o foco por CONTRASTE. Hover/foco em um cartão RECUA e esmaece os
+   outros (só `scale` + `opacity`): sobrevive intacto a qualquer recuo
+   binário de AA sobre sombra/keyline. */
+.grade-teses:focus-within .cartao-ticker:not(:focus-visible):not(:hover) {
+  --palco-s: var(--palco-scale-irmaos);
+  --palco-o: var(--palco-dim);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Tilt: perspectiva AUTO-CONTIDA no próprio cartão (nunca em ancestral —
+     trava C2 intacta). `--palco-nx`/`--palco-ny` são números -1..1
+     (default 0 = cartão em repouso, chapado). */
+  .grade-teses .cartao-ticker {
+    transform: perspective(900px)
+      rotateX(calc(var(--palco-ny, 0) * -1 * var(--palco-tilt)))
+      rotateY(calc(var(--palco-nx, 0) * var(--palco-tilt)));
+  }
+  .grade-teses .cartao-ticker:hover {
+    --palco-s: var(--palco-scale-ativo);
+    box-shadow:
+      0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
+      0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
+  }
+  .grade-teses:hover .cartao-ticker:not(:hover):not(:focus-visible) {
+    --palco-s: var(--palco-scale-irmaos);
+    --palco-o: var(--palco-dim);
+  }
+
+  /* Repouso do tilt (fallback universal, sem divisão no calc): inclinação
+     FIXA e discreta no cartão ativo, dentro do teto S1. */
+  .grade-teses .cartao-ticker:hover,
+  .grade-teses .cartao-ticker:focus-visible {
+    --palco-ny: -0.5;
+  }
+
+  /* Tilt que SEGUE o ponteiro: só onde o calc() sabe dividir length/length
+     (CSS Values 4). `--mx`/`--my` chegam em px, relativos ao CENTRO do
+     cartão, escritas pelo usePonteiro/GradeFoco que a rota JÁ tinha.
+     `--palco-raio` normaliza para -1..1 (meia-caixa típica do cartão da
+     grade); o clamp garante o teto até nas quinas. Onde o @supports falha,
+     valem os valores fixos acima — degradação digna, nunca tela quebrada. */
+  @supports (rotate: calc(1px / 1px * 1deg)) {
+    .grade-teses .cartao-ticker {
+      --palco-raio: 120px;
+    }
+    .grade-teses .cartao-ticker:hover {
+      --palco-nx: clamp(-1, calc(var(--mx, 0px) / var(--palco-raio)), 1);
+      --palco-ny: clamp(-1, calc(var(--my, 0px) / var(--palco-raio)), 1);
+    }
+  }
+
+  /* PROTEÇÃO DO MORPH (mesma família do E21 na deriva): o clique dispara a
+     View Transition e a captura pega o cartão VIVO — com o tilt aplicado, o
+     morph nasceria inclinado. No `:active` o palco volta ao repouso
+     INSTANTANEAMENTE (transition none), antes da captura. useViradaCartao e
+     `.vt-tese-N` seguem intocados. */
+  .grade-teses .cartao-ticker:active {
+    --palco-nx: 0;
+    --palco-ny: 0;
+    --palco-s: 1;
+    transition: none;
+  }
+}
+
+/* Escuro: elevação-base = borda (S2) — keyline ouro no lugar da sombra. */
+@media (prefers-color-scheme: dark) {
+  .grade-teses .cartao-ticker:focus-visible {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .grade-teses .cartao-ticker:hover {
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
+    }
+  }
+}
+
+/* ------------------------------------------------------------
+ * B. TRÍPTICO DE /cobertura — `.painel-vitrine` (3 painéis-vitrine)
+ * ------------------------------------------------------------
+ * PRINCIPAL (S4, teto `--bolha-specular-alfa` = 0.10 homologado): aro
+ * specular contido — keyline ouro 1px + calota de luz no quadrante
+ * superior-esquerdo (a MESMA direção da luminária da casa), acesa no
+ * hover/focus-within. Recuo binário S4 registrado: `.painel-vitrine--recuo`
+ * (só keyline, zero specular) — nunca iterar às cegas.
+ *
+ * ORDEM DE PINTURA (armadilha do bisel, aprendida na raia 1A): um `::after`
+ * posicionado pinta ACIMA do conteúdo em fluxo — a calota cairia SOBRE o
+ * texto. Por isso os filhos diretos do painel viram `position:relative;
+ * z-index:1` e o `::after` fica em `z-index:0`: acima do `bg-card`, ABAIXO
+ * de todo texto. Zero pseudo-elemento sobre glifo (D8 / §5b).
+ * ------------------------------------------------------------ */
+.painel-vitrine {
+  position: relative;
+}
+.painel-vitrine > * {
+  position: relative;
+  z-index: 1;
+}
+.painel-vitrine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    62% 42% at 8% 0%,
+    color-mix(
+        in srgb,
+        var(--valor-brilho) calc(var(--bolha-specular-alfa) * 100%),
+        transparent
+      )
+      0%,
+    transparent 72%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-valor) 45%, transparent);
+  transition: opacity var(--dur-set) var(--ease-ink);
+}
+.painel-vitrine:hover::after,
+.painel-vitrine:focus-within::after {
+  opacity: 1;
+}
+/* Recuo binário S4 (reprovou AA por pixel): keyline sem specular. */
+.painel-vitrine--recuo::after {
+  background: none;
+}
+
+/* ELEMENTO-NOVO RESERVA de /cobertura (E27) — SEM glow, SEM specular, SEM
+   sombra: o SELO DE FONTES acende e IMPRIME sua régua. O hairline sob o selo
+   desenha da esquerda (`scaleX`, mesma gramática de `.reveal-regua`) e a
+   tinta do selo sobe de `--ink-3` para `--ink`. Sobrevive intacto se o S4
+   for recuado no AA da Onda 4 — a rota nunca fica sem elemento nomeado. */
+.painel-selo {
+  position: relative;
+  color: var(--ink-tertiary);
+  transition: color var(--dur-set) var(--ease-ink);
+}
+.painel-selo::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -3px;
+  height: 1px;
+  background: var(--accent-valor);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-press) var(--ease-rule);
+}
+.painel-vitrine:hover .painel-selo,
+.painel-vitrine:focus-within .painel-selo {
+  color: var(--ink-primary);
+}
+.painel-vitrine:hover .painel-selo::before,
+.painel-vitrine:focus-within .painel-selo::before {
+  transform: scaleX(1);
+}
+
+/* ------------------------------------------------------------
+ * REDUCED-MOTION (nominal por efeito, desta emenda):
+ *   - palco da grade (/teses): os ESTADOS ficam (zoom do ativo, recuo/dim
+ *     dos irmãos, sombra/keyline — a hierarquia continua legível), a troca é
+ *     INSTANTÂNEA e o tilt/mola NUNCA nasce (mesma doutrina do bloco
+ *     original da Banca, acima).
+ *   - specular do aro e acender do selo (/cobertura): são ESTADOS de cor,
+ *     não movimento — ficam (aparecem sem transição). Só a IMPRESSÃO do
+ *     hairline do selo (scaleX) é movimento: assenta no estado final.
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .grade-teses .cartao-ticker {
+    transition: none !important;
+    transform: none !important;
+  }
+  .painel-vitrine::after,
+  .painel-selo {
+    transition: none;
+  }
+  .painel-selo::before {
+    transition: none;
+    transform: scaleX(1);
+  }
+}

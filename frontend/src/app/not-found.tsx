@@ -29,6 +29,22 @@ import { Reveal } from "@/components/motion/Reveal";
 //   envolve a Tarja (z-50) nem a régua de leitura — o stacking context de
 //   `.tem-foco` não aprisiona nada do chrome. Reduce/touch: a luminária é
 //   inerte por construção (usePonteiro + bloco de redução do globals.css).
+//
+// Missão HORIZONTE (2026-07-14 — "A Pedra Bruta", direcao-horizonte.md §9):
+// - Migração D3/D5: `mx-auto max-w-xl` -> `.bancada` (prosa em `medida`,
+//   ≤68ch — este bloco já era só texto+CTAs, a lei tipográfica não regride
+//   nada aqui; E30 preservado).
+// - ELEMENTO NOVO: a pedra bruta — o MESMO polígono cinza-fosco de
+//   `CenaNascimento.tsx` (plano 2, "extração" — a pedra ANTES da
+//   lapidação), como SVG inline PEQUENO, com o `d` literalmente
+//   DUPLICADO neste arquivo (pegadinha 3, D18-boundary: o segmento deste
+//   `not-found` é EAGER no Next 16 e compartilha o grafo de TODA rota —
+//   um `import` de `CenaNascimento.tsx`/`lapidacao.css` aqui vazaria peso
+//   para /tese e todas as demais. Zero import novo: a classe
+//   `.nascimento-pedra-bruta` já é global via `globals.css` @import
+//   `cinema/lapidacao.css` — CSS já pago em toda rota, JS zero). Reserva
+//   independente de glow: a própria pedra é CINZA-FOSCA por design (sem
+//   specular) — nada aqui depende do recuo binário do S4.
 export default async function NaoEncontrada() {
   await headers();
   return (
@@ -36,25 +52,39 @@ export default async function NaoEncontrada() {
       <Header />
       <main
         id="conteudo"
-        className="tem-foco mx-auto flex w-full max-w-xl flex-1 flex-col items-start gap-5 px-4 py-24 sm:px-6"
+        className="tem-foco bancada flex-1 items-start gap-5 py-24"
       >
         <FocoLuz />
         {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
             aqui não há nenhuma. Stagger simples (.i-N). */}
         <Reveal className="i-1">
+          <svg
+            viewBox="405 135 110 85"
+            className="h-16 w-auto"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d="M 420 150 L 470 143 L 508 168 L 497 208 L 438 212 L 413 183 Z"
+              className="nascimento-pedra-bruta"
+            />
+          </svg>
+        </Reveal>
+        <Reveal className="i-2">
           <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
             Erro 404
           </p>
         </Reveal>
-        <Reveal className="i-2">
+        <Reveal className="i-3">
           <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
-            Esta página não consta nesta edição.
+            Esta página não foi lapidada.
           </h1>
         </Reveal>
-        <Reveal className="i-3">
-          <p className="max-w-md text-body leading-relaxed text-ink-2">
-            O endereço não existe ou mudou. Nada foi perdido — as teses
-            geradas neste navegador continuam no Histórico.
+        <Reveal className="i-4">
+          <p className="text-body leading-relaxed text-ink-2">
+            O endereço não existe ou mudou. Nada foi perdido: as teses
+            geradas neste navegador continuam no Histórico, e as teses
+            prontas continuam abrindo na hora.
           </p>
         </Reveal>
         <div className="flex flex-wrap gap-3">

@@ -3,6 +3,14 @@
 // registro auditável de fontes ao fim. Presentacional — sem estado próprio
 // (o `useReveal`/Impressão de Régua agora mora em `SecaoChrome.tsx`, que
 // também serve as 4 seções novas do envelope — ver import abaixo).
+//
+// MISSÃO "HORIZONTE" (2026-07-14, raia 3A — C7 direção §9, "/tese — A Peça"):
+// CSS-only, zero JS novo, delta gsap ZERO. `<article>` migra à BANCADA
+// (aninhada — D3): o masthead vira capa de research report full-bleed
+// (`.b-sangria`), o corpo segue `.b-palco` (largura >= à antiga, E30) e as
+// linhas de fonte (citações + registro de fontes) ganham o relevo
+// `.gema-chip__corpo` (D14, cinema/gema.css — dona: raia 1A). Régua/morph/
+// `esperaViradaEmVoo`/skeleton/AvisoBanner/4-blocos-CVM: INTOCADOS.
 
 import { Reveal } from "@/components/motion/Reveal";
 import { useSecaoAtiva } from "@/components/motion/useSecaoAtiva";
@@ -236,97 +244,150 @@ export function TeseView({ tese }: { tese: TeseOut }) {
   ];
 
   return (
-    <article className="flex w-full flex-col gap-10">
+    // Migração à BANCADA (missão HORIZONTE, raia 3A, C7 direção §9): o
+    // `<article>` deixa de ser um `flex flex-col` estreito (herdava a
+    // largura do `max-w-5xl` de page.tsx) e vira o próprio grid — NESTED
+    // (D3 "aninhável"): `<main>` já é `.bancada` lá em cima, mas tudo o que
+    // fica entre `<main>` e este `<article>` (TeseClient.tsx, fora da posse
+    // desta raia) é `flex`/`w-full` comum, então os NOMES de linha do grid
+    // de `<main>` não alcançam aqui (grid-column só resolve contra o
+    // ANCESTOR GRID DIRETO) — precisa da própria instância. Cada filho
+    // direto abaixo escolhe a coluna: `.b-sangria` só no masthead (a capa
+    // full-bleed, C7), `.b-palco` no resto do corpo (largura >= à antiga,
+    // E30), default `medida` (68ch) nos dois estados de fallback sem
+    // estrutura — texto puro, sem prova de largura a proteger.
+    // `gap-y-10` (NUNCA `gap-10`): mesma armadilha de page.tsx — este
+    // `<article>` é `.bancada` (grid de 6 colunas nomeadas); `gap-10`
+    // escreveria `column-gap` também, quebrando a soma das trilhas e
+    // produzindo overflow-x real em viewports estreitos (achado por teste
+    // em 390px, E3). `gap-y-10` é só o espaçamento vertical entre as
+    // seções empilhadas — o mesmo papel do antigo `flex-col gap-10`.
+    <article className="bancada gap-y-10">
       {/* Régua de Leitura: barra de progresso de 2px em brasa no topo da
           página (CSS scroll-driven em globals.css, `.regua-leitura`); o
-          scrollspy de fallback vive em `useSecaoAtiva`, logo acima. */}
+          scrollspy de fallback vive em `useSecaoAtiva`, logo acima.
+          `position:fixed` (globals.css item 8) — fica FORA do fluxo do
+          grid, não participa do `.bancada` acima nem herda coluna. */}
       <div className="regua-leitura" aria-hidden />
 
-      <AvisoBanner aviso={tese.aviso} />
+      {/* `.b-palco` num wrapper PRÓPRIO (não uma prop nova em AvisoBanner,
+          que é dos 4 blocos CVM verbatim — SecaoChrome.tsx só muda "se a
+          copy exigir", e isto é layout, não copy): o aviso ganha a mesma
+          largura do resto do corpo, sem tocar o componente. */}
+      <div className="b-palco">
+        <AvisoBanner aviso={tese.aviso} />
+      </div>
 
-      {/* Masthead do documento: cabeçalho de research report. `.aurora-
+      {/* Masthead do documento: "A CAPA" do research report — C7 direção
+          §9 (raia 3A, missão HORIZONTE): "masthead vira capa de research
+          report full-bleed (faixa bg-card ponta a ponta, réguas
+          atravessando)". `.b-sangria` faz o card sangrar até a borda do
+          grid do `<article>` (E30: sempre >= à largura do antigo
+          `max-w-5xl` — nunca 100vw, E3 bane `vw` em largura de palco).
+          O masthead SEGUE filho direto de `<article>` (nenhum wrapper novo
+          o envolve) — trava C2 exige que ele continue IRMÃO de
+          `.regua-leitura`, nunca ancestral dela; `.b-sangria` é só uma
+          classe a mais no MESMO nó, não uma reparentagem. `.aurora-
           masthead` (§4, direcao-de-arte-cinema.md — "aurora SÓ no
           masthead") pinta um pool de luz local atrás do título, ACIMA do
           `bg-card` opaco do card e ABAIXO do conteúdo — ver globals.css
-          item 20. O masthead é IRMÃO de `.regua-leitura` (não ancestral),
-          então `position:relative`/`isolation:isolate` da classe não
-          reabrem a trava C2. Missão APOTEOSE (crit. 10): `.masthead-
-          apoteose` (cinema/tese-apoteose.css) imprime a keyline ameixa no
-          topo 1x no mount — entrada mais rica sem tocar no writer do
-          <Reveal> (o keyframe anima só o ::after próprio); a aurora segue
-          com o alfa CALIBRADO do globals (reuso, nunca boost local). */}
-      <Reveal className="aurora-masthead masthead-apoteose flex flex-col gap-6 border-b-4 border-line-strong bg-card px-6 py-8 sm:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-          <div className="flex flex-col gap-1">
-            <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-              Research report
-              {/* Selo discreto da classe do ativo (Fase 2 multiativo) — mesma
-                  hierarquia tipográfica do eyebrow, só com borda para separar
-                  visualmente sem introduzir uma cor nova (tokens BRASA).
-                  Só renderiza quando a classe é determinável (fail-closed). */}
-              {seloClasse && (
-                <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
-                  {seloClasse}
-                </span>
-              )}
-            </p>
-            {/* `.ticker-luz` (crit. 7, primitiva da Onda 0): specular
-                dourado contido que segue o ponteiro sobre o ticker —
-                `--mx`/`--my` chegam pela ilha delegada do TeseClient
-                (usePonteiro, seletorAlvo ".ticker-luz"). O sprite (::after,
-                z:-1 no contexto isolado do h2) fica clipado pelo
-                overflow:hidden do `.aurora-masthead` pai — "specular
-                contido" (S2), nunca névoa vazando do card. */}
-            <h2
-              className={`ticker-luz font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
-            >
-              {tese.ticker}
-            </h2>
-            {(papel || documento?.titulo) && (
-              <p className="font-display text-lede text-ink-2">{papel?.nome ?? documento?.titulo}</p>
-            )}
-          </div>
-          {tese.criado_em && (
-            <time dateTime={tese.criado_em} className="font-mono text-meta text-ink-3">
-              Gerada em {formatDataHora(tese.criado_em)}
-            </time>
-          )}
-        </div>
+          item 20; ela cobre a caixa inteira via `inset:0`, então continua
+          válida no card agora full-bleed. Missão APOTEOSE (crit. 10):
+          `.masthead-apoteose` (cinema/tese-apoteose.css) imprime a keyline
+          ameixa no topo 1x no mount — entrada mais rica sem tocar no
+          writer do <Reveal> (o keyframe anima só o ::after próprio); a
+          aurora segue com o alfa CALIBRADO do globals (reuso, nunca boost
+          local). Essa keyline + o `border-b-4` abaixo são as "réguas
+          atravessando" da direção — nenhuma das duas é nova: só ficaram
+          mais largas (o elemento-novo RESERVA independente de glow desta
+          rota, E27 — se o AA reprovar qualquer specular da rota, esta
+          keyline plana continua provando a capa sozinha).
 
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 border-t border-line pt-4">
-          <div className="flex items-baseline gap-1.5">
-            <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Citações</dt>
-            <dd className="font-mono text-ui font-semibold text-ink">{tese.citacoes.length}</dd>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Fontes</dt>
-            <dd className="font-mono text-ui font-semibold text-ink">{tese.fontes.length}</dd>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">
-              Lacunas declaradas
-            </dt>
-            <dd
-              className={`font-mono text-ui font-semibold ${
-                tese.lacunas.length > 0 ? "text-aviso-texto" : "text-ink"
-              }`}
-            >
-              {tese.lacunas.length}
-            </dd>
-          </div>
-          {tese.uso?.modelo && (
-            <div className="flex items-baseline gap-1.5">
-              <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Modelo</dt>
-              <dd className="font-mono text-ui font-semibold text-ink">{tese.uso.modelo}</dd>
+          Dentro do card, um `.bancada` ANINHADO (D3) recria as colunas
+          relativas à largura full-bleed — sem ele, `.b-palco` não teria
+          contexto de grid próprio aqui dentro (linhas nomeadas só valem
+          para filhos DIRETOS do grid que as declara). O conteúdo real
+          (ticker/data + a `dl` de citações/fontes/lacunas) mora em
+          `.b-palco` — largo, mas com o mesmo respiro do resto do corpo,
+          nunca colado nas bordas físicas da tela. */}
+      <Reveal className="aurora-masthead masthead-apoteose b-sangria border-b-4 border-line-strong bg-card">
+        <div className="bancada">
+          <div className="b-palco flex flex-col gap-6 px-6 py-8 sm:px-8">
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+              <div className="flex flex-col gap-1">
+                <p className="flex flex-wrap items-center gap-x-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+                  Research report
+                  {/* Selo discreto da classe do ativo (Fase 2 multiativo) — mesma
+                      hierarquia tipográfica do eyebrow, só com borda para separar
+                      visualmente sem introduzir uma cor nova (tokens BRASA).
+                      Só renderiza quando a classe é determinável (fail-closed). */}
+                  {seloClasse && (
+                    <span className="border border-line-strong px-1.5 py-0.5 text-ink-3">
+                      {seloClasse}
+                    </span>
+                  )}
+                </p>
+                {/* `.ticker-luz` (crit. 7, primitiva da Onda 0): specular
+                    dourado contido que segue o ponteiro sobre o ticker —
+                    `--mx`/`--my` chegam pela ilha delegada do TeseClient
+                    (usePonteiro, seletorAlvo ".ticker-luz"). O sprite (::after,
+                    z:-1 no contexto isolado do h2) fica clipado pelo
+                    overflow:hidden do `.aurora-masthead` pai — "specular
+                    contido" (S2), nunca névoa vazando do card. */}
+                <h2
+                  className={`ticker-luz font-mono text-h1 font-bold tracking-tight text-ink${slotEdicao ? ` vt-tese-${slotEdicao}` : ""}`}
+                >
+                  {tese.ticker}
+                </h2>
+                {(papel || documento?.titulo) && (
+                  <p className="font-display text-lede text-ink-2">{papel?.nome ?? documento?.titulo}</p>
+                )}
+              </div>
+              {tese.criado_em && (
+                <time dateTime={tese.criado_em} className="font-mono text-meta text-ink-3">
+                  Gerada em {formatDataHora(tese.criado_em)}
+                </time>
+              )}
             </div>
-          )}
-        </dl>
+
+            <dl className="flex flex-wrap gap-x-8 gap-y-2 border-t border-line pt-4">
+              <div className="flex items-baseline gap-1.5">
+                <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Citações</dt>
+                <dd className="font-mono text-ui font-semibold text-ink">{tese.citacoes.length}</dd>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Fontes</dt>
+                <dd className="font-mono text-ui font-semibold text-ink">{tese.fontes.length}</dd>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">
+                  Lacunas declaradas
+                </dt>
+                <dd
+                  className={`font-mono text-ui font-semibold ${
+                    tese.lacunas.length > 0 ? "text-aviso-texto" : "text-ink"
+                  }`}
+                >
+                  {tese.lacunas.length}
+                </dd>
+              </div>
+              {tese.uso?.modelo && (
+                <div className="flex items-baseline gap-1.5">
+                  <dt className="font-sans text-label uppercase tracking-[0.1em] text-ink-3">Modelo</dt>
+                  <dd className="font-mono text-ui font-semibold text-ink">{tese.uso.modelo}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        </div>
       </Reveal>
 
       {/* Lacunas em destaque: abstenção é informação, não rodapé — 1 de 3
-          pontos de ênfase (header acima + este bloco + a seção "Lacunas"). */}
+          pontos de ênfase (header acima + este bloco + a seção "Lacunas").
+          `.b-palco`: mesma largura do resto do corpo (a capa acima é a
+          ÚNICA seção full-bleed da rota). */}
       {tese.lacunas.length > 0 && (
-        <Reveal className="flex flex-wrap items-center gap-x-4 gap-y-3 border-l-4 border-aviso-borda bg-aviso-fundo px-5 py-4">
+        <Reveal className="b-palco flex flex-wrap items-center gap-x-4 gap-y-3 border-l-4 border-aviso-borda bg-aviso-fundo px-5 py-4">
           <BadgeLacuna texto="Dado não encontrado" />
           <p className="text-ui text-aviso-texto">
             {tese.lacunas.length === 1
@@ -345,17 +406,23 @@ export function TeseView({ tese }: { tese: TeseOut }) {
       )}
 
       {!tese.markdown?.trim() && (
-        <p className="border border-line bg-card p-5 text-ui text-ink-2">A tese não retornou conteúdo.</p>
+        <p className="b-palco border border-line bg-card p-5 text-ui text-ink-2">
+          A tese não retornou conteúdo.
+        </p>
       )}
 
+      {/* Fallback sem estrutura (raro): texto puro, sem cartão de sumário —
+          medida default do grid (`.bancada > *`, 68ch) já é a lei
+          tipográfica da casa; `max-w-[68ch]` some (redundante com o grid,
+          D5: `max-w-*` internos obsoletos saem quando o grid já governa). */}
       {documento && !temEstrutura && (
-        <div className="max-w-[68ch] border border-line bg-card p-6 sm:p-8">
+        <div className="border border-line bg-card p-6 sm:p-8">
           <Blocos blocos={[...documento.intro]} refs={refs} hostsOk={hostsOk} />
         </div>
       )}
 
       {documento && temEstrutura && (
-        <div className="grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16">
+        <div className="b-palco grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16">
           {/* Sumário: fixo na lateral no desktop, dobrável no mobile */}
           <div className="lg:sticky lg:top-16 lg:self-start">
             {/* A3 (alvo ≥24px, WCAG 2.5.8): padding vai NO <summary> — é o
@@ -419,36 +486,51 @@ export function TeseView({ tese }: { tese: TeseOut }) {
           seção presente, o aviso/nota correspondente fica SEMPRE visível e
           listas vazias (indicadores/modelos/itens) degradam para as
           lacunas declaradas, nunca para "seção sumiu". */}
+      {/* `.b-palco` num wrapper próprio em cada bloco do envelope (mesma
+          lógica do AvisoBanner acima): `SecaoEnvelope`/`SecaoChrome.tsx` não
+          muda (nada de copy exigindo isso), então a largura entra por fora,
+          sem tocar o componente nem o `id`/`aria-labelledby` que o sumário
+          usa para scroll-to-anchor (o `id` continua no `<section>` interno,
+          intocado pelo wrapper). */}
       {tese.metricas_setor && tese.metricas_setor.length > 0 && (
-        <SecaoEnvelope id="metricas-setor" titulo="Métricas do setor">
-          <SecaoMetricasSetor metricas={tese.metricas_setor} />
-        </SecaoEnvelope>
+        <div className="b-palco">
+          <SecaoEnvelope id="metricas-setor" titulo="Métricas do setor">
+            <SecaoMetricasSetor metricas={tese.metricas_setor} />
+          </SecaoEnvelope>
+        </div>
       )}
 
       {tese.valuation && (
-        <SecaoEnvelope id="valuation" titulo="Valuation">
-          <SecaoValuation valuation={tese.valuation} />
-        </SecaoEnvelope>
+        <div className="b-palco">
+          <SecaoEnvelope id="valuation" titulo="Valuation">
+            <SecaoValuation valuation={tese.valuation} />
+          </SecaoEnvelope>
+        </div>
       )}
 
       {tese.tecnica && (
-        <SecaoEnvelope id="analise-tecnica" titulo="Análise técnica">
-          <SecaoTecnica tecnica={tese.tecnica} graficos={tese.graficos ?? []} />
-        </SecaoEnvelope>
+        <div className="b-palco">
+          <SecaoEnvelope id="analise-tecnica" titulo="Análise técnica">
+            <SecaoTecnica tecnica={tese.tecnica} graficos={tese.graficos ?? []} />
+          </SecaoEnvelope>
+        </div>
       )}
 
       {tese.consenso && (
-        <SecaoEnvelope id="consenso" titulo="Consenso de analistas">
-          <SecaoConsenso consenso={tese.consenso} />
-        </SecaoEnvelope>
+        <div className="b-palco">
+          <SecaoEnvelope id="consenso" titulo="Consenso de analistas">
+            <SecaoConsenso consenso={tese.consenso} />
+          </SecaoEnvelope>
+        </div>
       )}
 
-      {/* Trilha auditável: citações numeradas + registro de fontes */}
+      {/* Trilha auditável: citações numeradas + registro de fontes.
+          `.b-palco`: mesma largura do resto do corpo. */}
       {(tese.citacoes.length > 0 || tese.fontes.length > 0) && (
         <section
           id="citacoes"
           aria-label="Citações e registro de fontes"
-          className="flex flex-col gap-8 border border-line-strong bg-card px-6 py-8 sm:px-8"
+          className="b-palco flex flex-col gap-8 border border-line-strong bg-card px-6 py-8 sm:px-8"
         >
           {tese.citacoes.length > 0 && (
             <div>
@@ -461,9 +543,21 @@ export function TeseView({ tese }: { tese: TeseOut }) {
               <ol className="flex flex-col gap-3 stagger">
                 {tese.citacoes.map((c, i) => (
                   <li key={i} id={`citacao-${i + 1}`}>
+                    {/* `.gema-chip__corpo` (missão HORIZONTE, D14 — "linhas
+                        de fonte de /tese viram .gema-chip"): reuso SEM
+                        wrapper (gema.css, "REUSO SEM O FILHO"), exatamente
+                        o padrão já aprovado em `.citacao-pin-hero` — este
+                        `<div>` já tem `bg-realce` (o mesmo campo opaco
+                        M3-b) e já anima A SI MESMO via `variant="citacao-
+                        pin"` (opacity/`transform: scale` no `.is-armed/
+                        .is-revealed`, globals.css item 4); `.gema-chip__corpo`
+                        só acrescenta `box-shadow` (bisel) + `translate` no
+                        hover/focus — propriedades DIFERENTES das que o
+                        Reveal já escreve, zero colisão (um-escritor por
+                        propriedade continua valendo, nó a nó). */}
                     <Reveal
                       variant="citacao-pin"
-                      className={`flex gap-4 bg-realce py-4 pl-5 pr-4 ${i < 12 ? `i-${i + 1}` : ""}`}
+                      className={`gema-chip__corpo flex gap-4 bg-realce py-4 pl-5 pr-4 ${i < 12 ? `i-${i + 1}` : ""}`}
                     >
                       <span className="font-mono text-meta font-semibold text-brasa-texto">[{i + 1}]</span>
                       <div className="min-w-0 flex flex-col gap-1">
@@ -489,9 +583,21 @@ export function TeseView({ tese }: { tese: TeseOut }) {
               <h3 className="mb-4 font-display text-h3 font-semibold tracking-tight text-ink">
                 Registro de fontes
               </h3>
-              <ul className="flex flex-col divide-y divide-line">
+              {/* "Registro de fontes" É, literalmente, "linhas de fonte de
+                  /tese" (D14) — a lista deixa de ser uma divide-y simples e
+                  cada linha vira um `.gema-chip__corpo` sobre `bg-realce`
+                  (mesmo campo M3-b das citações acima e do
+                  `.citacao-pin-hero` do hero): peso visual consistente na
+                  MESMA seção "Citações e registro de fontes". Reuso sem
+                  wrapper — este `<li>` não anima a si mesmo por nenhum
+                  outro motor, então o bisel/lift do `.gema-chip__corpo`
+                  fica livre (zero um-escritor a disputar). */}
+              <ul className="flex flex-col gap-3">
                 {tese.fontes.map((f, i) => (
-                  <li key={f.id ?? i} className="flex flex-col gap-0.5 py-3 text-ui">
+                  <li
+                    key={f.id ?? i}
+                    className="gema-chip__corpo flex flex-col gap-0.5 bg-realce px-4 py-3 text-ui"
+                  >
                     <FonteLink fonte={f} />
                     {f.dt_referencia && (
                       <span className="font-mono text-meta text-ink-3">
@@ -506,8 +612,9 @@ export function TeseView({ tese }: { tese: TeseOut }) {
         </section>
       )}
 
-      {/* Metadados da geração — parte da trilha de auditoria */}
-      <footer className="flex flex-wrap gap-x-6 gap-y-1 border-t border-line pt-4 font-mono text-meta text-ink-3">
+      {/* Metadados da geração — parte da trilha de auditoria. `.b-palco`:
+          mesma largura do resto do corpo. */}
+      <footer className="b-palco flex flex-wrap gap-x-6 gap-y-1 border-t border-line pt-4 font-mono text-meta text-ink-3">
         <span>id: {tese.id}</span>
         {tese.uso?.modelo && <span>modelo: {tese.uso.modelo}</span>}
         {typeof tese.uso?.custo_estimado_usd === "number" && (

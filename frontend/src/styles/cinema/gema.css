@@ -1,12 +1,244 @@
 /* ============================================================
- * cinema/gema.css — ESQUELETO (Onda 0, missão "FRONTEND HORIZONTE",
- * 2026-07-14). Arquivo vazio de propósito: existe só para o @import de
- * `globals.css` não quebrar o build antes da Onda 1 preencher.
+ * cinema/gema.css — IMPLEMENTAÇÃO (Onda 1A, raia GEMA+CENA, missão
+ * "FRONTEND HORIZONTE", 2026-07-14). DONA: raia 1A (única, para a missão
+ * inteira). LEI: .maestro/plano-horizonte.md (§0 vetos · §3 C3/C6 · §5
+ * E14) + .maestro/direcao-horizonte.md (D14 · §5b · §8) + DESIGN-TOKENS.md
+ * (emenda HORIZONTE — S4/M3-b, tokens --gema-*).
+ * ============================================================
+ * CONTEÚDO desta folha ("bisel/placas", D7):
+ *   1. `.gema-chip` + `.gema-chip__corpo` — o relevo obrigatório (D14): sombra
+ *      dupla (claro) / keyline (escuro) + bisel de arestas 1px + lift 2px no
+ *      hover/focus-within. Reusável (hero `.citacao-pin-hero`, /tese, aqui).
+ *   2. `.placa-gravada` — numeral em baixo-relevo (C6, Sala do Contrato).
+ *   3. `.exemplo-vivo` — espaço reservado + reveal por opacity (D35).
  *
- * DONA: raia 1A GEMA+CENA (Onda 1). Preenche com: `.gema-chip` (bisel D14 —
- * `--gema-aresta`/`--gema-quilha`/`--gema-elevacao`, campo `bg-realce`
- * intocado M3-b, lift 2px em filho `.gema-chip__corpo`), `.placa-gravada`
- * (numeral baixo-relevo, C6) e `.exemplo-vivo` (espaço reservado + reveal
- * opacity, D35) — ver plano-horizonte.md §3 (C3/C6) e
- * direcao-horizonte.md §5b/§8.
+ * ANATOMIA DO BISEL (D14, de fora pra dentro): sombra de peso no claro
+ * (`--gema-elevacao`, dupla curta+longa) + moldura-engaste 1px —
+ * `--gema-aresta` (luz, ouro-brilho) em CIMA/ESQUERDA, `--gema-quilha`
+ * (sombra) em BAIXO/DIREITA — luz vinda do alto-esquerdo, consistente com a
+ * luminária do hero (cinema/luz.css). Campo interno `bg-realce` (Tailwind,
+ * aplicado pelo INTEGRADOR no filho `.gema-chip__corpo`) fica INTOCADO e
+ * OPACO — M3-b re-escopa a trava M3 para valer só nesse campo de texto; as
+ * arestas de 1px ficam FORA da área aferida (provadas em separado, por pixel,
+ * como decorativas). Dark: sombra `none` (S2 — elevação-base = borda), a
+ * bisel (aresta clara + quilha escurecida) VIRA a própria keyline.
+ *
+ * O BISEL MORA NO `.gema-chip__corpo`, NÃO NO WRAPPER (correção de
+ * implementação, provada por pixel no wow-gate E14 — ver relatório da raia):
+ * um `box-shadow: inset` só é visível se pintado no MESMO nó que tem o
+ * `background` opaco. Um `box-shadow` inset no elemento EXTERNO ficaria
+ * atrás, na ordem de pintura, do `background` OPACO do filho — que ocupa a
+ * MESMA caixa (o wrapper não tem padding próprio) e o cobriria por
+ * completo. `.gema-chip` (o `[data-cena-el]` do GSAP) fica estrutural —
+ * zero `box-shadow` — e só detecta `:hover`/`:focus-within` para acionar o
+ * filho via seletor descendente. `.gema-chip__corpo` (o nó com `bg-realce`)
+ * carrega o bisel + a elevação + o lift: como é o MESMO elemento que pinta
+ * o fundo, o inset-shadow pinta por cima do próprio background — visível,
+ * provado por pixel (`getPixel` no topo/esquerda da caixa, claro e escuro).
+ *
+ * IMPLEMENTAÇÃO — box-shadow, NUNCA border (D14 diz "border + 2 inset-
+ * shadows", mas o `border-left` de 2px já é dono da keyline de citação
+ * (`border-l-2 border-brasa`, Tailwind, aplicada pelo integrador no MESMO
+ * filho `.gema-chip__corpo`) — usar a propriedade `border` para o bisel
+ * colidiria com essa keyline existente. Resolvido 100% com `box-shadow` (4
+ * insets de 1px, um por aresta, mais a sombra externa `--gema-elevacao`) —
+ * zero pseudo-elemento sobre texto, zero JS.
+ *
+ * ARMADILHA EVITADA #1 (documentada — não é chute): `--gema-elevacao` é
+ * literalmente a palavra-chave `none` no escuro (globals.css, dark media).
+ * `box-shadow` NÃO aceita `none` misturado numa lista com outras sombras —
+ * `inset ..., inset ..., none` é uma declaração INTEIRA inválida (o
+ * "guaranteed-invalid value" da spec de custom properties zeraria TODO o
+ * box-shadow, incluindo o bisel que o escuro precisa como keyline). Por
+ * isso `.gema-chip__corpo` REDECLARA `--gema-elevacao` localmente no escuro
+ * como "zero sombra" em formato de <shadow> válido (`0 0 0 0 transparent`),
+ * nunca a palavra `none` — equivalente visual idêntico, sintaxe sempre
+ * válida. Escopo local (só dentro desta classe), o token global do
+ * DESIGN-TOKENS.md não muda.
+ *
+ * ARMADILHA EVITADA #2 (a que o wow-gate pegou por pixel, ver relatório):
+ * um `box-shadow: inset` declarado no elemento EXTERNO some inteiro atrás
+ * do `background` opaco de um filho que ocupa a mesma caixa — pintura de
+ * fundo/box-shadow-inset de um pai NUNCA aparece por cima do background do
+ * filho (ordem de pintura do CSS: background+box-shadow do próprio nó,
+ * DEPOIS os descendentes). Por isso o bisel foi realocado para
+ * `.gema-chip__corpo` (ver acima) — medido por `getComputedStyle` E por
+ * pixel real antes de fechar a raia.
+ *
+ * UM-ESCRITOR-POR-PROPRIEDADE: `.gema-chip` é o nó `[data-cena-el]` que o
+ * CenaScrub (Onda 1B, intocado) já possui — o GSAP escreve SÓ
+ * `transform`/`opacity`/`scale` nele (inline style). Esta folha NUNCA toca
+ * essas três propriedades nesse nó: `.gema-chip` só detecta interação
+ * (seletor, zero propriedade visual própria); box-shadow/elevação/lift
+ * vivem inteiros no FILHO `.gema-chip__corpo` — nó que o GSAP nunca toca.
+ * Zero colisão possível, mesmo se `.gema-chip` estiver dentro de uma seção
+ * scrubada.
+ *
+ * REUSO SEM O FILHO: em elementos que já animam A SI MESMOS por outro motor
+ * e não têm (nem precisam) de wrapper próprio — ex.: `.citacao-pin-hero`,
+ * que já tem seu keyframe de entrada `citacao-pin-hero-resolve` + `::before`
+ * (nenhum dos dois toca `box-shadow`) — aplique `.gema-chip__corpo` SOZINHO,
+ * direto no elemento com `bg-realce` (sem precisar do `.gema-chip` externo,
+ * que só existe para escopar o `:hover`/`:focus-within` de uma família de
+ * vários chips). Documentado no relatório da raia.
  * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 1. `.gema-chip` (wrapper estrutural) + `.gema-chip__corpo` (o relevo)
+ * ------------------------------------------------------------ */
+.gema-chip {
+  /* Estrutural: zero box-shadow/background aqui (ver "ARMADILHA EVITADA
+     #2" acima) — só escopa :hover/:focus-within para o filho. */
+  position: relative;
+}
+
+.gema-chip__corpo {
+  box-shadow:
+    inset 1px 0 0 0 var(--gema-aresta),
+    inset 0 1px 0 0 var(--gema-aresta),
+    inset -1px 0 0 0 var(--gema-quilha),
+    inset 0 -1px 0 0 var(--gema-quilha),
+    var(--gema-elevacao);
+  transition:
+    box-shadow var(--dur-tick) var(--ease-ink),
+    translate var(--dur-tick) var(--ease-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .gema-chip__corpo {
+    /* ver "ARMADILHA EVITADA #1" acima: override local, formato <shadow>
+       válido — nunca a palavra-chave `none` numa lista. */
+    --gema-elevacao: 0 0 0 0 transparent;
+  }
+}
+
+/* Hover/focus-within (D14): "levanta 2px e a sombra alonga" — a sombra
+   alonga SÓ no claro (S2: no escuro a elevação-base é a keyline, que já
+   está no seu teto; o feedback no escuro fica só no lift). `--sombra-fria`
+   é token JÁ PUBLICADO (APOTEOSE, rgb(42 54 84/.16) — a MESMA família de
+   cor de `--gema-elevacao`) — zero token novo. O LIFT (2px) vale nos dois
+   temas. Gatilho no `.gema-chip` ancestral (ou, sem wrapper — reuso "sem o
+   filho" — no próprio `:hover`/`:focus-within` do `.gema-chip__corpo`). */
+.gema-chip:hover .gema-chip__corpo,
+.gema-chip:focus-within .gema-chip__corpo,
+.gema-chip__corpo:hover,
+.gema-chip__corpo:focus-within {
+  translate: 0 -2px;
+}
+@media (prefers-color-scheme: light) {
+  .gema-chip:hover .gema-chip__corpo,
+  .gema-chip:focus-within .gema-chip__corpo,
+  .gema-chip__corpo:hover,
+  .gema-chip__corpo:focus-within {
+    box-shadow:
+      inset 1px 0 0 0 var(--gema-aresta),
+      inset 0 1px 0 0 var(--gema-aresta),
+      inset -1px 0 0 0 var(--gema-quilha),
+      inset 0 -1px 0 0 var(--gema-quilha),
+      var(--gema-elevacao),
+      0 18px 36px var(--sombra-fria);
+  }
+}
+
+/* Recuo binário S4 (reprovou AA por pixel no hover/pico) — nunca iterar às
+   cegas: aplicar esta classe adicional (no `.gema-chip__corpo`) remove
+   specular/elevação e deixa só a keyline plana de 1px, nos dois temas. */
+.gema-chip__corpo.gema-chip--recuo,
+.gema-chip__corpo.gema-chip--recuo:hover,
+.gema-chip__corpo.gema-chip--recuo:focus-within {
+  box-shadow:
+    inset 1px 0 0 0 var(--gema-aresta),
+    inset 0 1px 0 0 var(--gema-aresta),
+    inset -1px 0 0 0 var(--gema-quilha),
+    inset 0 -1px 0 0 var(--gema-quilha);
+}
+
+/* ------------------------------------------------------------
+ * 2. `.placa-gravada` — numeral em baixo-relevo (C6, Sala do Contrato)
+ * ------------------------------------------------------------
+ * Baixo-relevo = polaridade OPOSTA ao bisel de `.gema-chip` (que é
+ * relevo/raised): o numeral parece GRAVADO/afundado — sombra escura no
+ * canto de onde a luz vem (topo/esquerda) e um fio de luz no canto oposto
+ * (baixo/direita), 2 inset-shadows de 1px só no PRÓPRIO numeral (nunca
+ * sobre o corpo de texto da placa — "zero specular sobre texto", D8/§5b).
+ * Recuo binário (§8 da direção): "baixo-relevo reprovar AA → numeral
+ * chapado text-ink-3" — classe `.placa-gravada--chapado` abaixo.
+ * ------------------------------------------------------------ */
+.placa-gravada {
+  position: relative;
+  border: 1px solid var(--line-strong);
+}
+.placa-gravada__numeral {
+  display: inline-block;
+  color: var(--ink-tertiary);
+  box-shadow:
+    inset 1px 1px 0 0 rgb(0 0 0 / 0.14),
+    inset -1px -1px 0 0 var(--gema-aresta);
+}
+@media (prefers-color-scheme: dark) {
+  .placa-gravada__numeral {
+    box-shadow:
+      inset 1px 1px 0 0 rgb(0 0 0 / 0.35),
+      inset -1px -1px 0 0 var(--gema-aresta);
+  }
+}
+/* Recuo binário: reprovou AA por pixel → numeral chapado, sem relevo. */
+.placa-gravada--chapado .placa-gravada__numeral {
+  box-shadow: none;
+  color: var(--ink-tertiary);
+}
+
+/* ------------------------------------------------------------
+ * 3. `.exemplo-vivo` — espaço reservado + reveal por opacity (D35)
+ * ------------------------------------------------------------
+ * SEMPRE no DOM, SEMPRE ocupando sua altura natural desde o SSR — zero
+ * medição JS, zero animação de LAYOUT (CLS-safe por construção: só
+ * `opacity` muda, nunca `height`/`display`). Em telas hover-capable nasce
+ * invisível e revela no hover/focus-within da placa-mãe (arbitragem §11.9
+ * da direção: opacity, nunca max-height). Sob `hover:none` (touch) e sob
+ * `prefers-reduced-motion: reduce`, fica SEMPRE visível — leitor de tela lê
+ * em qualquer um dos três modos, porque o conteúdo real nunca sai do DOM.
+ * ------------------------------------------------------------ */
+.exemplo-vivo {
+  opacity: 0;
+  transition: opacity var(--dur-set) var(--ease-ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .placa-gravada:hover .exemplo-vivo,
+  .placa-gravada:focus-within .exemplo-vivo {
+    opacity: 1;
+  }
+}
+/* Touch/sem hover: sempre visível (D35 — "sempre visível sob hover:none"). */
+@media (hover: none) {
+  .exemplo-vivo {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------
+ * REDUCED-MOTION (nominal por efeito, nesta folha):
+ *   - lift de `.gema-chip__corpo` (hover) — DECORATIVO: desligado (o
+ *     visitante ainda vê o realce de box-shadow no hover, sem deslocar
+ *     posição).
+ *   - `.exemplo-vivo` — sempre visível (não é "isento de motion", é o
+ *     ESTADO CORRETO sob reduce: D35 exige visível, nunca dependente de
+ *     hover para existir).
+ *   - bisel/elevação estáticos (`.gema-chip`, `.placa-gravada__numeral`)
+ *     não são efeito de movimento — não entram aqui (não há nada a
+ *     reduzir: já são estado final por construção).
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .gema-chip__corpo {
+    transition: none;
+  }
+  .gema-chip:hover .gema-chip__corpo,
+  .gema-chip:focus-within .gema-chip__corpo,
+  .gema-chip__corpo:hover,
+  .gema-chip__corpo:focus-within {
+    translate: none;
+  }
+  .exemplo-vivo {
+    opacity: 1 !important;
+    transition: none;
+  }
+}

@@ -1,33 +1,40 @@
 /* ============================================================
- * cinema/glossario.css — IMPLEMENTAÇÃO · DONA: onda COPY
- * Missão "APOTEOSE" (2026-07-13) — critério 11: rota /glossario.
+ * cinema/glossario.css — IMPLEMENTAÇÃO · DONA: raia 3C
+ * Missão "FRONTEND HORIZONTE" (2026-07-14) — direção §9 "O Lapidário A–Z".
+ * Substitui a versão da missão APOTEOSE (2026-07-13): o realce de chegada
+ * por âncora troca a keyline brasa por uma keyline OURO ("engaste-acende",
+ * mesmo motivo de `--gema-aresta`/`--fio-lapidario` — o verbete que a
+ * régua/tooltip aponta "se engasta" na vista, rima com o resto do site).
  * ============================================================
  * Escopo desta folha (contrato do stub da Onda 0): SÓ o que o Tailwind não
  * expressa na PRÓPRIA página /glossario — o realce de chegada por âncora
- * (`:target`). Layout, hairlines (Reveal `reveal-regua` + bg-line-strong),
- * tipografia e sumário usam a gramática existente direto no JSX.
- * O popup do tooltip é de cinema/tooltip.css (dona: Onda 0) — nada dele aqui.
+ * (`:target`, o ELEMENTO NOVO principal da rota, direção §9) e a régua de
+ * talha fixa (`.talha-regua`/`.talha-marca`, layout/cor via Tailwind direto
+ * em IndiceLetras.tsx — nada aqui além do que seja indispensável). O popup
+ * do tooltip é de cinema/tooltip.css (dona: Onda 0) — nada dele aqui.
  *
  * CSP: zero style inline/injetado — só classes estáticas. Um escritor por
  * propriedade: `background-color`/`box-shadow` do `.verbete-glossario` têm
  * UM dono (esta folha); o Reveal do wrapper anima opacity/transform no
  * ELEMENTO PAI (o <div> do <Reveal>), nunca neste. Verde banido: o realce
- * usa os tokens quentes da casa (--color-realce / --color-brasa).
+ * usa os tokens quentes/ouro da casa (--color-realce / --gema-aresta).
  * ============================================================ */
 
-/* Chegada por âncora (tooltip "ver glossário →" ou índice A–Z): o verbete
-   alvo acende com o banho de realce da casa (o mesmo --color-realce dos
-   chips de citação) e assenta de volta ao fundo da página — evidência de
-   "é este aqui", sem tocar layout (zero CLS: background + box-shadow
-   inset, nunca border/padding). A keyline brasa à esquerda é ESTÁTICA
-   enquanto o :target valer — wayfinding que sobrevive ao fim da animação
-   e também serve de indicador completo no modo reduce. */
+/* Chegada por âncora (tooltip "ver glossário →" ou a régua de talha A–Z): o
+   verbete alvo acende com o banho de realce da casa (o mesmo --color-realce
+   dos chips de citação) e assenta de volta ao fundo da página — evidência
+   de "é este aqui", sem tocar layout (zero CLS: background + box-shadow
+   inset, nunca border/padding). A keyline OURO (`--gema-aresta`) é
+   ESTÁTICA enquanto o :target valer — wayfinding que sobrevive ao fim da
+   animação e também serve de indicador completo no modo reduce. ASSENTA:
+   1x por chegada (`both`, sem `infinite`), nunca uma animação contínua —
+   2.2.2 ok por construção. */
 .verbete-glossario:target {
-  box-shadow: inset 2px 0 0 var(--color-brasa);
-  animation: verbete-acende var(--dur-edition) var(--ease-ink) both;
+  box-shadow: inset 2px 0 0 var(--gema-aresta);
+  animation: engaste-acende var(--dur-edition) var(--ease-ink) both;
 }
 
-@keyframes verbete-acende {
+@keyframes engaste-acende {
   from {
     background-color: var(--color-realce);
   }
@@ -38,9 +45,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   /* Registro NOMINAL por efeito (LEI §0 — reduce-motion nominal na folha):
-     - `verbete-acende` (banho de realce na chegada por âncora): decorativo —
+     - `engaste-acende` (banho de realce na chegada por âncora): decorativo —
        vai direto ao estado final (fundo transparente), sem flash. O
-       wayfinding NÃO se perde: a keyline brasa estática do `:target` acima
+       wayfinding NÃO se perde: a keyline ouro estática do `:target` acima
        continua marcando o verbete alvo sem nenhum movimento. */
   .verbete-glossario:target {
     animation: none;

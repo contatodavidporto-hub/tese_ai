@@ -35,11 +35,26 @@
 // fallback JS passivo D6 abaixo). Setas/dots/teclado/IO/view(inline) do rail
 // permanecem EXATAMENTE como estavam.
 
+// FRONTEND HORIZONTE (2026-07-14, raia 1B VITRINE — crit. 4): a faixa vira
+// "vitrine giratória" — deriva contínua por scroll real (useVitrineDeriva,
+// D21/E7/E8/E21/E24) + controle on-page (D22/E16-E18, 1º controle 2.2.2 do
+// site) + pedestal por cartão (`.vitrine-pedestal`, cinema/vitrine.css).
+// Palco 3D/drag/hairline/teclado/dots-IO seguem INTOCADOS (D24) — só a
+// coalescência dos dots durante a deriva é nova (E24, ver `aoMudarEstado`).
+//
+// INTEGRAÇÃO (Onda 2, page.tsx): o wrapper `<section id="galeria">` ganha
+// `className="vitrine-veludo veludo-escopo b-sangria"`; o `<div data-cena-el>`
+// que hoje envolve `<GaleriaBanca>` deve DEIXAR de ter `data-cena-el` (E18 —
+// ver relatório da raia 1B: o controle não pode desbotar a 0.55 na saída do
+// CenaScrub).
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { GradeFoco } from "@/components/motion/GradeFoco";
 import { usePalco } from "@/components/motion/usePalco";
+import { usePrefereReduzido } from "@/components/motion/usePonteiro";
 import { useRailDrag } from "@/components/motion/useRailDrag";
+import { useVitrineDeriva } from "@/components/motion/useVitrineDeriva";
 import { CartaoTese } from "@/components/teses/CartaoTese";
 import type { PapelB3 } from "@/lib/tickers";
 
@@ -48,16 +63,94 @@ export type GaleriaBancaProps = {
   dataCarteira: string;
 };
 
+const CHAVE_VITRINE_PAUSADA = "tese-ai:vitrine-pausada";
+const ROTULO_CONTROLE = "Movimento da vitrine"; // E16 — rótulo FIXO, nunca troca
+
+// E16 — leitura SÍNCRONA da flag ANTES do 1º render (e portanto antes do 1º
+// rAF do hook): sem isto, quem pausou numa visita anterior veria a vitrine
+// arrancar e frear assim que o efeito monta. `useState(lerPausadoInicial)`
+// roda o inicializador durante o PRÓPRIO render (síncrono), não num efeito.
+function lerPausadoInicial(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(CHAVE_VITRINE_PAUSADA) === "true";
+  } catch {
+    // Storage indisponível (modo privado estrito): começa em movimento —
+    // a escolha simplesmente não sobrevive à sessão.
+    return false;
+  }
+}
+
 export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps) {
   const cardRefs = useRef<Array<HTMLLIElement | null>>([]);
   const envelopeRef = useRef<HTMLDivElement | null>(null);
   const barraRef = useRef<HTMLSpanElement | null>(null);
   const [ativo, setAtivo] = useState(0);
+  const prefereReduzido = usePrefereReduzido();
+
+  // Estado do CONTROLE (distinto dos pausas automáticas de hover/foco/
+  // toque, que vivem só dentro do hook): só o clique do usuário move isto.
+  const [pausado, setPausado] = useState<boolean>(lerPausadoInicial);
+  const [anuncio, setAnuncio] = useState("");
+  // E24: enquanto a deriva está ativamente escrevendo, o efeito de IO
+  // abaixo NÃO recalcula o dot ativo a cada limiar — só no assentamento
+  // (aoMudarEstadoDeriva, quando `derivando` volta a `false`).
+  const derivandoRef = useRef(false);
 
   // Palco 3D (mola do tilt) + drag do rail — ambos acham o `.banca-rail`
   // dentro do envelope (o <ul> vive no GradeFoco, que não expõe ref).
   usePalco(envelopeRef);
   useRailDrag(envelopeRef);
+
+  const aoMudarEstadoDeriva = useCallback(({ derivando }: { derivando: boolean }) => {
+    derivandoRef.current = derivando;
+    if (derivando) return;
+    // Assentou (E24): recomputa o dot ativo UMA vez a partir do scroll
+    // atual — "o card mais centrado no rail" — em vez de esperar o
+    // próximo limiar de IO (que só dispararia se um card cruzasse o
+    // threshold DEPOIS deste ponto, o que pode nunca acontecer se a
+    // deriva parou no meio de um respiro do pêndulo).
+    const rail = envelopeRef.current?.querySelector<HTMLElement>(".banca-rail");
+    const cards = cardRefs.current.filter((el): el is HTMLLIElement => el !== null);
+    if (!rail || cards.length === 0) return;
+    const base = rail.getBoundingClientRect().left;
+    const centroRail = rail.clientWidth / 2;
+    let melhorIndice = 0;
+    let melhorDist = Infinity;
+    cards.forEach((li, i) => {
+      const centroCard = li.getBoundingClientRect().left - base + li.offsetWidth / 2;
+      const dist = Math.abs(centroCard - centroRail);
+      if (dist < melhorDist) {
+        melhorDist = dist;
+        melhorIndice = i;
+      }
+    });
+    setAtivo(melhorIndice);
+  }, []);
+
+  // Motor da vitrine giratória (D21/E7/E8/E21/E24) — nem monta sob reduce
+  // (gate interno via usePrefereReduzido); o controle abaixo também não
+  // renderiza sob reduce (D24: "reduce nem monta, controle não renderiza").
+  useVitrineDeriva(envelopeRef, {
+    pausadoPeloControle: pausado,
+    aoMudarEstado: aoMudarEstadoDeriva,
+  });
+
+  // E17: role="status" anuncia SÓ mudança iniciada pelo usuário (clique/
+  // tecla neste botão) — nunca as pausas automáticas de hover/foco/toque
+  // do hook, que não tocam este estado.
+  const aoAlternarPausa = useCallback(() => {
+    setPausado((atual) => {
+      const novo = !atual;
+      try {
+        window.localStorage.setItem(CHAVE_VITRINE_PAUSADA, novo ? "true" : "false");
+      } catch {
+        /* storage indisponível — a escolha funciona nesta sessão, só não persiste */
+      }
+      setAnuncio(novo ? "Vitrine pausada." : "Vitrine em movimento.");
+      return novo;
+    });
+  }, []);
 
   // D6 — fallback da hairline (FF stable sem scroll-driven animations até
   // ~155): scroll passivo → rAF → --banca-prog NA PRÓPRIA barra (regra 5 do
@@ -105,6 +198,10 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
 
     const observer = new IntersectionObserver(
       (entradas) => {
+        // E24 — coalescido: durante a deriva ativa, o limiar de IO cruza a
+        // cada quadro; o "ativo" real só é recomputado no assentamento
+        // (aoMudarEstadoDeriva acima), não aqui.
+        if (derivandoRef.current) return;
         setAtivo((atual) => {
           const maisVisivel = entradas.reduce((melhor, entrada) =>
             entrada.intersectionRatio > melhor.intersectionRatio ? entrada : melhor,
@@ -131,6 +228,8 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
   return (
     // `.banca-envelope` (banca.css): timeline-scope da hairline — a barra é
     // IRMÃ do rail e precisa do ancestral comum para enxergar --banca-rail.
+    // Também é o ancestral comum de posse/gates do useVitrineDeriva
+    // (pointerdown/focusin cobrem rail + dots + setas + controle).
     <div ref={envelopeRef} className="banca-envelope flex flex-col gap-4">
       {/* Controles FORA do container clipado (o anel de foco nunca é
           cortado pelo overflow do rail — guarda C2 do red-team, mesmo
@@ -142,13 +241,16 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
               {/* Dot 8px dentro de alvo de toque 24px (WCAG 2.5.8). Estados
                   com contraste de UI provado: inativo `border-field`
                   (≥3.15:1 até no pico da luz), ativo `bg-brasa-texto`
-                  (mesmo papel de "tab ativa" do design system). */}
+                  (mesmo papel de "tab ativa" do design system).
+                  `.banca-dot` (HORIZONTE): âncora do anel escopado ao
+                  veludo (`.veludo-escopo .banca-dot:focus-visible`,
+                  cinema/vitrine.css, E15). */}
               <button
                 type="button"
                 onClick={() => irPara(i)}
                 aria-label={`Ir para ${papel.ticker}`}
                 aria-current={i === ativo ? "location" : undefined}
-                className="group flex h-6 w-6 items-center justify-center"
+                className="banca-dot group flex h-6 w-6 items-center justify-center"
               >
                 <span
                   aria-hidden
@@ -185,8 +287,40 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
               →
             </span>
           </button>
+          {/* Controle da vitrine (D22) — 1º controle on-page 2.2.2 do
+              site. Sob reduce ele NÃO renderiza (D24: não há o que pausar
+              — a deriva nem monta). Rótulo textual FIXO (E16): SÓ
+              `aria-pressed` porta o estado — um rótulo que trocasse JUNTO
+              com aria-pressed faria o leitor de tela anunciar
+              "Girar vitrine, pressionado" (anti-padrão). `role="status"`
+              sr-only separado (E17) anuncia só a mudança feita por
+              clique/tecla AQUI — nunca as pausas automáticas de
+              hover/foco/toque do hook (que não tocam `anuncio`). */}
+          {!prefereReduzido && (
+            <button
+              type="button"
+              onClick={aoAlternarPausa}
+              aria-pressed={pausado}
+              // `data-vitrine-nao-pausa` (useVitrineDeriva.ts): o foco que
+              // o próprio <button> nativamente retém após o clique NÃO
+              // conta para o gate de "foco-dentro" — senão o controle que
+              // acabou de mandar "retomar" travaria, ele mesmo, a retomada.
+              data-vitrine-nao-pausa=""
+              className="vitrine-controle"
+            >
+              <span aria-hidden className="vitrine-controle__icone">
+                {pausado ? "▶" : "⏸"}
+              </span>
+              <span>{ROTULO_CONTROLE}</span>
+            </button>
+          )}
         </div>
       </div>
+      {!prefereReduzido && (
+        <span role="status" className="sr-only">
+          {anuncio}
+        </span>
+      )}
 
       {/* Rail nativo: snap-x mandatory, sem sequestro de wheel — o mesmo
           <ul> de foco frio por delegação da grade anterior, agora rolável.
@@ -207,8 +341,11 @@ export default function GaleriaBanca({ papeis, dataCarteira }: GaleriaBancaProps
             {/* `.banca-carimbo` no wrapper, NUNCA no <li>: transform animado
                 no próprio alvo de snap deslocaria a snap area (a spec usa a
                 bounding box transformada) — o wrapper anima, o <li> fica
-                estável para o snap e para o IO. */}
-            <div className="banca-carimbo h-full">
+                estável para o snap e para o IO. `.vitrine-pedestal`
+                (HORIZONTE, D19): elipse de sombra + keyline ouro no MESMO
+                wrapper — nunca no <li> (mesma razão) nem dentro de
+                CartaoTese.tsx (D24, intocado). */}
+            <div className="banca-carimbo vitrine-pedestal h-full">
               <CartaoTese papel={papel} dataCarteira={dataCarteira} />
             </div>
           </li>
