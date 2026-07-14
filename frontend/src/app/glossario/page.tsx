@@ -82,9 +82,19 @@ export default function GlossarioPage() {
         </section>
 
         <div className="bancada py-14">
-          <div className="b-palco">
+          {/* E30/defeito 2 (gate de geometria, wt-horizonte 2026-07-14): a
+              régua de talha ERA `fixed left-0` — cobria os ~40px iniciais de
+              CADA linha do masthead acima (a régua não respeita nenhum
+              recuo, ela ignora a posição do documento). A correção não é dar
+              recuo ao conteúdo (isso ENCOLHERIA a rota abaixo da produção,
+              E30 — o masthead depende de tocar `sangria-inicio` para não
+              regredir): é a régua deixar de ser `fixed` e virar uma COLUNA
+              real do próprio layout (`lg:flex`, `sticky` dentro dele) — ela
+              nunca mais sobrepõe nada, e o resto do corpo (`lg:flex-1`) para
+              de precisar do `lg:pl-20` que "adivinhava" a largura da régua. */}
+          <div className="b-palco lg:flex lg:items-start lg:gap-10">
             {/* Índice A–Z: no mobile, lista completa dobrável (sem espaço para
-                régua fixa); no desktop, a régua de talha (fixed, IndiceLetras
+                régua fixa); no desktop, a régua de talha (sticky, IndiceLetras
                 variante="regua" default) — ver IndiceLetras.tsx. */}
             <div className="mb-10 lg:hidden">
               <details className="border border-line bg-card px-4">
@@ -98,13 +108,14 @@ export default function GlossarioPage() {
             </div>
             <IndiceLetras grupos={grupos} />
 
+            <div className="min-w-0 lg:flex-1">
             {/* Verbetes agrupados por letra, em 2 colunas assimétricas ≤65ch
                 (CSS multi-column nativo — `break-inside-avoid` impede que um
                 grupo seja cortado ao meio; cada verbete já é ≤65ch por si,
                 `max-w-[65ch]` abaixo). Reveals one-shot (padrão Reveal fora
                 da landing); a varredura do motor Reveal cobre a chegada por
                 âncora profunda (#slug) — nada fica preso invisível. */}
-            <div className="flex min-w-0 flex-col lg:block lg:columns-2 lg:pl-20 lg:[column-gap:3.5rem]">
+            <div className="flex min-w-0 flex-col lg:block lg:columns-2 lg:[column-gap:3.5rem]">
               {grupos.map((grupo) => (
                 <section
                   key={grupo.letra}
@@ -174,7 +185,7 @@ export default function GlossarioPage() {
             </div>
 
             {/* Fecho — postura, e o caminho de volta para o produto. */}
-            <div className="mt-14 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5 lg:pl-20">
+            <div className="mt-14 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
               <p className="flex-1 text-ui text-ink-2">
                 Faltou um termo? Ele provavelmente é uma métrica dinâmica — nas teses, cada
                 indicador chega com a própria explicação e fonte, no lugar onde aparece.
@@ -185,6 +196,7 @@ export default function GlossarioPage() {
               >
                 Ver as teses prontas →
               </LinkCinema>
+            </div>
             </div>
           </div>
         </div>

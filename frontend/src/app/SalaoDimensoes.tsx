@@ -84,6 +84,33 @@ import type { ReactNode } from "react";
 
 import { carregarGsap, MQ_PIN_FILMSTRIP, type MotorGsap } from "@/lib/gsapSetup";
 
+// ============================================================
+// PERF — B2 (2026-07-14): A CASCA E CLIENT, O RECHEIO E DO SERVIDOR.
+// ------------------------------------------------------------
+// Atribuição medida na Onda 5 (`.maestro/evidencias/onda5/B-perf/`): a
+// longtask dominante da landing no mobile-4x é o COMMIT DE HIDRATAÇÃO, e o
+// custo é proporcional ao TAMANHO DA ÁRVORE que o cliente reconcilia —
+// não a boot de efeito (ligar/desligar TODOS os efeitos deste componente
+// não movia o número; Suspense/next/dynamic também não).
+//
+// A alavanca (provada pelo `#nascimento`, que custa ~0ms): o que um Server
+// Component RENDERIZA e passa como slot/`children` para uma ilha client
+// chega pronto no payload RSC — os elementos já vêm criados, fora da tarefa
+// de hidratação. Por isso este componente deixou de RENDERIZAR as 5 bolhas
+// (ele só recebe `bolhas: ReactNode`, montado em page.tsx) e passou a
+// MEDIR/comandar as que já estão no DOM.
+//
+// Consequência de mecanismo (nada some, tudo muda de lugar):
+//   • refs por bolha  → `querySelectorAll("li.bolha-bancada")` no trilho
+//     (ordem de documento = ordem das dimensões; o `<li>` espaçador não
+//     leva a classe, então fica fora da geometria, como sempre esteve);
+//   • `dimensoes` (com ReactNode + TermoTooltip) → `rotulos` (só
+//     `{numero,titulo}`): o que a CASCA precisa é o rótulo das talhas e o
+//     texto do anúncio — a copy e as ilhas de tooltip vivem no servidor.
+// Tudo o mais (pin, snap com 0 e 1, fio por fora, teclado 10/10, talhas,
+// E9/E10/E17/E29) é bit-a-bit o mesmo.
+// ============================================================
+
 export type DimensaoSalao = {
   numero: string;
   titulo: string;
@@ -91,8 +118,16 @@ export type DimensaoSalao = {
   /** `ReactNode` (não `string`) para a copy da Onda 2 poder trazer
    *  TermoTooltip DENTRO da bolha — é esse gatilho focável que faz o
    *  `focusin` → travelling ser um caminho REAL de teclado (e o pior caso
-   *  1.4.13 da bolha da borda, E13). Strings seguem válidas. */
+   *  1.4.13 da bolha da borda, E13). Strings seguem válidas.
+   *  ⚠ Este tipo agora descreve o DADO que o SERVIDOR consome para montar
+   *  as bolhas (page.tsx) — ele não cruza mais a fronteira client. */
   texto: ReactNode;
+};
+
+/** O que a CASCA client precisa saber de cada bolha: talha + anúncio. */
+export type RotuloSalao = {
+  numero: string;
+  titulo: string;
 };
 
 /** Gate do modo pinado — a MQ canônica da casa composta com `hover:hover`. */
@@ -238,17 +273,22 @@ function colide(path: SVGPathElement, bolhas: Bolha[], circulos: boolean): boole
 }
 
 export function SalaoDimensoes({
-  dimensoes,
+  rotulos,
+  bolhas,
   rotuladoPor = "dimensoes-titulo",
   children,
 }: {
-  dimensoes: readonly DimensaoSalao[];
+  /** Talhas + anúncio (E17/D30). NUNCA a copy: ela é do servidor. */
+  rotulos: readonly RotuloSalao[];
+  /** SLOT SERVIDOR (perf/TBT): os 5 `<li class="bolha-bancada">` já
+   *  renderizados — inclusive os TermoTooltip de dentro. Chegam pelo payload
+   *  RSC, prontos; a casca só os mede e os comanda. */
+  bolhas: ReactNode;
   rotuladoPor?: string;
   children?: React.ReactNode;
 }) {
   const secaoRef = useRef<HTMLElement | null>(null);
   const trilhoRef = useRef<HTMLOListElement | null>(null);
-  const bolhaRefs = useRef<Array<HTMLLIElement | null>>([]);
   const fioRef = useRef<SVGSVGElement | null>(null);
   const barraRef = useRef<HTMLDivElement | null>(null);
   const poeiraRef = useRef<HTMLDivElement | null>(null);
@@ -257,6 +297,17 @@ export function SalaoDimensoes({
   const [pinado, setPinado] = useState(false);
   const [dica, setDica] = useState(false);
   const [anuncio, setAnuncio] = useState("");
+  /**
+   * PERF — B2: a GEOMETRIA só acorda perto do salão.
+   * A medição do fio (getComputedStyle das 5 bolhas + offsets + amostragem
+   * getPointAtLength) força layout, e o salão está ~5 telas abaixo da dobra:
+   * no load ela era trabalho puro de bloqueio por um fio que ninguém podia
+   * ver. Mesmo gate do boot (IO one-shot, rootMargin 100% = uma viewport de
+   * antecedência), então o fio SEMPRE chega desenhado antes de entrar em
+   * cena. Sem JS/antes do gate: os `<path>` ficam sem `d` — nada é desenhado,
+   * nada quebra (é decorativo por construção, como o FioDaFonte).
+   */
+  const [perto, setPerto] = useState(false);
 
   // Pontes para o mundo GSAP (mesma disciplina do filmstrip herdado).
   const rolarPinadoRef = useRef<((indice: number) => void) | null>(null);
@@ -268,8 +319,17 @@ export function SalaoDimensoes({
   const refreshAposFontes = useRef(false);
   const acordadoRef = useRef(false);
 
+  /**
+   * As bolhas VIVAS, lidas do DOM (elas são server-rendered — não há mais um
+   * ref por bolha). `li.bolha-bancada` em ordem de documento = ordem das
+   * dimensões; o `<li class="salao-espaco">` (espaçador de fim) não casa com
+   * o seletor e segue, como sempre, fora de toda a geometria.
+   */
   const bolhasVivas = useCallback(
-    () => bolhaRefs.current.filter((el): el is HTMLLIElement => el !== null),
+    () =>
+      Array.from(
+        trilhoRef.current?.querySelectorAll<HTMLLIElement>("li.bolha-bancada") ?? [],
+      ),
     [],
   );
 
@@ -331,9 +391,28 @@ export function SalaoDimensoes({
     });
   }, [bolhasVivas]);
 
+  // PERF — B2: o gate de proximidade da geometria (ver `perto`, acima). IO
+  // one-shot com a MESMA folga do boot do travelling (rootMargin 100%).
+  useEffect(() => {
+    const secao = secaoRef.current;
+    if (!secao || perto) return;
+    const io = new IntersectionObserver(
+      (entradas) => {
+        if (!entradas.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        setPerto(true);
+      },
+      { rootMargin: "100% 0px 100% 0px" },
+    );
+    io.observe(secao);
+    return () => io.disconnect();
+  }, [perto]);
+
   // Geometria: primeira medida (pós-fontes) + resize passivo rAF-coalescido +
   // toda troca de modo (o layout muda inteiro entre colar e travelling).
+  // Só roda a partir do gate de proximidade (B2): no load, zero layout forçado.
   useEffect(() => {
+    if (!perto) return;
     let quadro = 0;
     const agendar = () => {
       if (quadro) return;
@@ -342,7 +421,7 @@ export function SalaoDimensoes({
         recalcularFio();
       });
     };
-    agendar(); // troca de modo: o layout muda inteiro (colar ⇄ travelling)
+    agendar(); // chegada perto + toda troca de modo (colar ⇄ travelling)
     document.fonts.ready.then(agendar, () => undefined);
     // No travelling quem re-mede em resize é o `onRefresh` do ScrollTrigger
     // (junto dos pontos de snap, na ordem certa). O listener abaixo existe
@@ -352,7 +431,7 @@ export function SalaoDimensoes({
       if (quadro) cancelAnimationFrame(quadro);
       window.removeEventListener("resize", agendar);
     };
-  }, [recalcularFio, pinado]);
+  }, [recalcularFio, pinado, perto]);
 
   // E9 — assentamento: a classe que LIBERA o keyframe (que nasce pausado na
   // folha) é aplicada UMA vez, quando a seção entra em cena. No load, com o
@@ -378,11 +457,11 @@ export function SalaoDimensoes({
   // por TECLADO ou TALHA (nunca roda/gesto), 1 anúncio por assentamento.
   const anunciar = useCallback(
     (indice: number) => {
-      const d = dimensoes[indice];
+      const d = rotulos[indice];
       if (!d) return;
-      setAnuncio(`Dimensão ${indice + 1} de ${dimensoes.length} — ${d.titulo}`);
+      setAnuncio(`Dimensão ${indice + 1} de ${rotulos.length} — ${d.titulo}`);
     },
-    [dimensoes],
+    [rotulos],
   );
 
   const irPara = useCallback(
@@ -392,18 +471,18 @@ export function SalaoDimensoes({
       if (rolarPinado) {
         rolarPinado(indice);
       } else {
-        bolhaRefs.current[indice]?.scrollIntoView({ block: "center" });
+        bolhasVivas()[indice]?.scrollIntoView({ block: "center" });
       }
       if (origem) window.setTimeout(() => anunciar(indice), 520);
     },
-    [anunciar],
+    [anunciar, bolhasVivas],
   );
 
   function aoTeclado(ev: React.KeyboardEvent<HTMLOListElement>) {
     const modoPinado = rolarPinadoRef.current !== null;
     if (ev.key === "ArrowRight") {
       ev.preventDefault();
-      irPara(Math.min(ativo + 1, dimensoes.length - 1), "teclado");
+      irPara(Math.min(ativo + 1, rotulos.length - 1), "teclado");
     } else if (ev.key === "ArrowLeft") {
       ev.preventDefault();
       irPara(Math.max(ativo - 1, 0), "teclado");
@@ -412,7 +491,7 @@ export function SalaoDimensoes({
       irPara(0, "teclado");
     } else if (modoPinado && ev.key === "End") {
       ev.preventDefault();
-      irPara(dimensoes.length - 1, "teclado");
+      irPara(rotulos.length - 1, "teclado");
     }
   }
 
@@ -751,7 +830,7 @@ export function SalaoDimensoes({
     };
   }, [bolhasVivas, recalcularFio]);
 
-  const elos = dimensoes.slice(0, -1);
+  const elos = rotulos.slice(0, -1);
 
   return (
     <>
@@ -783,35 +862,11 @@ export function SalaoDimensoes({
             onKeyDown={aoTeclado}
             className="salao-trilho"
           >
-            {dimensoes.map((d, i) => (
-              <li
-                key={d.numero}
-                ref={(el) => {
-                  bolhaRefs.current[i] = el;
-                }}
-                className="bolha-bancada"
-              >
-                <div className="bolha-miolo">
-                  <p aria-hidden className="salao-camada bolha-numeral">
-                    {d.numero}
-                  </p>
-                  <h3 className="salao-camada bolha-titulo">
-                    <span className="sr-only">{`${d.numero} — `}</span>
-                    {d.titulo}
-                  </h3>
-                  <p className="salao-camada bolha-texto">{d.texto}</p>
-                  <p className="salao-camada bolha-selo">
-                    <span aria-hidden className="bolha-selo__marca">
-                      ◈
-                    </span>
-                    <span>
-                      <span className="sr-only">Fonte: </span>
-                      {d.fonte}
-                    </span>
-                  </p>
-                </div>
-              </li>
-            ))}
+            {/* AS 5 BOLHAS — slot SERVIDOR (perf/TBT, ver cabeçalho): chegam
+                do payload RSC já renderizadas (numeral, título, texto com os
+                TermoTooltip, selo). O cliente NÃO as reconcilia; ele as
+                encontra por `li.bolha-bancada` e mede. */}
+            {bolhas}
             {/* Espaçador de fim (ver salao.css §5): elemento REAL porque o
                 `::after` de um flex container não entra no scrollWidth do
                 Blink. `aria-hidden` → a lista segue com 5 itens para o leitor
@@ -846,7 +901,7 @@ export function SalaoDimensoes({
             aria-hidden (que na 1ª interação vira a dica "← →" e assenta). */}
         <div className="salao-hud">
           <ul className="salao-talhas">
-            {dimensoes.map((d, i) => (
+            {rotulos.map((d, i) => (
               <li key={d.numero}>
                 <button
                   type="button"
@@ -866,7 +921,7 @@ export function SalaoDimensoes({
           >
             {dica
               ? "← →"
-              : `${String(ativo + 1).padStart(2, "0")} / ${String(dimensoes.length).padStart(2, "0")}`}
+              : `${String(ativo + 1).padStart(2, "0")} / ${String(rotulos.length).padStart(2, "0")}`}
           </span>
         </div>
 

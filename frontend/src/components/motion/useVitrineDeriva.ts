@@ -63,7 +63,36 @@
  * scroll-timeline nativa concorrendo por main thread com esta escrita), a
  * escrita de `scrollLeft` recua para ~30fps (1 a cada 2 quadros) — recuo
  * BINÁRIO, nunca volta a 60fps sozinho (mesma doutrina de recuo do design
- * system: nunca iterar às cegas).
+ * system: nunca iterar às cegas). ONDA 5/DEFEITO 4: o recuo agora nasce
+ * ATIVO direto por `!CSS.supports("animation-timeline: scroll()")` (a
+ * detecção reativa por p95, sozinha, não disparava de forma confiável —
+ * picos esparsos numa janela rolante de 90 quadros); ela continua ligada
+ * por baixo como rede de segurança para outros engines/hardware fraco.
+ *
+ * ONDA 5/DEFEITO 2 (E21 — parada imediata; causa-raiz + defesa em
+ * profundidade): o cede duro (`cedidoDuro`/drag/voo) SEMPRE mantém a classe
+ * `.banca-derivando` (anti-snap) presente enquanto a posição não estiver
+ * garantidamente alinhada (`precisaAssentar`, ver abaixo) — o defeito
+ * reproduzido 2/2 ("scrollLeft 56 → 0 em ~90ms logo após o pointerdown")
+ * não tinha NENHUM `scrollTo`/`scrollLeft` escrito por trás: o código
+ * anterior desligava o anti-snap no MESMO quadro do cede, e assim que
+ * `scroll-snap-type: mandatory` volta a valer sobre uma posição não
+ * alinhada, é o PRÓPRIO NAVEGADOR quem corrige sozinho para o snap-point
+ * mais próximo (mesma doutrina já provada de `.banca-arrastando`,
+ * useRailDrag.ts: a classe só sai depois que a posição PARA exatamente no
+ * ponto projetado). Em complemento, `aoPressionar` também cancela
+ * explicitamente qualquer `scrollTo({behavior:'smooth'})` nativo que possa
+ * estar em voo (disparado por `assentarNoPontoVizinho` bem antes do
+ * pointerdown) — defesa adicional, já que setar só `cedidoDuro` não
+ * interrompe uma animação de scroll já em andamento no compositor.
+ *
+ * ONDA 5/DEFEITO 3: as transições de cede SUAVE (`acelerando`/`cruzeiro` →
+ * `freando`) também resincronizam `pos` a partir do `rail.scrollLeft`
+ * corrente — sem isto, um `focusin` que trouxe um cartão tabulado para a
+ * vista (GaleriaBanca.tsx) seria desfeito quadro a quadro pela rampa de
+ * freada, que continuaria a partir da posição virtual ANTIGA (D24/E7 já
+ * mandam resincronizar "sempre que ceder/retomar a posse" — isto estende a
+ * regra ao início da própria freada suave, não só ao cede duro).
  */
 
 import { useEffect, useRef, type RefObject } from "react";
@@ -155,8 +184,23 @@ export function useVitrineDeriva(
     let scrollQuiescente = true;
 
     // ---------------- recuo automático de perf (E24) ----------------
+    // DEFEITO 4 (onda 5): a detecção REATIVA abaixo (janela rolante de 90
+    // quadros) não disparou no Firefox mesmo com p95 medido em 20,84ms e 6
+    // long-frames >50ms — picos esparsos ao longo de um teste mais longo
+    // podem nunca se concentrar dentro de UMA janela de ~1,5s. Recuo
+    // DIRETO por capacidade do engine: Firefox é hoje o único sem
+    // `animation-timeline: scroll()` nativo — TODO fallback JS de
+    // scroll-driven-timeline da página (a própria hairline do rail,
+    // banca.css, incluída) concorre pela main thread bem no instante em
+    // que este loop escreve `scrollLeft` a cada quadro. Em vez de esperar
+    // o p95 estourar, o recuo já nasce ativo nesse engine — a 12/8px/s,
+    // 30fps é imperceptível (doc. do módulo). A detecção reativa continua
+    // ativa por baixo, como rede de segurança para QUALQUER outro engine
+    // que vier a exibir jank sustentado (ex.: hardware fraco).
+    const semScrollTimelineNativa =
+      typeof CSS === "undefined" || !CSS.supports("animation-timeline: scroll()");
     const duracoesQuadro: number[] = [];
-    let modo30fps = false;
+    let modo30fps = semScrollTimelineNativa;
     let pularProximaEscrita = false;
 
     const podeContinuar = (): boolean =>
@@ -170,11 +214,36 @@ export function useVitrineDeriva(
 
     const podeIniciar = (): boolean => podeContinuar() && scrollQuiescente;
 
-    const marcarDerivando = (agora: boolean) => {
+    // Notificação semântica (dots/E24) — independente do controle do snap
+    // logo abaixo (DEFEITO 2): "está se movendo" e "o snap pode religar com
+    // segurança" são DUAS perguntas diferentes.
+    const notificarMudancaEstado = (agora: boolean) => {
       if (agora === derivandoAntes) return;
       derivandoAntes = agora;
-      rail.classList.toggle(CLASSE_DERIVA, agora);
       aoMudarEstadoRef.current?.({ derivando: agora });
+    };
+
+    // DEFEITO 2 (onda 5, corrige E21 "parada imediata"): a classe
+    // `.banca-derivando` é o que desliga `scroll-snap-type` (banca.css). Ela
+    // só pode SAIR quando a posição atual está GARANTIDAMENTE alinhada a um
+    // ponto de snap — mesma doutrina já provada de `.banca-arrastando`
+    // (useRailDrag.ts): "a classe só sai depois que o decay PARA exatamente
+    // no snap-point projetado — jump zero ao religar".
+    //
+    // O bug reproduzido 2/2 ("scrollLeft 56 → 0 em ~90ms logo após o
+    // pointerdown") NÃO tinha nenhum `scrollTo`/`scrollLeft` escrito por
+    // ninguém por trás: cede duro CONGELA a escrita (não move o rail para
+    // lugar nenhum — a posição fica solta no meio de dois cartões, ex.:
+    // 56px) mas o código ANTERIOR desligava esta classe no MESMO quadro
+    // (dentro de `marcarDerivando(false)`) — e assim que
+    // `scroll-snap-type: mandatory` volta a valer sobre uma posição NÃO
+    // alinhada, é o PRÓPRIO NAVEGADOR (não JS nosso) que corrige sozinho
+    // para o ponto de snap mais próximo. `precisaAssentar` registra que a
+    // classe só pode sumir depois de um `assentarNoPontoVizinho()` EXPLÍCITO
+    // (que sempre mira um ponto válido).
+    let precisaAssentar = false;
+    const aplicarClasseAntiSnap = (suprimir: boolean) => {
+      rail.classList.toggle(CLASSE_DERIVA, suprimir);
     };
 
     // Snap-points reais (mesmo algoritmo de useRailDrag.ts, duplicado de
@@ -260,7 +329,12 @@ export function useVitrineDeriva(
           velAtual = 0;
         }
         pos = rail.scrollLeft; // re-sincroniza a posição virtual (E7)
-        marcarDerivando(false);
+        // DEFEITO 2: NUNCA desligar o anti-snap aqui — a posição pode não
+        // estar alinhada; deixar `.banca-derivando` exatamente como está
+        // (se já tava ligada, continua ligada — congela sem deixar o
+        // engine "corrigir" sozinho).
+        precisaAssentar = true;
+        notificarMudancaEstado(false);
         return;
       }
 
@@ -270,11 +344,24 @@ export function useVitrineDeriva(
           if (podeIniciar()) {
             fase = "acelerando";
             tsInicioFase = ts;
+          } else if (precisaAssentar) {
+            // Parado e sem previsão de retomar tão cedo (ainda pausado/
+            // hover/foco/toque etc.) — assenta explicitamente ANTES de
+            // liberar o anti-snap (nunca religar sobre posição solta).
+            assentarNoPontoVizinho();
+            precisaAssentar = false;
           }
           break;
         }
         case "acelerando": {
           if (!podeContinuar()) {
+            // DEFEITO 3 (onda 5): alguém pode ter mudado o scroll por FORA
+            // (ex.: o `focusin` de GaleriaBanca.tsx trazendo um cartão
+            // tabulado para a vista) no exato instante em que a cede
+            // suave (hover/foco/toque) começou — sem ressincronizar aqui,
+            // a rampa de freada usaria o `pos` interno de ANTES do salto e
+            // desfaria, quadro a quadro, o scroll explícito do foco.
+            pos = rail.scrollLeft;
             fase = "freando";
             tsInicioFase = ts;
             velInicioFreio = velAtual;
@@ -288,6 +375,7 @@ export function useVitrineDeriva(
         }
         case "cruzeiro": {
           if (!podeContinuar()) {
+            pos = rail.scrollLeft; // idem acima (DEFEITO 3)
             fase = "freando";
             tsInicioFase = ts;
             velInicioFreio = velAtual;
@@ -305,6 +393,7 @@ export function useVitrineDeriva(
             velAtual = 0;
             fase = "parado";
             assentarNoPontoVizinho();
+            precisaAssentar = false;
           }
           break;
         }
@@ -312,6 +401,7 @@ export function useVitrineDeriva(
           if (!podeContinuar()) {
             fase = "parado";
             assentarNoPontoVizinho(); // já está numa ponta; idempotente se lá for o snap
+            precisaAssentar = false;
             break;
           }
           if (ts - tsInicioFase >= RESPIRO_MS) {
@@ -323,7 +413,10 @@ export function useVitrineDeriva(
         }
       }
 
-      marcarDerivando(fase !== "parado");
+      // DEFEITO 2: o anti-snap só sai quando NÃO estamos movendo E já
+      // assentamos explicitamente num ponto válido (`!precisaAssentar`).
+      aplicarClasseAntiSnap(fase !== "parado" || precisaAssentar);
+      notificarMudancaEstado(fase !== "parado");
     };
 
     // ---------------- listeners de posse/gates ----------------
@@ -347,6 +440,18 @@ export function useVitrineDeriva(
     // dot (que dispara scrollIntoView nativo): ver comentário-lei no topo.
     const aoPressionar = () => {
       cedidoDuro = true;
+      // DEFEITO 2 (onda 5, corrige E21 "parada imediata"): `assentarNoPontoVizinho`
+      // pode ter disparado um `scrollTo({behavior:'smooth'})` NATIVO pouco
+      // antes deste pointerdown (freada terminando bem no instante do
+      // agarrão) — essa animação roda no compositor do navegador e NÃO é
+      // cancelada só por este flag virar `true`; o loop abaixo passaria a
+      // apenas RE-LER `rail.scrollLeft` a cada quadro, mas o valor lido
+      // continuaria mudando sozinho (o scroll nativo em voo) — exatamente
+      // o "56 → 0 em 90ms" reproduzido 2/2. `behavior:"instant"` para o
+      // MESMO ponto interrompe qualquer scroll nativo em andamento (nenhum
+      // deslocamento visível: o alvo é a posição JÁ atual).
+      rail.scrollTo({ left: rail.scrollLeft, behavior: "instant" });
+      pos = rail.scrollLeft;
     };
     const aoLiberarPressao = () => {
       cedidoDuro = false;

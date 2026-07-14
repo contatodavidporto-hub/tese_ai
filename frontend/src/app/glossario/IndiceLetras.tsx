@@ -73,16 +73,21 @@ export function IndiceLetras({ grupos, variante = "regua" }: Props) {
     );
   }
 
-  // Régua de talha: fixa à borda esquerda, abaixo da Tarja (contrato de
-  // altura `--altura-tarja`, mesma var do rig do nascimento/salão — nunca um
-  // número mágico próprio), mono, uma marca por letra distribuída pela
-  // altura inteira (`justify-between`). z-index abaixo dos véus de rota
-  // (z-40 < Tarja z-50): é navegação de conteúdo, nunca disputa a pilha do
-  // chrome regulatório.
+  // Régua de talha: STICKY (não `fixed`) dentro da própria coluna do layout
+  // de /glossario (page.tsx: `.b-palco lg:flex`) — correção do defeito 2
+  // (gate de geometria, wt-horizonte 2026-07-14): uma régua `fixed` ignora a
+  // posição do documento e cobre o que estiver por baixo dela o tempo todo
+  // (inclusive o masthead, bem acima na página); como coluna real do flex
+  // row, ela só existe (e só "gruda") dentro do próprio corpo de verbetes,
+  // nunca sobrepõe nada. `top`/altura usam o mesmo contrato `--altura-tarja`
+  // de antes; `shrink-0` trava a largura no flex row. Mono, uma marca por
+  // letra distribuída pela altura inteira (`justify-between`). z-index
+  // abaixo dos véus de rota (z-40 < Tarja z-50): é navegação de conteúdo,
+  // nunca disputa a pilha do chrome regulatório.
   return (
     <nav
       aria-label="Índice alfabético do glossário"
-      className="talha-regua fixed left-0 top-[var(--altura-tarja)] bottom-0 z-10 hidden w-16 flex-col overflow-y-auto border-r border-line bg-page py-6 lg:flex"
+      className="talha-regua sticky top-[var(--altura-tarja)] z-10 hidden h-[calc(100svh-var(--altura-tarja))] w-16 shrink-0 flex-col overflow-y-auto border-r border-line bg-page py-6 lg:flex"
     >
       <ol className="flex h-full flex-col justify-between">
         {grupos.map((grupo) => {

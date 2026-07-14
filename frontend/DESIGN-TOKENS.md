@@ -337,8 +337,8 @@ zero definição inventada).
 | `--ticker-luz-alfa` | `0.08` | `0.10` | alfa do specular `.ticker-luz` (`--valor-brilho`) sobre cards/masthead/combobox/histórico | teto ≤0.10 nos dois temas (provisório — final na calibração de QA). Recuo: falhou AA → 0.05 (piso de `--luz-foco-card-alfa`) |
 | `--cvm-halo-alfa` | `0.08` | *(n/a — dark usa keyline)* | halo `--accent-valor` do Box CVM sobre `--warn-bg` | teto ≤0.08 (S2/D5). Recuo BINÁRIO: falhou AA → keyline sem glow, nunca itera |
 | `--cvm-keyline-dark` | *(n/a — claro usa halo)* | `var(--accent-valor)` | keyline 1px do Box CVM no escuro (elevação = borda, S2) | alias de componente; troca de tema já vem de `--accent-valor` |
-| `--constelacao-traco-largura` | `1.5px` | idem | espessura do traçado SVG da constelação | fixo (geometria, não AA) |
-| `--constelacao-contorno-alfa` | `0.10` | *(n/a — dark usa borda sólida)* | glow do contorno do painel ativo (S2) | teto ≤0.12. Recuo: falhou AA → contorno também vira borda sólida no claro |
+| `--constelacao-traco-largura` | `1.5px` | idem | espessura do traçado SVG — **sobrevive à demolição da folha `constelacao.css` (D25, missão HORIZONTE)**: `cinema/salao.css` (fio lapidário do Salão) consome o MESMO nome/papel; a folha original morreu, o token não | fixo (geometria, não AA) |
+| ~~`--constelacao-contorno-alfa`~~ | ~~`0.10`~~ | ~~*(n/a)*~~ | **REMOVIDO 2026-07-14 (LIMPEZA Onda D/HORIZONTE)** — glow do contorno do painel ativo da constelação (S2); único consumidor era `constelacao.css`, demolida na Onda 2 (D25); grep em `src/` confirmou zero uso residual antes da remoção | dead code — não recriar sem consumidor real |
 
 Cores dos stops da constelação (safira/ink/ouro) e das partes da marca NÃO
 ganham token de componente novo — consomem os semânticos existentes direto
@@ -611,6 +611,137 @@ lugar de `left: 50%` fixo — o `transform: translate(-50%, …)` das
 keyframes de entrada segue intocado (só o ANCORAMENTO horizontal muda, não
 a centralização relativa a ele). QA da Onda 4 prova por pixels que 100% do
 popup fica visível nos dois lados (pior caso: bolha da borda do salão).
+
+### Registro de fechamento — missão HORIZONTE (Onda D, 2026-07-14)
+
+> Consolidação final (a próxima missão lê isto ANTES de tocar em Bancada,
+> veludo, salão ou capa). Fonte primária dos números: gates rodados na Onda
+> 4 (`.maestro/defeitos-onda4.md`, `.maestro/evidencias/aa/aa_tabela_horizonte.md`,
+> `.maestro/evidencias/perf/css_bytes.json`).
+
+**A Bancada — sistema de layout oficial, com a armadilha que custou caro.**
+`grid-column: medida` (forma curta de um único nome) **NÃO** resolve para o
+par de linhas `[medida-inicio] … [medida-fim]`: o atalho de um nome só vira
+range quando as linhas terminam literalmente em `-start`/`-end` (regra do
+próprio spec de CSS Grid, que gera esses nomes a partir de uma
+`grid-area`). Como os nomes de linha da casa são em português
+(`-inicio`/`-fim`, não `-start`/`-end`), a forma curta cai em
+**auto-placement** e o item é espremido numa faixa estreita na borda — o
+full-bleed inteiro (a correção-mãe da missão) ficou **inerte** até isso ser
+achado. **Regra permanente: sempre `X-inicio / X-fim` por extenso**, nunca o
+atalho de um nome, em qualquer novo opt-in de coluna que a Bancada ganhar.
+Ver o comentário-prova em `cinema/bancada.css` (linhas 64–72).
+
+**A segunda armadilha — `gap-N` do Tailwind num nó `.bancada`.** Um
+`className="bancada gap-4"` (ou qualquer `gap-N` sem sufixo de eixo) aplica
+`column-gap`, que **soma-se** às larguras já calculadas das trilhas
+nomeadas do grid (`sangria`/`palco`/`medida`) — a soma das trilhas deixa de
+bater com `100%` e o documento ganha **overflow-x real** (achado como
+bloqueante B3 em `not-found.tsx`/`error.tsx`: `column-gap: 20px` num
+`main#conteudo.bancada`). **Regra permanente: `gap-y-N`, nunca `gap-N` puro,
+em qualquer nó que tenha a classe `.bancada`** — o espaçamento entre linhas
+de conteúdo empilhado não precisa (e não pode) de gap horizontal, porque as
+colunas já são geometria do grid, não espaçamento de flex/gap.
+
+**Os contratos de altura (`--altura-tarja`/`--altura-header`).** Os degraus
+vivem em `globals.css` (`@media (min-width: 400/768/880/944px)`) —
+ancorados nos **platôs REAIS de wrap** de cada componente, medidos por
+varredura contínua (gate E4: a 1ª estimativa em breakpoints do Tailwind
+reprovou 202/202 medições; a Tarja quebra de linha em ~400px e de novo em
+~880px, o Header tem um platô anômalo de ~137px entre 768–943px — nenhum
+desses pontos é um breakpoint padrão do Tailwind). A ilha `MedidaCromo.tsx`
+(`src/components/motion/MedidaCromo.tsx`) é o **backstop CSSOM**: mede
+`getBoundingClientRect().height` da Tarja/Header real via `ResizeObserver` +
+`fonts.ready` (a fonte com `display:swap` muda a altura DEPOIS do 1º paint)
+e só reescreve a var quando o valor diverge ≥0,5px — sob zoom de texto 200%
+(1.4.4) e text-spacing (1.4.12), onde os platôs mudam de forma não-linear
+(divergência medida de até +180px na 1ª estimativa). **O default estático é
+quem é dono do first-paint**: no caso comum (zoom 100%, espaçamento padrão)
+a ilha reescreve o MESMO valor que já estava lá — nenhum shift, **CLS
+zero** (pós-fix: 303/303 medições com delta 0,0px). `MedidaCromo` NUNCA
+altera uma propriedade computada da Tarja/Header — só mede e publica.
+
+**A exceção 2.2.2 da vitrine** — a única animação contínua do site (D21,
+`useVitrineDeriva.ts` + `GaleriaBanca.tsx`): deriva por scroll real
+(`rail.scrollLeft`), pêndulo com rampas, pausa por interação, gates de
+`IntersectionObserver`+`visibilitychange`+`prefers-reduced-motion`. O
+controle on-page mora em `GaleriaBanca.tsx`: botão ≥44px com **rótulo FIXO
+"Movimento da vitrine"** (nunca troca — só `aria-pressed` porta o estado; um
+rótulo que trocasse JUNTO com `aria-pressed` faria o leitor de tela anunciar
+algo como "Girar vitrine, pressionado", um anti-padrão) + `role="status"`
+sr-only que anuncia **só** mudança iniciada pelo usuário (clique/tecla,
+nunca por scroll/gesto) + persistência em
+`localStorage("tese-ai:vitrine-pausada")`, lida de forma síncrona (E16,
+antes do 1º rAF da deriva) em `useLayoutEffect` — nunca durante o 1º render
+(bloqueante B1 corrigido: ler `localStorage` no render diverge o HTML do
+servidor do cliente e quebra a hidratação; a leitura correta acontece
+depois do render inicial, sempre servidor-primeiro).
+
+**O escopo-veludo (`.veludo-escopo`)** — re-declaração de **pares
+completos** (superfície+tinta+on-accent: `--bg-card`/`--bg-elevated`,
+`--ink-primary/-2/-3`, `--text-sobre-brasa`, `--border-line/-strong`, anel),
+nunca meio-par. Por quê: re-declarar só a tinta (sem a superfície-par) deixa
+a cascata descer até sub-superfícies opacas internas com o tema ERRADO —
+ex.: um `bg-card` claro herdando `--ink-primary` do tema escuro vira
+quase-branco sobre branco (texto invisível). O ramo de elevação (sombra fria
+no claro / keyline ouro no escuro) é forçado **por CLASSE**
+(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
+pergunta "qual é o tema do SISTEMA operacional", não "este elemento está
+sobre veludo" — no tema CLARO sobre um veludo (superfície opaca ~285°,
+sempre escura) o ramo por media query aplicaria o tratamento de elevação do
+claro (sombra fria) num fundo que precisa do tratamento do escuro (keyline),
+errando o lado exatamente na combinação onde o defeito é mais visível
+(bloqueante B2 confirmado: o dot da Banca ficava a 1,03:1 dentro do veludo
+porque usava `--bg-card` — cor de SUPERFÍCIE — como preenchimento; corrigido
+para `--veludo-tinta-2`/`--veludo-tinta`/`--accent-valor`, ≥3:1 provado por
+pixel).
+
+**Tokens novos (veludo/gema/fio/bolha/deriva/capa)** — tabela completa com
+teto e recuo binário por token na seção "Tokens novos (`globals.css` :root
+/ dark)" logo acima desta nota. **Resultado do AA re-enumerado (Onda 4,
+`aa_tabela_horizonte.md`): 110 PASSOU · 0 FALHOU** (mais 8 pares pendentes
+de integração e 28 informativos — decorativos/specular, fora do gate por
+construção) — nos dois temas, incluindo os pares herdados da Banca no
+veludo, `--veludo-anel`, o campo interno das gemas, bolha, fio/faísca, a
+capa sob o `uMask` re-medido e a pedra do 404.
+
+**`--bolha-dy-1..5` precisa ser px puro** (contrato entre `salao.css` e
+`SalaoDimensoes.tsx`): o valor computado de uma custom property é o TOKEN
+em si, não um comprimento resolvido — `getComputedStyle(li).getPropertyValue
+("--bolha-dy")` devolveria a STRING `"min(8vh, 80px)"` (não um número em px)
+se o token usasse `min()`/`clamp()`/`vh`. O `translate` do `<li>` consome a
+var e o JS lê a MESMA var para compor o centro do círculo publicado
+(`cy = offsetTop + offsetHeight/2 + dy`, E2) — trocar por uma unidade
+relativa quebraria essa leitura **em silêncio** (sem erro de build, sem
+warning: o JS receberia uma string não-numérica, o cálculo do centro do
+círculo ficaria `NaN` ou usaria um fallback errado, e a catenária do fio
+cortaria por dentro da bolha — exatamente o defeito que a demolição do
+filmstrip/constelação tentou resolver). Variações por viewport vêm SEMPRE de
+`@media`, nunca de fórmulas dentro do próprio valor do token (ver
+`cinema/salao.css`, linhas 25–36 e 126–130/470–474).
+
+**Limpeza de CSS desta Onda (arbitragem A2 do maestro):** o CSS compilado
+cresceu +5,18KB gzip contra o teto de +4KB do gate E23 — o teto era um
+PROXY do medo de degradar o LCP de /tese; a medição real mostrou o
+**LCP de /tese MELHORANDO** (a Onda 4 mediu 120→104ms) com CLS 0 nos dois
+lados. **Decisão: o delta é ACEITO e documentado**, com duas limpezas de
+risco zero: (a) remoção do token órfão `--constelacao-contorno-alfa` (ver
+tabela de tokens da emenda APOTEOSE acima — a folha `constelacao.css` que o
+consumia foi demolida; `--constelacao-traco-largura` sobrevive porque
+`salao.css` o consome de verdade); (b) deduplicação de `cinema/palco.css`
+entre `.banca-rail .cartao-ticker`/`.grade-teses .cartao-ticker` (seletores
+combinados onde os valores eram byte-idênticos — `:focus-visible`,
+recuo/dim dos irmãos, keyline do dark-mode, bloco `reduced-motion`; a
+`transition` da regra base permanece deliberadamente separada porque a
+grade soma uma transição de `transform` que a Banca não tem — somá-la à
+Banca mudaria a física da mola JS do `usePalco`/`quickTo`). Novo delta
+medido após a limpeza: ver `.maestro/evidencias/perf/css_bytes.json`
+(re-executar `gate_css_bytes.py` reporta o número corrente). Follow-up NÃO
+executado nesta limpeza (fica registrado para a próxima missão, se o
+orçamento apertar de novo): escopar `salao.css`/`lapidacao.css` (~+2,3KB)
+para fora das rotas que não os usam via CSS Modules/route-level import, em
+vez do `@import` global único que hoje entra em toda rota via
+`globals.css`.
 
 ---
 

@@ -3,6 +3,14 @@
  * Critério 3 (Palco 3D da Banca de Teses), autorizado por S1 (cai o veto
  * 11.5 SÓ para o palco da Banca) + D3 da LEI. A emenda formal do guard-rail
  * de banca.css foi feita como 1ª edição da onda BANCA (S3 — ver banca.css).
+ *
+ * LIMPEZA — RITO S3 · RAIA D (governança/CSS), missão FRONTEND HORIZONTE
+ * (2026-07-14): as regras de `.banca-rail .cartao-ticker` e
+ * `.grade-teses .cartao-ticker` (emenda Onda 3B abaixo) foram UNIFICADAS em
+ * seletores combinados onde os dois palcos tinham o MESMO valor computado
+ * (byte-idêntico) — zero mudança de comportamento, só menos bytes repetidos.
+ * Detalhe completo (o que fundiu, o que ficou separado e por quê) no
+ * cabeçalho da emenda Onda 3B, mais abaixo neste arquivo.
  * ============================================================
  * ARQUITETURA (um-escritor-por-propriedade, carve-out "var na folha"):
  *   - `scale`      — ÚNICO escritor: esta folha (estados :hover/:focus-visible
@@ -37,9 +45,22 @@
  * --palco-tilt 2.5deg. Verde 70–200° ausente por construção.
  * ============================================================ */
 
-.banca-rail .cartao-ticker {
+.banca-rail .cartao-ticker,
+.grade-teses .cartao-ticker {
   scale: var(--palco-s, 1);
   opacity: var(--palco-o, 1);
+}
+
+/* `transition` fica FORA do seletor combinado acima de propósito: a Banca
+   (mola JS via usePalco/quickTo) e a grade de /teses (tilt 100% CSS, emenda
+   Onda 3B abaixo) precisam de listas DIFERENTES — a grade soma `transform`
+   à lista porque seu tilt é interpolado pelo PRÓPRIO CSS; a Banca NÃO
+   transiciona `transform` (a suavização já vem da mola do quickTo — somar
+   uma 2ª transição CSS na mesma propriedade correria em paralelo com o
+   tween JS e mudaria a sensação já testada/aprovada). Por isso esta
+   declaração NÃO se funde, mesmo com `scale`/`opacity` acima sendo
+   byte-idênticos nos dois palcos. */
+.banca-rail .cartao-ticker {
   transition:
     scale var(--dur-set) var(--ease-ink),
     opacity var(--dur-set) var(--ease-ink),
@@ -50,23 +71,30 @@
 
 /* Tilt (mola do ponteiro) — só onde existe ponteiro fino; vars escritas
    exclusivamente pelo usePalco (inerte sob reduce/touch). Reversível por
-   contrato: o retorno elástico do hook leva rx/ry a 0 e REMOVE as vars. */
+   contrato: o retorno elástico do hook leva rx/ry a 0 e REMOVE as vars.
+   Os estados de `--palco-s`/box-shadow abaixo valem IGUAL para a grade de
+   /teses (mesmos tetos S1, D36) — combinados aqui; o tilt em si
+   (rotateX/Y por --palco-rx/-ry) segue exclusivo da Banca. */
 @media (hover: hover) and (pointer: fine) {
   .banca-rail .cartao-ticker {
     transform: perspective(900px) rotateX(calc(var(--palco-rx, 0) * 1deg))
       rotateY(calc(var(--palco-ry, 0) * 1deg));
   }
 
-  /* Cartão ativo (ponteiro). */
-  .banca-rail .cartao-ticker:hover {
+  /* Cartão ativo (ponteiro) — mesmo valor nos dois palcos. */
+  .banca-rail .cartao-ticker:hover,
+  .grade-teses .cartao-ticker:hover {
     --palco-s: var(--palco-scale-ativo);
   }
-  /* Irmãos: recuo + dim CSS puro (D3) — seletor da LEI §3.3. */
-  .banca-rail:hover .cartao-ticker:not(:hover):not(:focus-visible) {
+  /* Irmãos: recuo + dim CSS puro (D3) — seletor da LEI §3.3, mesmo valor na
+     grade de /teses (D36). */
+  .banca-rail:hover .cartao-ticker:not(:hover):not(:focus-visible),
+  .grade-teses:hover .cartao-ticker:not(:hover):not(:focus-visible) {
     --palco-s: var(--palco-scale-irmaos);
     --palco-o: var(--palco-dim);
   }
-  .banca-rail .cartao-ticker:hover {
+  .banca-rail .cartao-ticker:hover,
+  .grade-teses .cartao-ticker:hover {
     box-shadow:
       0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
       0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
@@ -74,26 +102,32 @@
 }
 
 /* Cartão ativo (teclado — qualquer dispositivo; tilt não se aplica:
-   mola é física de ponteiro, o estado digno de foco é zoom+sombra). */
-.banca-rail .cartao-ticker:focus-visible {
+   mola é física de ponteiro, o estado digno de foco é zoom+sombra). Mesmo
+   valor nos dois palcos (Banca e grade de /teses, D36). */
+.banca-rail .cartao-ticker:focus-visible,
+.grade-teses .cartao-ticker:focus-visible {
   --palco-s: var(--palco-scale-ativo);
   box-shadow:
     0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
     0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
 }
-.banca-rail:focus-within .cartao-ticker:not(:focus-visible):not(:hover) {
+.banca-rail:focus-within .cartao-ticker:not(:focus-visible):not(:hover),
+.grade-teses:focus-within .cartao-ticker:not(:focus-visible):not(:hover) {
   --palco-s: var(--palco-scale-irmaos);
   --palco-o: var(--palco-dim);
 }
 
 /* Escuro: elevação-base = borda (S2) — keyline ouro luminosa no lugar da
-   sombra difusa; specular contido fica no `.ticker-luz` do glifo. */
+   sombra difusa; specular contido fica no `.ticker-luz` do glifo. Mesmo
+   tratamento nos dois palcos. */
 @media (prefers-color-scheme: dark) {
-  .banca-rail .cartao-ticker:focus-visible {
+  .banca-rail .cartao-ticker:focus-visible,
+  .grade-teses .cartao-ticker:focus-visible {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
   }
   @media (hover: hover) and (pointer: fine) {
-    .banca-rail .cartao-ticker:hover {
+    .banca-rail .cartao-ticker:hover,
+    .grade-teses .cartao-ticker:hover {
       box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
     }
   }
@@ -103,10 +137,12 @@
   /* Reduce NOMINAL do palco: os ESTADOS continuam (zoom do ativo, recuo/dim
      dos irmãos, sombra/keyline — hierarquia legível), mas a troca é
      INSTANTÂNEA e digna (transition none) e a mola/tilt NUNCA nasce
-     (usePalco é inerte sob reduce; transform none aqui é defesa em
-     profundidade caso as vars tenham sido escritas antes de o usuário
-     ligar a redução em pleno uso). */
-  .banca-rail .cartao-ticker {
+     (usePalco/tilt CSS são inertes sob reduce; transform none aqui é defesa
+     em profundidade caso as vars tenham sido escritas antes de o usuário
+     ligar a redução em pleno uso). Mesmo tratamento nos dois palcos
+     (Banca e grade de /teses) — combinado aqui. */
+  .banca-rail .cartao-ticker,
+  .grade-teses .cartao-ticker {
     transition: none !important;
     transform: none !important;
   }
@@ -137,14 +173,33 @@
  * Um-escritor-por-propriedade: `--mx`/`--my` = usePonteiro (CSSOM);
  * transform/scale/opacity/box-shadow de `.grade-teses .cartao-ticker` = SÓ
  * estas regras (nenhum motor JS escreve transform nesta rota).
+ *
+ * LIMPEZA — RITO S3 · RAIA D (governança/CSS), missão FRONTEND HORIZONTE
+ * (2026-07-14): esta emenda, na redação original, REPETIA byte a byte — sob
+ * um seletor `.grade-teses` SEPARADO — a regra base de `scale`/`opacity`, o
+ * par `:focus-visible` (--palco-s + box-shadow), o recuo dos irmãos por
+ * hover E por focus-within, a keyline do dark-mode (:focus-visible e
+ * :hover) e o bloco `prefers-reduced-motion` do `.cartao-ticker`. Tudo isso
+ * foi CONSOLIDADO em seletores COMBINADOS no bloco original acima
+ * (`.banca-rail .cartao-ticker, .grade-teses .cartao-ticker { … }` e
+ * variantes) — um-escritor-por-propriedade preservado, zero mudança de
+ * comportamento (mesmo valor computado, mesma ordem relativa de cascata
+ * entre os estados). A única declaração que PERMANECE genuinamente
+ * separada é `transition` da regra base (a grade soma `transform` à lista —
+ * ver comentário inline junto da regra da Banca, acima: somar a mesma
+ * transição na grade mudaria a física da mola JS da Banca). Tudo o mais
+ * específico da grade (rotateX/Y por --palco-nx/-ny, o repouso --palco-ny,
+ * o @supports do tilt por ponteiro e o reset do :active para o morph)
+ * segue como estava, exclusivo de `.grade-teses`. `.painel-vitrine`/
+ * `.painel-selo` (parte B, /cobertura) não tinham duplicata — intocados.
  * ============================================================ */
 
 /* ------------------------------------------------------------
- * A. PALCO S1 NA GRADE DE /teses (D36) — mesmos tokens e tetos da Banca.
+ * A. PALCO S1 NA GRADE DE /teses (D36) — tilt próprio (ver nota acima sobre
+ *    por que `transition` não se funde com a Banca); os estados de
+ *    hover/focus/dark/reduce ficam no bloco combinado acima.
  * ------------------------------------------------------------ */
 .grade-teses .cartao-ticker {
-  scale: var(--palco-s, 1);
-  opacity: var(--palco-o, 1);
   transition:
     scale var(--dur-set) var(--ease-ink),
     opacity var(--dur-set) var(--ease-ink),
@@ -154,40 +209,15 @@
     border-color var(--dur-set) var(--ease-ink);
 }
 
-.grade-teses .cartao-ticker:focus-visible {
-  --palco-s: var(--palco-scale-ativo);
-  box-shadow:
-    0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
-    0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
-}
-
-/* ELEMENTO-NOVO RESERVA de /teses (E27) — independente de glow/specular/
-   sombra: o foco por CONTRASTE. Hover/foco em um cartão RECUA e esmaece os
-   outros (só `scale` + `opacity`): sobrevive intacto a qualquer recuo
-   binário de AA sobre sombra/keyline. */
-.grade-teses:focus-within .cartao-ticker:not(:focus-visible):not(:hover) {
-  --palco-s: var(--palco-scale-irmaos);
-  --palco-o: var(--palco-dim);
-}
-
 @media (hover: hover) and (pointer: fine) {
   /* Tilt: perspectiva AUTO-CONTIDA no próprio cartão (nunca em ancestral —
      trava C2 intacta). `--palco-nx`/`--palco-ny` são números -1..1
-     (default 0 = cartão em repouso, chapado). */
+     (default 0 = cartão em repouso, chapado). Exclusivo da grade — a Banca
+     usa --palco-rx/--palco-ry (mola JS), ver bloco combinado acima. */
   .grade-teses .cartao-ticker {
     transform: perspective(900px)
       rotateX(calc(var(--palco-ny, 0) * -1 * var(--palco-tilt)))
       rotateY(calc(var(--palco-nx, 0) * var(--palco-tilt)));
-  }
-  .grade-teses .cartao-ticker:hover {
-    --palco-s: var(--palco-scale-ativo);
-    box-shadow:
-      0 18px 44px -14px rgb(var(--luz-tinta) / 0.26),
-      0 4px 14px -6px rgb(var(--luz-tinta) / 0.14);
-  }
-  .grade-teses:hover .cartao-ticker:not(:hover):not(:focus-visible) {
-    --palco-s: var(--palco-scale-irmaos);
-    --palco-o: var(--palco-dim);
   }
 
   /* Repouso do tilt (fallback universal, sem divisão no calc): inclinação
@@ -223,18 +253,6 @@
     --palco-ny: 0;
     --palco-s: 1;
     transition: none;
-  }
-}
-
-/* Escuro: elevação-base = borda (S2) — keyline ouro no lugar da sombra. */
-@media (prefers-color-scheme: dark) {
-  .grade-teses .cartao-ticker:focus-visible {
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .grade-teses .cartao-ticker:hover {
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
-    }
   }
 }
 
@@ -321,19 +339,16 @@
 
 /* ------------------------------------------------------------
  * REDUCED-MOTION (nominal por efeito, desta emenda):
- *   - palco da grade (/teses): os ESTADOS ficam (zoom do ativo, recuo/dim
- *     dos irmãos, sombra/keyline — a hierarquia continua legível), a troca é
- *     INSTANTÂNEA e o tilt/mola NUNCA nasce (mesma doutrina do bloco
- *     original da Banca, acima).
+ *   - palco da grade (/teses): reduce herdado do bloco combinado acima
+ *     (`.banca-rail .cartao-ticker, .grade-teses .cartao-ticker`) — os
+ *     ESTADOS ficam (zoom do ativo, recuo/dim dos irmãos, sombra/keyline —
+ *     a hierarquia continua legível), a troca é INSTANTÂNEA e o tilt/mola
+ *     NUNCA nasce (mesma doutrina do bloco original da Banca).
  *   - specular do aro e acender do selo (/cobertura): são ESTADOS de cor,
  *     não movimento — ficam (aparecem sem transição). Só a IMPRESSÃO do
  *     hairline do selo (scaleX) é movimento: assenta no estado final.
  * ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .grade-teses .cartao-ticker {
-    transition: none !important;
-    transform: none !important;
-  }
   .painel-vitrine::after,
   .painel-selo {
     transition: none;

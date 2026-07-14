@@ -25,12 +25,16 @@
  *       ouro não cruza 60–90° nem 70–200°). Sob @supports: sem
  *       background-clip:text a palavra herda a tinta do H1 (fallback digno).
  *
- *   .glifo-fantasma     — "[1]" monumental ~38vw, Newsreader, α 0.045,
- *       aria-hidden, contra-cursor (fator −0.03×) via --mx/--my escritas
- *       NESTA folha-elemento por usePonteiro (lista escreverEm do FocoLuz —
- *       CSSOM; nunca @property inherits:false). will-change:transform SÓ
- *       nesta folha (nunca em ancestral — trava C2). No tema claro é ele
- *       quem carrega o WOW.
+ *   .glifo-fantasma     — "[1]" monumental ~52vw (mobile ~70vw), Newsreader,
+ *       α 0.045, aria-hidden, contra-cursor (fator −0.03×) via --mx/--my
+ *       escritas NESTA folha-elemento por usePonteiro (lista escreverEm do
+ *       FocoLuz — CSSOM; nunca @property inherits:false). will-change:
+ *       transform SÓ nesta folha (nunca em ancestral — trava C2). No tema
+ *       claro é ele quem carrega o WOW.
+ *       ⚠ HORIZONTE/B2: o elemento é um `<svg><path>` (contorno vetorial da
+ *       Newsreader), NÃO um nó de texto — é o que o tira da lista de
+ *       candidatos de LCP sem encolher o desenho. Ver §3, que é a lei disto:
+ *       quem trocar o <path> por <text>/<span> devolve o glifo ao LCP.
  *
  *   .campo-brasa        — o <canvas> WebGL (CampoBrasa.tsx): camada irmã
  *       dentro do hero .tem-foco, transparente, z-index:-1, por cima do bg
@@ -162,37 +166,71 @@
    default 0px herdado de :root = parado e centrado. O overflow:hidden do
    .tem-foco clipa o transbordo.
 
-   HORIZONTE crit.2/E11 — achado MEDIDO nesta raia (ver relatório + evidências
-   em `.maestro/evidencias/onda1/1D-capa/`): ao crescer o glifo de 38vw para
-   ~52vw (D10/D13), o Chromium passa a reportar `.glifo-fantasma` como o
-   candidato de Largest Contentful Paint (em vez do H1) — inclusive testado
-   com o "[1]" movido para `::before{content:"[1]"}` (hipótese descartada
-   empiricamente: o PaintTimingDetector do Chromium conta glifos de conteúdo
-   GERADO por CSS também, não só nós de texto do DOM). Isto NÃO é a mesma
-   coisa que regressão de LCP: o gate real desta casa (`lcp_cls_bench.py`)
-   mede o TEMPO (`entry.startTime`, ms) de maior pintura, não QUAL elemento
-   venceu — e glifo/H1/lede/CTAs pintam no MESMO frame síncrono (SSR, sem
-   IO/gate de JS em nenhum deles), então a identidade do "maior" elemento não
-   move o relógio. Medição local (`resultado.json` desta raia): CLS=0,
-   fold correto nas 3 viewports; o `lcp_cls_bench.py` real (A/B vs
-   baseline) fica para a Onda 4 confirmar a métrica de tempo após a
-   integração — sinalizado no relatório, não bloqueia esta raia. */
+   ============================================================
+   HORIZONTE / rodada B2 (perf, 2026-07-14) — O GLIFO CONTINUA A 52vw.
+   O QUE MUDOU: ele deixou de ser NÓ DE TEXTO e virou CONTORNO VETORIAL
+   (<svg><path>, server-rendered em page.tsx). A escala aprovada (D10/D13:
+   ~52vw desktop / ~70vw mobile, sangrando pela borda direita) está INTACTA —
+   o recuo a 14vw da rodada anterior foi REVERTIDO por decisão do dono.
+
+   POR QUE (medido, `.maestro/evidencias/onda5/B2-perf/`):
+   pela spec de LCP, são candidatos <img>, <image> de SVG, poster de <video>,
+   elemento com background-image e **bloco que contém nós de TEXTO**. O glifo
+   a 52vw tem ≈550.000px² e a maior palavra do H1 ≈49.000px² (a cascata D13
+   quebra o H1 em spans POR PALAVRA — cada palavra compete sozinha): o glifo
+   goleava e VENCIA o LCP, e um glifo maior em área custa mais para
+   rasterizar/compor → o relógio ia de 112ms (baseline, 38vw) para 148ms.
+   Sendo `aria-hidden` e α 0,045, ele ser o "maior conteúdo" é ARTEFATO, não
+   verdade sobre a experiência: a correção é tirá-lo da lista de candidatos —
+   não mutilar o desenho.
+
+   O QUE NÃO FUNCIONA (tudo MEDIDO nesta rodada, para ninguém tentar de novo):
+     • `<svg><text>`   → AINDA é candidato (size 540.629px²): o
+                         PaintTimingDetector do Chromium conta texto SVG.
+     • `<text>` dentro de `<mask>` → também é reportado (676.488px²).
+     • `::before { content: "[1]" }` → conteúdo gerado por CSS é texto (rodada
+                         anterior).
+     • `font-size` pequeno + `transform: scale()` → o rect é MAPEADO pelo
+                         transform (601.029px²): não engana.
+     • `color: transparent` + `text-shadow` → segue reportado (602.508px²).
+   `<path>` é a única rota provada: geometria SVG não-<image> não entra na
+   lista de candidatos. Confirmado: com o path, o LCP volta ao H1.
+
+   FIDELIDADE DO DESENHO (não é um "[1]" desenhado à mão): o `d` são as
+   curvas REAIS da Newsreader variável instanciada em wght 500 / opsz 72 — o
+   opsz que o `font-optical-sizing: auto` já escolhia a 748px (o eixo satura
+   em 72) —, compostas com os avanços da fonte e o letter-spacing -0,04em
+   embutido. Conferência contra o motor de texto do próprio Chromium: a
+   largura da caixa bate em 0,01px (816,94px vs 816,95px @1440).
+   GEOMETRIA (é o que preserva a composição): a caixa do <svg> é a MESMA
+   caixa que o <span> tinha — `font-size` segue sendo a unidade de escala
+   (52vw/70vw) e a caixa é declarada em em: inline-size 1.091em (= o avanço
+   de "[1]" com o letter-spacing) × block-size 0.9em (= o line-height que
+   fazia a caixa). O viewBox (0 0 2182 1800, em unidades da fonte: upem 2000)
+   mapeia 1:1 nessa caixa, com a baseline no MESMO lugar (0.685em do topo —
+   a half-leading do Chromium). `overflow: visible` porque a tinta transborda
+   o topo da caixa em ~0,05em (o line-height 0.9 é menor que asc+desc da
+   fonte) — exatamente como transbordava no <span>. Quem clipa a sangria
+   continua sendo o overflow:hidden do .tem-foco.
+   BÔNUS: o glifo não depende mais do swap da webfont para pintar.
+   ============================================================ */
 .glifo-fantasma {
   position: absolute;
   top: 50%;
   /* HORIZONTE crit.2 (D10/D13): ~52vw desktop, sangrando cortado pela borda
-     direita — o recuo negativo escala proporcionalmente ao tamanho novo
+     direita — o recuo negativo escala proporcionalmente ao tamanho
      (era -4vw @38vw ≈ -10,5% do próprio corpo; mantido aqui em -6vw @52vw)
      para o glifo continuar "mordido" pela borda do .tem-foco (overflow:
-     hidden), nunca inteiro nem sumido. Mobile: ~70vw (§7 abaixo). */
+     hidden), nunca inteiro nem sumido. Mobile: ~70vw (§ abaixo). */
   right: -6vw;
   z-index: -1;
-  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
-  font-weight: 500;
+  /* `font-size` NÃO pinta texto nenhum aqui — é a UNIDADE DE ESCALA do glifo
+     (a caixa abaixo é declarada em em). Mantê-lo em vw preserva a lei
+     original: o monumento cresce com a viewport. */
   font-size: 52vw;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-  white-space: nowrap;
+  inline-size: 1.091em; /* avanço real de "[1]" (fonte + letter-spacing) */
+  block-size: 0.9em; /* o antigo line-height: 0.9 */
+  overflow: visible; /* a tinta transborda o topo da caixa (~0,05em) */
   color: rgb(var(--luz-tinta));
   opacity: 0.045;
   pointer-events: none;
@@ -204,6 +242,12 @@
   );
   transition: transform 700ms var(--ease-cena);
   will-change: transform;
+}
+/* A tinta do glifo = a MESMA cor de registro frio de antes, agora por
+   `fill: currentColor` (o `color` acima segue sendo o único escritor da cor:
+   um-escritor-por-propriedade, e o tema continua governando o token). */
+.glifo-fantasma path {
+  fill: currentColor;
 }
 @media (max-width: 639px) {
   .glifo-fantasma {

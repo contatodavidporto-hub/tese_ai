@@ -50,9 +50,12 @@ export default async function NaoEncontrada() {
   return (
     <>
       <Header />
+      {/* `gap-y-5`, NUNCA `gap-5`: `<main>` É a `.bancada` (display:grid) — a
+          forma curta do Tailwind vira `column-gap` na grade de 5 trilhas e
+          soma px que estouram a viewport (gate de geometria, defeito 4). */}
       <main
         id="conteudo"
-        className="tem-foco bancada flex-1 items-start gap-5 py-24"
+        className="tem-foco bancada flex-1 items-start gap-y-5 py-24"
       >
         <FocoLuz />
         {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —

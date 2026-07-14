@@ -18,12 +18,15 @@
  * REDUCED MOTION: `gsap.matchMedia(MQ_SEM_REDUCE)` — sob reduce a timeline
  * NEM NASCE (nenhum estado inicial é escrito; o diagrama fica no default
  * completo de `lapidacao.css`, e o próprio rig deixa de fazer scroll-jack —
- * ver o bloco reduce da folha). Padrão idêntico a `CenaScrub.tsx`
- * (`aoPrimeiroSinal`/`quandoPermitirMovimento`), duplicado aqui DE
- * PROPÓSITO: `CenaScrub.tsx` não exporta essas funções (são internas ao
- * arquivo, fora da posse desta raia) — duplicar ~30 linhas de utilitário
- * puro é mais seguro do que criar uma dependência cross-raia num arquivo
+ * ver o bloco reduce da folha). `quandoPermitirMovimento` é idêntico ao de
+ * `CenaScrub.tsx`, duplicado aqui DE PROPÓSITO: aquele arquivo não exporta a
+ * função (é interna, fora da posse desta raia) — duplicar ~15 linhas de
+ * utilitário puro é mais seguro que criar dependência cross-raia num arquivo
  * que não é meu.
+ *
+ * BOOT (mudou na rodada B2 — perf): NÃO é mais `aoPrimeiroSinal` (idle). É
+ * IO one-shot com rootMargin 100%, o padrão do Salão — ver `aoChegarPerto`
+ * abaixo, que explica o número que motivou a troca.
  *
  * CSP: gsap chega SÓ via `carregarGsap()` (import() dinâmico, R5); zero
  * `style={}`, zero `setAttribute('style')`, zero markers/Flip.
@@ -43,37 +46,36 @@ type MatchMediaGsap = ReturnType<MotorGsap["gsap"]["matchMedia"]>;
 
 const SCRUB = 0.8;
 
-/** Idêntico ao helper de CenaScrub.tsx — duplicado por posse de arquivo (ver doc acima). */
-function aoPrimeiroSinal(acao: () => void): () => void {
-  const eventos = ["scroll", "wheel", "touchstart", "pointerdown"] as const;
-  let disparado = false;
-  let idIdle = 0;
-  let idTimeout: number | undefined;
-
-  const limpar = () => {
-    for (const nome of eventos) window.removeEventListener(nome, disparar);
-    if (typeof window.cancelIdleCallback === "function") {
-      window.cancelIdleCallback(idIdle);
-    }
-    if (idTimeout !== undefined) window.clearTimeout(idTimeout);
-  };
-
-  function disparar(): void {
-    if (disparado) return;
-    disparado = true;
-    limpar();
-    acao();
-  }
-
-  for (const nome of eventos) {
-    window.addEventListener(nome, disparar, { passive: true, once: true });
-  }
-  if (typeof window.requestIdleCallback === "function") {
-    idIdle = window.requestIdleCallback(disparar, { timeout: 1600 });
-  } else {
-    idTimeout = window.setTimeout(disparar, 1200);
-  }
-  return limpar;
+/**
+ * PERF — B2 (2026-07-14): BOOT POR PROXIMIDADE, NÃO POR OCIOSIDADE.
+ *
+ * Era `aoPrimeiroSinal` (idle/1º scroll, o padrão do CenaScrub). Medido no
+ * gate de TBT (mobile-4x, `.maestro/evidencias/onda5/B2-perf/`): o
+ * `requestIdleCallback` dispara ~1s depois do load, DENTRO da janela de
+ * medição e — pior — dentro da janela em que o visitante ainda está lendo a
+ * capa. Ali este componente montava a timeline inteira (10 `fromTo` sobre um
+ * SVG grande) + o ScrollTrigger, e o conjunto gsap virava longtask (bloquear
+ * o chunk do gsap derrubava ~104ms de TBT). E a cena está ~3 telas ABAIXO da
+ * dobra: nada disso era necessário ainda.
+ *
+ * Agora o boot é o MESMO padrão do Salão (SalaoDimensoes.tsx): IO one-shot
+ * com `rootMargin: 100%` — a timeline nasce UMA viewport ANTES da cena
+ * aparecer. O usuário nunca vê a diferença (o estado final é o default do
+ * CSS, D16: quem chega antes do boot vê o diagrama completo, nunca uma tela
+ * vazia); o load deixa de pagar.
+ */
+function aoChegarPerto(alvo: Element, acao: () => void): () => void {
+  const io = new IntersectionObserver(
+    (entradas) => {
+      if (!entradas.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      acao();
+    },
+    // uma viewport de antecedência (acima e abaixo) — mesma folga do Salão
+    { rootMargin: "100% 0px 100% 0px" },
+  );
+  io.observe(alvo);
+  return () => io.disconnect();
 }
 
 /** Idêntico ao helper de CenaScrub.tsx — duplicado por posse de arquivo (ver doc acima). */
@@ -256,7 +258,7 @@ export function NascimentoScrub({ children }: PropsNascimentoScrub) {
     };
 
     let limparReduce: () => void = () => {};
-    const limparSinal = aoPrimeiroSinal(() => {
+    const limparSinal = aoChegarPerto(rolo, () => {
       limparReduce = quandoPermitirMovimento(() => {
         carregarGsap()
           .then(montar)

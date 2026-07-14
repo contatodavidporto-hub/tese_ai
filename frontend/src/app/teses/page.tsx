@@ -70,7 +70,16 @@ export default function TesesPage() {
         <section aria-labelledby="teses-titulo" className="bancada">
           <div className="b-sangria vitrine-veludo veludo-escopo">
             <div className="bancada w-full">
-              <div className="b-medida-esq flex flex-col gap-5">
+              {/* E30 (correção-mãe, wt-horizonte 2026-07-14): este wrapper
+                  vivia em `.b-medida-esq` (medida + só MEIA trilha de palco)
+                  — a rota fechava 21px mais estreita que a produção em
+                  768–1024px. Eyebrow/H1/meta não são prosa (medida ≤68ch é
+                  lei só para prosa, §0.9): o wrapper vira `.b-palco` (as duas
+                  trilhas, sangra igual à produção) e os DOIS parágrafos de
+                  prosa real (i-2/i-3) ganham `max-w-[68ch]` próprio — a lei
+                  tipográfica continua valendo para eles, só não pela trilha
+                  do wrapper inteiro. */}
+              <div className="b-palco flex flex-col gap-5">
                 <Reveal>
                   <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
                     Galeria de teses prontas
@@ -85,7 +94,7 @@ export default function TesesPage() {
                   </h1>
                 </Reveal>
                 <Reveal className="i-2">
-                  <p className="font-sans text-lede leading-relaxed text-ink-2">
+                  <p className="max-w-[68ch] font-sans text-lede leading-relaxed text-ink-2">
                     Nenhuma delas espera geração: estão prontas e abrem no clique. São
                     os {acoes} maiores pesos da{" "}
                     <TermoTooltip {...tooltipDe("carteira-teorica")}>
@@ -96,7 +105,7 @@ export default function TesesPage() {
                   </p>
                 </Reveal>
                 <Reveal className="i-3">
-                  <p className="font-sans text-ui leading-relaxed text-ink-2">
+                  <p className="max-w-[68ch] font-sans text-ui leading-relaxed text-ink-2">
                     Use qualquer uma como amostra do produto inteiro: a régua de
                     auditoria é a mesma da tese que você gerar depois. Escolha um
                     número, clique na citação, chegue ao documento público que a
@@ -104,7 +113,7 @@ export default function TesesPage() {
                   </p>
                 </Reveal>
                 <Reveal className="i-4">
-                  <p className="font-mono text-meta text-ink-3">
+                  <p className="max-w-[68ch] font-mono text-meta text-ink-3">
                     {exemplos.length}{" "}
                     <TermoTooltip {...tooltipDe("warm-cache")}>
                       teses prontas

@@ -81,9 +81,13 @@ const CLAUSULAS: Clausula[] = [
   {
     numero: "04",
     titulo: "O diferencial: elos causais narrados, com fonte nas duas pontas.",
+    // Correção (defeito 5, gate copy wt-horizonte 2026-07-14): a 1ª frase do
+    // corpo repetia o título verbatim (mesmo texto empilhado 2x na tela).
+    // Reescrita sem duplicar o título e sem novo toque da metáfora da
+    // joalheria (teto 2-3 no site, §11 do spec — nenhuma palavra nova).
     texto: (
       <>
-        O diferencial:{" "}
+        Aqui a tese interpreta, não só relata:{" "}
         <TermoTooltip {...tooltipDe("elo-causal")}>elos causais</TermoTooltip> narrados,
         com fonte nas duas pontas. É a parte interpretativa da tese — e justamente por
         isso a mais vigiada: vem rotulada como interpretação, em cenários condicionais,
@@ -131,13 +135,20 @@ export default function Sobre() {
         <section aria-labelledby="sobre-titulo" className="border-b border-line">
           <div className="bancada gap-y-4 py-14 sm:py-20">
             {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
-                aqui não há nenhuma. Stagger simples (.i-N). */}
-            <Reveal className="i-1">
+                aqui não há nenhuma. Stagger simples (.i-N).
+                E30 (correção-mãe, wt-horizonte 2026-07-14): este masthead
+                vivia no default `.bancada > *` (medida sozinha, sem palco
+                nenhum) — a pior das três rotas regredidas (-50px em
+                768–1024px). Eyebrow e H1 não são prosa (medida ≤68ch é lei só
+                para prosa, §0.9): ganham `.b-palco`. Os dois parágrafos de
+                prosa real ganham `.b-medida-esq` (mais generoso que a medida
+                pura, ainda ≤68ch de fato — nunca mais estreito que antes). */}
+            <Reveal className="b-palco i-1">
               <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
                 Sobre
               </p>
             </Reveal>
-            <Reveal className="i-2">
+            <Reveal className="b-palco i-2">
               <h1
                 id="sobre-titulo"
                 className="font-display text-h1 font-semibold tracking-tight text-ink"
@@ -145,7 +156,7 @@ export default function Sobre() {
                 Quatro cláusulas. Nenhuma promessa que não se possa auditar.
               </h1>
             </Reveal>
-            <Reveal className="i-3">
+            <Reveal className="b-medida-esq i-3">
               <p className="text-body leading-relaxed text-ink-2">
                 O Tese AI faz uma coisa só: estrutura o raciocínio de investimento com
                 evidência verificável. Esta página é o contrato de leitura — e vale para
@@ -153,7 +164,7 @@ export default function Sobre() {
               </p>
             </Reveal>
             {/* Corpo NOVO (copy-horizonte-spec.md §6). */}
-            <Reveal className="i-4">
+            <Reveal className="b-medida-esq i-4">
               <p className="text-body leading-relaxed text-ink-2">
                 Não há letra miúda depois. As quatro cláusulas abaixo são o produto
                 inteiro: se alguma delas for quebrada em qualquer tese, é defeito — e

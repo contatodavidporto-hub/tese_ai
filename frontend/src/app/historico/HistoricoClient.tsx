@@ -144,7 +144,14 @@ export function HistoricoClient() {
   usePonteiro(raizRef, { seletorAlvo: ".ticker-luz" });
 
   return (
-    <div ref={raizRef} className="flex flex-col gap-8">
+    // `[overflow-x:clip]` (defeito 3, gate de geometria, wt-horizonte
+    // 2026-07-14): cada entrada É `.ticker-luz` (cinema/ticker-luz.css) — o
+    // sprite `::after` (46vmax) transborda a caixa do link mesmo sem
+    // hover/toque algum (posição neutra `--mx:0/--my:0` de globals.css já
+    // extrapola a largura da coluna). Sem um ancestral que clipe, o
+    // `scrollWidth` do documento estoura em mobile (mesmo padrão de
+    // `.salao-pinado`: clip, nunca hidden — não é ancestral da régua/Tarja).
+    <div ref={raizRef} className="flex flex-col gap-8 [overflow-x:clip]">
       {itens.length === 0 ? (
         <div className="flex flex-col items-start gap-3 border border-line bg-card px-6 py-8">
           {/* Copy HORIZONTE (copy-horizonte-spec.md §8, verbatim). */}

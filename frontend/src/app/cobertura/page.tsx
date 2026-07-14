@@ -152,14 +152,20 @@ export default function Cobertura() {
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Abertura */}
+        {/* Abertura — E30 (correção-mãe, wt-horizonte 2026-07-14): eyebrow e H1
+            NÃO são prosa (medida ≤68ch é lei só para prosa, §0.9) — vão no
+            `.b-palco` (sangram, e é o que garante que a rota nunca fecha mais
+            estreita que a produção em 768–1024px: `.b-medida-esq` sozinho
+            perdia 25px ali, porque só herda MEIA trilha de palco). Os dois
+            parágrafos de prosa real continuam em `.b-medida-esq` (≤68ch,
+            lei intacta). */}
         <section className="bancada gap-y-4 py-14 sm:py-20">
-          <Reveal className="b-medida-esq i-1">
+          <Reveal className="b-palco i-1">
             <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
               Cobertura
             </p>
           </Reveal>
-          <Reveal className="b-medida-esq i-2">
+          <Reveal className="b-palco i-2">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
               O que está impresso nesta edição.
             </h1>

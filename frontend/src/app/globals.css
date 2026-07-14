@@ -51,7 +51,13 @@
 @import "../styles/cinema/bancada.css";
 @import "../styles/cinema/gema.css";
 @import "../styles/cinema/vitrine.css";
-@import "../styles/cinema/salao.css";
+/* salao.css NÃO entra aqui (E23, 2026-07-14): é a maior folha nova (~1,6KB) e
+   é EXCLUSIVA da landing (só `page.tsx` renderiza `SalaoDimensoes`; as demais
+   ocorrências de `.salao-*` no código são comentários que citam o padrão). No
+   @import global ela pesaria no CSS render-blocking de TODAS as 8 rotas. Está
+   importada direto por `page.tsx` (mesmo precedente de `como-funciona.css`),
+   então só a landing a paga. `lapidacao.css` FICA global: 3 rotas a usam
+   (landing, /como-funciona reusa CenaNascimento, 404 a pedra bruta). */
 @import "../styles/cinema/lapidacao.css";
 @import "../styles/cinema/tese-apoteose.css";
 
@@ -268,20 +274,18 @@
     --accent-valor, nunca redefinido por --media aqui. 8.17–8.90:1 contra
     bg-card/bg-elevated/bg-page escuros (UI >=3:1, checado). */
 
-  /* Constelação D1→D5 (crit. 8). Cor dos stops (safira/ink/ouro) é
-     semântica pura (--accent-confianca / --ink-primary / --accent-valor)
-     consumida direto por cinema/constelacao.css (dona: FILMSTRIP) — NUNCA
-     interpolar safira->ouro direto (midpoint sRGB ~180° é hue banido);
-     waypoint neutro/ink no meio OU traços discretos sem gradiente
-     contínuo (LEI §3.8). Só a geometria/alfa do traço são tokens novos: */
+  /* Constelação D1→D5 (crit. 8, missão APOTEOSE). A folha `constelacao.css`
+     foi DEMOLIDA na Onda 2 da missão HORIZONTE (D25 — o Salão a substitui).
+     `--constelacao-traco-largura` SOBREVIVE: `cinema/salao.css` (fio
+     lapidário do Salão de Lapidação) consome o MESMO nome para a espessura
+     do traçado SVG — o token e o papel (espessura de traço) atravessaram a
+     demolição intactos, só a folha original morreu (LIMPEZA Onda D/HORIZONTE,
+     grep confirmado: zero consumidor fora de salao.css).
+     `--constelacao-contorno-alfa` foi REMOVIDO nesta limpeza (LIMPEZA Onda
+     D/HORIZONTE, 2026-07-14): órfão — seu único consumidor era
+     `constelacao.css`, demolida; grep em `src/` não retornou nenhum uso
+     residual. Não recriar sem um consumidor real. */
   --constelacao-traco-largura: 1.5px;
-  --constelacao-contorno-alfa: 0.1; /* claro — contorno luminoso (glow, S2)
-    do painel ativo; teto <=0.12. Escuro: SEM glow, contorno = borda sólida
-    com --accent-confianca (doutrina S2, mesma lógica do CVM). Calibração
-    analítica (--accent-confianca sobre bg-card, pior caso ink-tertiary):
-    7.09:1 em 0.08 até 6.31:1 em 0.15 — folga grande, teto conservador.
-    Cláusula de recuo: falhou AA -> contorno também vira borda sólida no
-    claro (sem glow), igualando ao tratamento do escuro. */
 
   /* ---------- Missão "FRONTEND HORIZONTE" (2026-07-14, Onda 0 —
      Fundação). Lastro/tetos/recuo binário completos em DESIGN-TOKENS.md

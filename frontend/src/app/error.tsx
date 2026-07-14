@@ -39,7 +39,10 @@ import { Marca } from "@/components/site/Marca";
 
 export default function ErroGlobal({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main id="conteudo" className="bancada flex-1 items-start gap-5 py-24">
+    // `gap-y-5`, NUNCA `gap-5`: este `<main>` É a `.bancada` (display:grid) —
+    // a forma curta do Tailwind vira `column-gap` na grade de 5 trilhas e
+    // soma px que estouram a viewport (gate de geometria, defeito 4).
+    <main id="conteudo" className="bancada flex-1 items-start gap-y-5 py-24">
       {/* Selo sempre com o wordmark (cláusula M-c do guia de marca). */}
       <span className="entrada-hero flex items-center gap-2 text-ink">
         <Marca variante="carimbo" />

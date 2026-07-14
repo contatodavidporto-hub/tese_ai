@@ -62,9 +62,18 @@ export default function HistoricoPage() {
           </Reveal>
         </div>
 
+        {/* E30 (correção-mãe, wt-horizonte 2026-07-14): as duas seções abaixo
+            viviam em `.b-medida-esq` — o extrato é uma LISTA/tabela (dias +
+            registros), não prosa (medida ≤68ch é lei só para prosa, §0.9);
+            no formato antigo (`max-w-4xl`) ela já usava a largura cheia do
+            container, e `.b-medida-esq` sozinho (só meia trilha de palco)
+            fechava a rota ~48-50px mais estreita que a produção em
+            768-1024px. `.b-palco` (as duas trilhas) devolve a paridade; o
+            único parágrafo de prosa real (abaixo) já tinha `max-w-2xl`
+            próprio — a lei tipográfica não muda para ele. */}
         <section
           aria-labelledby="extrato-titulo"
-          className="b-medida-esq flex flex-col gap-4"
+          className="b-palco flex flex-col gap-4"
         >
           <h2 id="extrato-titulo" className="sr-only">
             Extrato de auditoria
@@ -74,7 +83,7 @@ export default function HistoricoPage() {
 
         <section
           aria-labelledby="exemplos-titulo"
-          className="b-medida-esq flex flex-col gap-3 border-t border-line pt-8"
+          className="b-palco flex flex-col gap-3 border-t border-line pt-8"
         >
           <Reveal className="i-1">
             <h2
@@ -95,10 +104,17 @@ export default function HistoricoPage() {
               GradeFoco = ilha client fina que delega --mx/--my ao ticker
               sob o ponteiro (seletorAlvo .ticker-luz); a lista continua
               server-rendered. Destino /tese = bypass do LinkCinema de
-              qualquer forma (véu especializado mora lá) — <Link> puro. */}
+              qualquer forma (véu especializado mora lá) — <Link> puro.
+              `[overflow-x:clip]` (defeito 3, gate de geometria): o sprite de
+              `.ticker-luz::after` (cinema/ticker-luz.css) é um círculo
+              46vmax centrado no próprio link — sem ancestral que clipe, a
+              caixa do <a> herda o overflow do pseudo-elemento e o
+              `scrollWidth` do documento estoura em mobile (a régua/Tarja não
+              são ancestrais desta lista — mesmo padrão de `.salao-pinado`,
+              clip nunca hidden). */}
           <GradeFoco
             seletorAlvo=".ticker-luz"
-            className="flex flex-wrap gap-x-6 gap-y-2"
+            className="flex flex-wrap gap-x-6 gap-y-2 [overflow-x:clip]"
           >
             {exemplos.map((papel) => (
               <li key={papel.ticker}>

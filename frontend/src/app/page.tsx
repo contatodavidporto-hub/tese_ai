@@ -15,16 +15,51 @@ import { IlhaMagnetica } from "@/components/motion/useMagnetico";
 import { OrganismoH1 } from "@/components/motion/useOrganismoH1";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
+import { CartaoTese } from "@/components/teses/CartaoTese";
 import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 import { AmbienteLanding } from "./AmbienteLanding";
 import GaleriaBanca from "./GaleriaBanca";
 import { SalaoDimensoes, type DimensaoSalao } from "./SalaoDimensoes";
+// salao.css é EXCLUSIVA da landing (E23) — importada aqui, não em globals.css,
+// para não pesar no CSS render-blocking das outras 7 rotas (mesmo precedente
+// de como-funciona.css). A ordem relativa às folhas de globals é preservada:
+// só a landing carrega esta, e nada nela sobrescreve tese-apoteose.css.
+import "@/styles/cinema/salao.css";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
+//
+// ============================================================
+// PERF — A LEI DAS ILHAS DESTA PÁGINA (rodada B2, 2026-07-14)
+// ------------------------------------------------------------
+// DIAGNÓSTICO (medido, `.maestro/evidencias/onda5/B-perf/` + `…/B2-perf/`):
+// o excedente de TBT mobile-4x da landing NÃO vem de um boot atrasável — vem
+// do COMMIT DE HIDRATAÇÃO, e o custo é proporcional ao tamanho da árvore que
+// o CLIENTE reconcilia. Provas: (a) ligar/desligar todos os efeitos do Salão
+// não movia o número; (b) `<Suspense>`, `next/dynamic` e uma fronteira de
+// streaming SSR real também não (o chunk resolve rápido demais em rede local
+// — lazy não vira tarefa separada); (c) atribuição por remoção: #nascimento
+// ≈ 0ms, #dimensoes ≈ 60–70ms, #galeria ≈ 60–70ms.
+//
+// A ALAVANCA (a que o próprio `#nascimento` já provava): ele custa ~0ms
+// porque o SVG pesado é SERVER-RENDERED e entra na ilha client como
+// `children` — conteúdo que um Server Component passa como slot para um
+// Client Component chega pelo payload RSC já criado, fora da tarefa de
+// hidratação. REGRA DESTA PÁGINA, daqui em diante:
+//
+//   ⚠ ILHA CLIENT DA LANDING RECEBE CONTEÚDO — NÃO O RENDERIZA.
+//     A ilha é a CASCA (refs, listeners, geometria, estado); o RECHEIO
+//     (bolhas do Salão, cartões da Vitrine) é montado AQUI, no servidor, e
+//     desce como slot (`bolhas`, `cartoes`). Voltar a mapear a lista dentro
+//     do componente client re-abre o buraco de TBT.
+//
+// Imports seguem ESTÁTICOS de propósito (o `next/dynamic` foi desfeito na
+// rodada anterior por não mover métrica — doutrina: otimização que não move
+// número e adiciona complexidade, desfaz-se).
+// ============================================================
 
 export const metadata: Metadata = {
   title: "Tese AI — a tese inteira, com a fonte de cada número",
@@ -231,9 +266,34 @@ export default function Home() {
             IlhaMagnetica INTOCADOS — só escala e disposição mudaram.
             ============================================================ */}
         <section id="hero" className="tem-foco" aria-labelledby="hero-titulo">
-          <span aria-hidden="true" className="glifo-fantasma">
-            [1]
-          </span>
+          {/* GLIFO-FANTASMA "[1]" — o monumento da capa (D10/D13), ~52vw
+              sangrando pela borda direita: a ESCALA APROVADA está intacta.
+              O que mudou (rodada B2, perf — ver cinema/hero.css §3): ele
+              deixou de ser um NÓ DE TEXTO e passou a ser o CONTORNO VETORIAL
+              do próprio glifo. Motivo, medido: pela spec de LCP, "bloco que
+              contém nós de texto" é candidato — e a 52vw o glifo (≈550.000px²)
+              goleava qualquer palavra do H1 (≈49.000px², a cascata D13 quebra
+              o H1 em spans por palavra) e VENCIA o LCP, atrasando o relógio
+              (112ms → 148ms). `<path>` NÃO é candidato (a lista da spec só
+              admite <img>, <image>, poster de <video>, background-image e
+              bloco com TEXTO) — provado por medição, junto com o que NÃO
+              funciona: <svg><text> AINDA é candidato (o PaintTimingDetector
+              conta texto SVG), texto dentro de <mask> também, e
+              `transform: scale()` não engana (o rect é mapeado).
+              O desenho é o MESMO: são as curvas reais da Newsreader wght 500 /
+              opsz 72 (o opsz que o `font-optical-sizing: auto` já escolhia a
+              748px), com os avanços e o letter-spacing -0.04em embutidos — a
+              largura da caixa bate com a do <span> a 0,01px. Bônus: o glifo
+              não depende mais do swap da webfont para pintar.
+              `aria-hidden` + decorativo, como sempre foi. */}
+          <svg
+            aria-hidden="true"
+            className="glifo-fantasma"
+            viewBox="0 0 2182 1800"
+            preserveAspectRatio="none"
+          >
+            <path d="M183.2 1598.1V-93.9H571.4V-62.7L344.4 -37.5V1541.7L571.4 1566.9V1598.1ZM1080.8 1289.3V62.7L1216.6 136.1L689.0 268.5L678.4 233.3L1300.4 -75.9H1337.2V1289.3L1625.6 1340.3V1370.1H775.8V1340.3ZM2078.8 -93.9V1598.1H1690.6V1566.9L1917.6 1541.7V-37.5L1690.6 -62.7V-93.9Z" />
+          </svg>
           <CampoBrasa />
           <FocoLuz />
           {/* H1-organismo (APOTEOSE crit.2): sonda <span hidden aria-hidden>
@@ -559,7 +619,22 @@ export default function Home() {
                 </p>
               </div>
               <div className="b-palco">
-                <GaleriaBanca papeis={exemplos} dataCarteira={DATA_CARTEIRA_IBOV} />
+                {/* PERF (regra das ilhas, topo do arquivo): a casca client
+                    recebe os cartões PRONTOS do servidor. O `<li>` é o alvo
+                    estável de snap/IO e o wrapper `.banca-carimbo
+                    .vitrine-pedestal` é quem anima (D19/D24) — nunca o <li>
+                    (transform no alvo de snap desloca a snap area) e nunca
+                    dentro do CartaoTese (D24: intocado). */}
+                <GaleriaBanca
+                  tickers={exemplos.map((papel) => papel.ticker)}
+                  cartoes={exemplos.map((papel) => (
+                    <li key={papel.ticker} className="w-64 shrink-0 snap-start">
+                      <div className="banca-carimbo vitrine-pedestal h-full">
+                        <CartaoTese papel={papel} dataCarteira={DATA_CARTEIRA_IBOV} />
+                      </div>
+                    </li>
+                  ))}
+                />
               </div>
               <div data-cena-el="" className="b-medida-esq flex flex-col gap-3">
                 <p className="text-ui leading-relaxed text-ink-3">
@@ -587,7 +662,38 @@ export default function Home() {
             bug histórico de 2026-07-12). A seção fica FORA do CenaScrub (R1).
             Os TermoTooltip das bolhas vivem em DIMENSOES.texto (ReactNode).
             ============================================================ */}
-        <SalaoDimensoes dimensoes={DIMENSOES}>
+        <SalaoDimensoes
+          rotulos={DIMENSOES.map(({ numero, titulo }) => ({ numero, titulo }))}
+          bolhas={DIMENSOES.map((d) => (
+            // PERF (regra das ilhas, topo do arquivo): a bolha inteira é
+            // montada AQUI, no servidor — inclusive os TermoTooltip de
+            // `d.texto`, que continuam sendo ilhas próprias. A casca client
+            // (SalaoDimensoes) só as acha por `li.bolha-bancada` e as mede.
+            // Anatomia (D27) e nomes de classe: contrato de cinema/salao.css
+            // — não mexer sem a folha dona.
+            <li key={d.numero} className="bolha-bancada">
+              <div className="bolha-miolo">
+                <p aria-hidden className="salao-camada bolha-numeral">
+                  {d.numero}
+                </p>
+                <h3 className="salao-camada bolha-titulo">
+                  <span className="sr-only">{`${d.numero} — `}</span>
+                  {d.titulo}
+                </h3>
+                <p className="salao-camada bolha-texto">{d.texto}</p>
+                <p className="salao-camada bolha-selo">
+                  <span aria-hidden className="bolha-selo__marca">
+                    ◈
+                  </span>
+                  <span>
+                    <span className="sr-only">Fonte: </span>
+                    {d.fonte}
+                  </span>
+                </p>
+              </div>
+            </li>
+          ))}
+        >
           <div className="bancada gap-y-3">
             <div className="b-medida-esq flex flex-col gap-3">
               <h2
