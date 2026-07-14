@@ -1,6 +1,15 @@
 import { headers } from "next/headers";
 
 import { Header } from "@/components/site/Header";
+// PESO ACEITO (arbitragem do gate perf, 2026-07-13): este import embarca
+// FocoLuz+usePonteiro (~5,6KB gzip) no first-load de TODAS as rotas — o
+// not-found raiz compartilha o segmento de rota de cada página e o Next 16
+// mantém o grafo dele eager (async:false) por design, para o 404 renderizar
+// sem round-trip; next/dynamic NÃO muda essa classificação (tentado e
+// revertido — só deduplicava 375B). Alternativas rejeitadas: remover a
+// gramática de luz do 404 (regrediria o crit. 10, verificado pelo QA) e
+// global-not-found (experimental — vetado). TBT não afetado (Δ+8ms landing);
+// o orçamento ≤3KB da LEI é da ilha C7 de /tese, que fecha em 2601B.
 import { FocoLuz } from "@/components/motion/FocoLuz";
 import { LinkCinema } from "@/components/motion/LinkCinema";
 import { Reveal } from "@/components/motion/Reveal";
