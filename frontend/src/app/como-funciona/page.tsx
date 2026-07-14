@@ -266,7 +266,14 @@ export default function ComoFuncionaPage() {
                   <h2 id="pipeline-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     O pipeline
                   </h2>
-                  <ol className="stagger grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+                  {/* SEM overflow-hidden (a11y #1, 2026-07-13): os popups dos
+                      4 <TermoTooltip> destas células abrem para CIMA e eram
+                      clipados pelo ol — quebrava WCAG 1.4.13 (hoverable: o
+                      mouse não alcançava o popup para ler/clicar "ver
+                      glossário"). Custo: o reveal-ticker (translateY 12px,
+                      opacity 0→1) transborda ≤12px durante a entrada —
+                      imperceptível com o fade. */}
+                  <ol className="stagger grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
                     {/* #24 do inventário (§6 M6): estas 4 células eram
                         `className="reveal-ticker i-N ..."` FIXO no `<li>` —
                         sem passar por `<Reveal>`/`useReveal`, `.is-armed`/

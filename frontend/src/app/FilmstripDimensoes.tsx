@@ -98,7 +98,7 @@
 //   nativo pixel-idêntico ao aprovado; pinSpacing:true e a guarda de
 //   projeção do snap seguem INTOCADOS.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import { classesReveal, useReveal } from "@/components/motion/Reveal";
 import { carregarGsap, MQ_PIN_FILMSTRIP, type MotorGsap } from "@/lib/gsapSetup";
@@ -410,8 +410,31 @@ export function FilmstripDimensoes({ dimensoes }: { dimensoes: readonly Dimensao
               // <path> dos elos (LEI §3.8).
               svgConstelacao?.style.setProperty("--prog", prog);
               const indice = indiceMaisProximo(st.progress);
-              ativoPinadoRef.current = indice;
-              setAtivo(indice);
+              if (ativoPinadoRef.current !== indice) {
+                ativoPinadoRef.current = indice;
+                // MITIGAÇÃO DEFENSIVA (missão APOTEOSE, gate visual crít.
+                // 2026-07-13 — ver .maestro/evidencias/gate-visual/
+                // 03-filmstrip-constelacao/pos-fix/DIAGNOSTICO.md para o
+                // relatório completo): investigação extensa (25 hipóteses,
+                // ver diagnóstico) achou um bug de PAINT real e reprodutível
+                // do Chromium — a Tarja sticky/z-50 ocasionalmente perde 1+
+                // quadros de raster durante scroll rápido sustentado dentro
+                // do pin (getComputedStyle/getBoundingClientRect/
+                // elementsFromPoint SEMPRE corretos; auto-corrige sozinho em
+                // ~100ms de ociosidade — não é bug de geometria/CSS/z-index
+                // deste componente). Reproduz IGUAL sem GPU (--disable-gpu),
+                // headed, com frame real sincronizado (duplo rAF) e com
+                // Tarja em position:fixed — está fora do controle deste
+                // arquivo. `setState` síncrono aqui, dentro do ticker do
+                // GSAP (fora do ciclo do React), é uma fonte a mais de
+                // trabalho de main-thread concorrendo com o navegador nesse
+                // mesmo quadro; `startTransition` (já usado em
+                // useViradaCartao.ts) desprioriza a atualização sem mudar o
+                // valor final — mitigação de baixo risco, mantida mesmo sem
+                // eliminar o defeito sozinha. Guard de mudança real evita
+                // chamar a cada tick do scrub.
+                startTransition(() => setAtivo(indice));
+              }
             },
           },
         });

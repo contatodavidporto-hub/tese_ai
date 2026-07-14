@@ -13,6 +13,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import { classesReveal, useReveal } from "@/components/motion/Reveal";
 import { usePonteiro } from "@/components/motion/usePonteiro";
+import { esperaViradaEmVoo } from "@/components/motion/useViradaCartao";
 import {
   atualizarStatusHistorico,
   registrarNoHistorico,
@@ -150,7 +151,16 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
     return () => clearInterval(timer);
   }, [state.phase]);
 
-  const finalizar = useCallback((runId: number, tese: TeseOut) => {
+  const finalizar = useCallback(async (runId: number, tese: TeseOut) => {
+    // Extensão do contrato C4 (QA 2026-07-13): se um morph ainda está em
+    // voo, SEGURAR a troca skeleton→conteúdo até `vt.finished` — a
+    // `::view-transition-new()` é captura VIVA do `.vt-morph-destino`;
+    // removê-lo em pleno voo aborta a transição no meio (corte seco).
+    // Warm-cache responde em <360ms — sem isto, exatamente o fluxo nobre
+    // (clicar num exemplo pronto) cortava a própria cena. Navegação comum
+    // (sem voo) segue sem espera nenhuma.
+    const voo = esperaViradaEmVoo();
+    if (voo) await voo;
     if (runIdRef.current !== runId) return;
     atualizarStatusHistorico(tese.id, tese.status);
     if (tese.status === "error") {

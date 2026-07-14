@@ -145,12 +145,23 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* Levitação: transform-only NO FILHO (dono único do transform do wrapper),
-     amplitude ±3px em 7s por perna — deriva ≈1px/s: lê "flutua" sem
-     disputar a leitura do aviso. Gate no-preference AQUI + override nominal
-     no bloco reduce abaixo (cinto-e-suspensório da casa). */
-  .cvm-honra {
-    animation: cvm-flutua 7s ease-in-out infinite alternate;
+  /* Levitação DIRIGIDA POR SCROLL (correção a11y #2, 2026-07-13): a versão
+     original (`7s infinite alternate`) era animação contínua >5s sem
+     controle on-page — feria a letra do WCAG 2.2.2 e a lei da missão
+     ("animações contínuas assentam"). O float agora é scrubbed por
+     `view()` (padrão da casa — o mesmo do dataviz): transform-only NO
+     FILHO (dono único do transform do wrapper), deriva ±3px conforme a
+     seção transita o viewport — movimento SÓ enquanto o usuário rola,
+     assentado por construção no instante em que o scroll para. Sem
+     scroll-timeline (FF <~155): pose estática digna — a levitação segue
+     legível pela sombra fria + halo, que são estáticos. Gate
+     no-preference AQUI + override nominal no bloco reduce abaixo
+     (cinto-e-suspensório da casa). */
+  @supports (animation-timeline: view()) {
+    .cvm-honra {
+      animation: cvm-flutua linear both;
+      animation-timeline: view();
+    }
   }
 }
 

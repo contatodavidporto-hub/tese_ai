@@ -77,6 +77,17 @@ type DocumentComVT = Document & {
 let vooAtivo = false;
 let resolverPintura: (() => void) | null = null;
 
+// Voo ativo exposto para a CHEGADA (extensão do contrato C4, QA 2026-07-13):
+// `::view-transition-new()` é captura VIVA — se a onda TESE remover o
+// `.vt-morph-destino` (skeleton→conteúdo real) em pleno voo, o navegador
+// ABORTA a transição no meio (corte seco; provado com o mock instantâneo e
+// reproduzível em produção nos warm-cache rápidos). O TeseClient espera
+// esta promise antes de trocar o estado busy→ready. Nunca rejeita.
+let vooFinished: Promise<void> | null = null;
+export function esperaViradaEmVoo(): Promise<void> | null {
+  return vooFinished;
+}
+
 export function useViradaCartao(
   ticker: string,
   href: string,
@@ -147,7 +158,11 @@ export function useViradaCartao(
             // (~4s), corta em ~300ms — skip + swap limpo (véu suprimido,
             // chegada seca digna).
             idTimeout = window.setTimeout(() => {
-              if (resolverPintura === resolver) resolverPintura = null;
+              // Rota JÁ commitou (cleanup resolveu e zerou a var): o morph
+              // está em pleno voo legítimo — sem isto, o skip incondicional
+              // truncava TODA transição em ~300ms (gate E2E D2, 2026-07-13).
+              if (resolverPintura !== resolver) return;
+              resolverPintura = null;
               vt.skipTransition();
               resolver();
             }, TIMEOUT_PINTURA_MS);
@@ -158,6 +173,13 @@ export function useViradaCartao(
       );
 
       document.addEventListener("keydown", aoTeclar);
+      // `ready` rejeita (AbortError) quando skipTransition() corre na
+      // frente — Esc ou timeout de pintura. A rejeição é ESPERADA nesses
+      // caminhos; sem observador vira pageerror no console (gates CSP/E2E
+      // D1, 2026-07-13). A navegação e a limpeza seguem por `finished`.
+      vt.ready.catch(() => {});
+      // Publica o voo para a chegada segurar o swap do skeleton (C4).
+      vooFinished = vt.finished.catch(() => {});
       vt.finished.finally(() => {
         // LIMPEZA OBRIGATÓRIA (D4): sem ela o nome custom sombreia os
         // .vt-tese-N cross-document; e o rail não pode ficar "em voo".
@@ -167,6 +189,7 @@ export function useViradaCartao(
         cartao.classList.remove(CLASSE_ORIGEM);
         rail?.classList.remove(CLASSE_VOO);
         vooAtivo = false;
+        vooFinished = null;
       });
     },
     [router, ticker, href],

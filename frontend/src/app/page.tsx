@@ -453,7 +453,13 @@ export default function Home() {
                   + a levitação/keyline de cinema/secoes.css — um-escritor: o
                   float por keyframe mora no FILHO, nunca no data-cena-el. Texto
                   VERBATIM (compliance — não mudar uma vírgula). */}
-              <div data-cena-el="" data-cvm="" role="note" aria-label="Aviso regulatório">
+              {/* aria-label DISTINTO da Tarja sticky (gate visual 2026-07-13):
+                  dois role=note com o mesmo rótulo confundem a navegação por
+                  landmark em leitor de tela — e o seletor do filmstrip
+                  ('[role="note"][aria-label="Aviso regulatório"]') passa a
+                  casar SÓ com a Tarja, por construção. O texto do aviso em
+                  si segue VERBATIM (aria-label não é conteúdo). */}
+              <div data-cena-el="" data-cvm="" role="note" aria-label="Postura regulatória">
                 <div className="cvm-honra flex flex-col items-center gap-2 border-y-2 border-aviso-borda bg-aviso-fundo px-6 py-8 text-center sm:px-10">
                   <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
                     Aviso CVM

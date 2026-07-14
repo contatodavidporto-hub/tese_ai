@@ -38,13 +38,13 @@
  * ============================================================ */
 
 /* ---------- Crit. 4 — DESTINO DO MORPH (D4) ----------
-   Classe PRÉ-DECLARADA (nunca gerada em runtime) aplicada ao primeiro card
+   A classe PRÉ-DECLARADA `.vt-morph-destino` é aplicada ao primeiro card
    do EsqueletoTese (TeseClient.tsx, estado busy): é a geometria de chegada
-   do cartão-que-vira-página. O DoD do morph aterrissa AQUI (skeleton), com
-   CLS≈0 e Tarja visível — nunca no documento final (que ainda carrega). */
-.vt-morph-destino {
-  view-transition-name: cartao-tese;
-}
+   do cartão-que-vira-página. A REGRA da classe mora em cinema/virada.css
+   (folha do morph, dona do par `cartao-tese` completo — arbitragem QA
+   2026-07-13 removeu a duplicata idêntica daqui; TESE só APLICA a classe).
+   O DoD do morph aterrissa no skeleton, com CLS≈0 e Tarja visível — nunca
+   no documento final (que ainda carrega). */
 
 /* ---------- Crit. 4 — SUPRESSÃO DO VÉU DE CHEGADA (dono ÚNICO: TESE) ----------
    Só quando a chegada foi anunciada pelo morph (classe `.morph-chegada`
