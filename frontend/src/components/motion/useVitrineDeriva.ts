@@ -61,13 +61,39 @@
  * E24 — perf: acumula os últimos ~90 quadros de duração; se o p95 estourar
  * 20ms (jank sustentado — sobretudo Firefox, único engine sem
  * scroll-timeline nativa concorrendo por main thread com esta escrita), a
- * escrita de `scrollLeft` recua para ~30fps (1 a cada 2 quadros) — recuo
- * BINÁRIO, nunca volta a 60fps sozinho (mesma doutrina de recuo do design
- * system: nunca iterar às cegas). ONDA 5/DEFEITO 4: o recuo agora nasce
- * ATIVO direto por `!CSS.supports("animation-timeline: scroll()")` (a
- * detecção reativa por p95, sozinha, não disparava de forma confiável —
- * picos esparsos numa janela rolante de 90 quadros); ela continua ligada
- * por baixo como rede de segurança para outros engines/hardware fraco.
+ * deriva recua para ~30fps (1 quadro a cada 2) — recuo BINÁRIO, nunca volta
+ * a 60fps sozinho (mesma doutrina de recuo do design system: nunca iterar às
+ * cegas). ONDA 5/DEFEITO 4: o recuo nasce ATIVO direto por
+ * `!CSS.supports("animation-timeline: scroll()")` (a detecção reativa por
+ * p95, sozinha, não disparava de forma confiável — picos esparsos numa janela
+ * rolante de 90 quadros); ela continua ligada por baixo como rede de
+ * segurança para outros engines/hardware fraco.
+ *
+ * ONDA 5/FF-recuo (2026-07-14 — POR QUE só pular a ESCRITA não bastava): a
+ * versão anterior deste recuo pulava só a linha `rail.scrollLeft = …` (1 a
+ * cada 2 quadros), deixando o CORPO INTEIRO do loop rodar a cada quadro. Isso
+ * NÃO mexia no p95 (idêntico ao pré-fix) por dois motivos medidos:
+ *   (1) a 12px/s, `Math.round(pos)` só muda de inteiro ~12x/s — logo o rail
+ *       só dispara ~12 scroll events/s, NÃO 60. As escritas puladas gravavam
+ *       um inteiro INALTERADO (no-op silencioso: 0 scroll event, 0 repaint
+ *       scroll-linked). Cortá-las não removia UM ÚNICO evento de scroll — o
+ *       trabalho scroll-linked da hairline (fallback D6) seguia igual.
+ *       (Medido: escritas 108/s → efetivas 12/s == scroll_events 12/s.)
+ *   (2) o custo real do pior composto (deriva+hover no Firefox) não é a
+ *       escrita: no hover a deriva PAUSA (fica em `parado`, ~1,7 escrita/s),
+ *       mas o loop continua lendo `pos = rail.scrollLeft` a cada quadro. Esse
+ *       READ intercala com o `getBoundingClientRect()` por quadro do usePalco
+ *       (tilt do palco) → flush de layout dobrado por quadro. O p95 ficava na
+ *       FRONTEIRA de 1 tick do vsync headless (240Hz → 16,68ms=4 ticks passa /
+ *       20,84ms=5 ticks estoura) e oscilava no ruído.
+ * CORREÇÃO: em modo30fps o recuo pula o QUADRO INTEIRO (não só a escrita),
+ * exceto durante um cede (E21 nunca espera um quadro). Isso ~metade do
+ * trabalho main-thread do loop — inclusive o READ de scrollLeft que disputava
+ * o quadro com o usePalco no hover — e leva o p95 de forma estável para 4
+ * ticks. O visual NÃO muda: a saída da deriva é a SEQUÊNCIA de inteiros
+ * distintos de scrollLeft (~12/s a 12px/s), independente de o loop rodar a
+ * 240/120/60/30fps — 0,4px/quadro a 30fps num display 60Hz segue suave (a
+ * escrita quantizada em 1px já atualizava só ~12x/s).
  *
  * ONDA 5/DEFEITO 2 (E21 — parada imediata; causa-raiz + defesa em
  * profundidade): o cede duro (`cedidoDuro`/drag/voo) SEMPRE mantém a classe
@@ -201,7 +227,10 @@ export function useVitrineDeriva(
       typeof CSS === "undefined" || !CSS.supports("animation-timeline: scroll()");
     const duracoesQuadro: number[] = [];
     let modo30fps = semScrollTimelineNativa;
-    let pularProximaEscrita = false;
+    // FF-recuo (onda 5): alterna a CADA quadro processado em modo30fps; quando
+    // `true`, o quadro seguinte é PULADO por inteiro (não só a escrita — ver
+    // §"por que só pular a escrita não bastava" no cabeçalho).
+    let pularProximoQuadro = false;
 
     const podeContinuar = (): boolean =>
       !pausadoRef.current &&
@@ -295,21 +324,47 @@ export function useVitrineDeriva(
         tsInicioFase = ts;
         velAtual = 0;
       }
-      if (modo30fps) {
-        pularProximaEscrita = !pularProximaEscrita;
-        if (pularProximaEscrita) return; // 1 escrita a cada 2 quadros
-      }
-      // E7 — SEMPRE valor ABSOLUTO, nunca `+=` (read-modify-write trunca).
+      // E7 — SEMPRE valor ABSOLUTO, nunca `+=` (read-modify-write trunca). O
+      // recuo 30fps NÃO vive mais aqui (FF-recuo): pular só a escrita era
+      // no-op silencioso (grava inteiro inalterado). Agora o QUADRO inteiro é
+      // pulado no topo de `quadro()` — logo `avancar` só é chamado em quadros
+      // JÁ processados e sempre escreve (1 escrita por quadro processado ==
+      // ~30fps em modo30fps).
       rail.scrollLeft = Math.round(pos);
     };
 
     const quadro = (ts: number) => {
       rafId = window.requestAnimationFrame(quadro);
+
+      // ---- posse dura: drag ativo OU voo do morph em curso (E7/E21) ----
+      // Calculado ANTES do recuo (baratos: classList.contains + getter de
+      // módulo): durante um cede o loop NUNCA pula um quadro — parada imediata
+      // (E21) não pode esperar o próximo tick de rAF.
+      const dragAtivo = rail.classList.contains(CLASSE_DRAG);
+      const vooAtivoAgora = esperaViradaEmVoo() !== null;
+      const cedendo = cedidoDuro || dragAtivo || vooAtivoAgora;
+
+      // Recuo E24/FF-recuo — pula o QUADRO INTEIRO (não só a escrita) 1 a cada
+      // 2 quadros em modo30fps, exceto durante um cede. `ultimoTs` fica
+      // INTACTO no pulo: o dt do próximo quadro processado dobra e o acumulador
+      // float (E7) avança o MESMO total — 12px/s preservado, sem solavanco.
+      // Isto ~metade do trabalho main-thread do loop (inclusive o READ de
+      // `rail.scrollLeft` do caso `parado`, que disputava o quadro com o
+      // getBoundingClientRect() por quadro do usePalco no hover) — é o que de
+      // fato baixa o p95 do Firefox no composto deriva+hover.
+      if (modo30fps && !cedendo) {
+        pularProximoQuadro = !pularProximoQuadro;
+        if (pularProximoQuadro) return;
+      }
+
       const dtBrutoMs = ultimoTs ? Math.min(ts - ultimoTs, 100) : 16.7;
       ultimoTs = ts;
       const dtSeg = dtBrutoMs / 1000;
 
-      // Recuo automático de perf (E24) — latch binário, nunca oscila.
+      // Detecção reativa de jank (rede de segurança para engines COM
+      // scroll-timeline nativa — o Firefox já entra em modo30fps por
+      // capacidade e nem passa por este acumulador). Latch binário: uma vez
+      // ligado, `modo30fps` nunca desliga (sem oscilação).
       if (!modo30fps) {
         duracoesQuadro.push(dtBrutoMs);
         if (duracoesQuadro.length > JANELA_FRAMES_PERF) duracoesQuadro.shift();
@@ -320,10 +375,7 @@ export function useVitrineDeriva(
         }
       }
 
-      // ---- posse dura: drag ativo OU voo do morph em curso (E7/E21) ----
-      const dragAtivo = rail.classList.contains(CLASSE_DRAG);
-      const vooAtivoAgora = esperaViradaEmVoo() !== null;
-      if (cedidoDuro || dragAtivo || vooAtivoAgora) {
+      if (cedendo) {
         if (fase !== "parado") {
           fase = "parado";
           velAtual = 0;
@@ -340,8 +392,16 @@ export function useVitrineDeriva(
 
       switch (fase) {
         case "parado": {
-          pos = rail.scrollLeft; // qualquer coisa pode ter rolado enquanto parado
+          // FF-recuo: NÃO relê `rail.scrollLeft` a cada quadro parado. Nada
+          // usa `pos` enquanto parado (não há escrita), e esse READ intercalava
+          // com o `getBoundingClientRect()`/quadro do usePalco durante o hover
+          // — flush de layout à toa, o resíduo que segurava o p95 do composto
+          // deriva+hover no vsync headless de 240Hz. A re-sincronização E7
+          // acontece SÓ na transição que volta a USAR `pos`: ao retomar
+          // (`acelerando`) — ou dentro de `assentarNoPontoVizinho`/cede, que já
+          // leem `rail.scrollLeft` corrente por conta própria.
           if (podeIniciar()) {
+            pos = rail.scrollLeft; // E7 — sincroniza no exato instante de retomar
             fase = "acelerando";
             tsInicioFase = ts;
           } else if (precisaAssentar) {
