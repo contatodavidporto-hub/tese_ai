@@ -18,6 +18,17 @@
  * COPY). Termo SEM definição -> fallback SILENCIOSO (renderiza só
  * `children`, sem botão/popup) — gate anti-alucinação visual: zero
  * definição inventada.
+ *
+ * E13 (emenda HORIZONTE, 2026-07-14, aditiva — contrato D7 acima intacto):
+ * colisão HORIZONTAL do popup. O clamp de largura de `tooltip.css` (D34)
+ * evita que o popup vire mais largo que o viewport, mas NÃO impede que ele
+ * ainda estoure lateralmente quando o gatilho está perto de uma borda (ex.:
+ * a bolha do Salão que "espia pela borda", design deliberado) — o clamp
+ * limita LARGURA, não POSIÇÃO. Ao abrir, mede-se `getBoundingClientRect()`
+ * do PRÓPRIO popup (após o auto-flip vertical já resolvido) e escreve-se a
+ * correção em `--tt-dx` via `popup.style.setProperty` — SÓ CSSOM, zero
+ * `style=` inline JSX, zero `setAttribute("style")` (mesmo carve-out já em
+ * vigor para o resto do site). `tooltip.css` consome `--tt-dx` em `left`.
  */
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -40,6 +51,11 @@ type TermoTooltipProps = {
 /** Espaço mínimo acima do gatilho (px) para o popup abrir para cima; abaixo
  * disso, abre para baixo (`.tt-abaixo`). Medido uma vez por abertura. */
 const ESPACO_MINIMO_ACIMA_PX = 180;
+
+/** E13 — respiro mínimo (px) entre o popup e a borda do viewport depois da
+ * colisão horizontal; mesmo valor do gap vertical já usado pela folha
+ * (`tooltip.css`, `bottom: calc(100% + 8px)`). */
+const MARGEM_VIEWPORT_PX = 8;
 
 export function TermoTooltip({ termo, children, definicao, slug }: TermoTooltipProps) {
   const id = useId();
@@ -87,6 +103,22 @@ export function TermoTooltip({ termo, children, definicao, slug }: TermoTooltipP
     if (!gatilho || !popup) return;
     const r = gatilho.getBoundingClientRect();
     popup.classList.toggle("tt-abaixo", r.top < ESPACO_MINIMO_ACIMA_PX);
+
+    // E13 — colisão horizontal: zera a correção anterior ANTES de medir
+    // (senão o shift de uma abertura passada contamina a medição desta),
+    // mede o popup já no lado vertical resolvido acima e desloca só o
+    // suficiente para caber inteiro no viewport. Escrita SÓ via CSSOM.
+    popup.style.setProperty("--tt-dx", "0px");
+    const p = popup.getBoundingClientRect();
+    let dx = 0;
+    if (p.left < MARGEM_VIEWPORT_PX) {
+      dx = MARGEM_VIEWPORT_PX - p.left;
+    } else if (p.right > window.innerWidth - MARGEM_VIEWPORT_PX) {
+      dx = window.innerWidth - MARGEM_VIEWPORT_PX - p.right;
+    }
+    if (dx !== 0) {
+      popup.style.setProperty("--tt-dx", `${Math.round(dx)}px`);
+    }
   }, [aberto]);
 
   // Dismissible: Esc fecha sem mover o ponteiro.

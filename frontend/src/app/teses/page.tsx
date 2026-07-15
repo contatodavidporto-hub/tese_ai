@@ -11,14 +11,30 @@ import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
-// Renderização dinâmica: necessária para o CSP com nonce por requisição (src/proxy.ts)
-// ser aplicado em cada resposta.
+// Renderização dinâmica: necessária para o CSP com nonce por requisição
+// (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
-// Copy reescrita na missão APOTEOSE (crit. 11): o jargão "warm-cache" saiu
-// da UI (vira "teses prontas da galeria"; o termo técnico vive no
-// /glossario#warm-cache, linkado pelo tooltip). Contagens seguem derivadas
-// de exemplosProntos() — nunca literais.
+// ---------------------------------------------------------------------------
+// HORIZONTE (2026-07-14, Onda 3 · raia 3B) — "O MOSTRUÁRIO".
+// Direção §9: masthead sobre faixa de VELUDO full-bleed (`.vitrine-veludo` +
+// `.veludo-escopo`, folha da raia 1B — REUSO; jamais redeclarar os tokens) e
+// a grade de cartões sobre PEDESTAIS (`.vitrine-pedestal`: elipse de sombra
+// no chão + keyline ouro no aro).
+// ELEMENTO NOVO (principal): PALCO 3D S1 na grade — `.grade-teses` (emenda de
+// rito S3 em cinema/palco.css): o cartão sob o cursor sobe (zoom + tilt
+// <=2.5deg seguindo o ponteiro, reversível) e os irmãos recuam/esmaecem.
+// Zero JS novo: consome `--mx`/`--my` que o GradeFoco (usePonteiro) JÁ
+// escrevia — e, acima do previsto na direção, sem baixar gsap nenhum.
+// ELEMENTO NOVO (reserva, E27 — sem glow): o foco por CONTRASTE (recuo + dim
+// dos irmãos), que sobrevive a qualquer recuo binário de AA.
+// SEM DERIVA (a vitrine viva é exceção 2.2.2 exclusiva da landing — D36).
+// Layout: `.bancada` — prosa na medida (<=68ch); grade e faixa final no
+// `.b-palco` (até 96rem: MAIS largo que o antigo max-w-6xl — mini-gate E30).
+// Copy: `.maestro/ondas/copy-horizonte-spec.md` §4, verbatim. Contagens
+// SEMPRE derivadas de exemplosProntos() — nunca literais.
+// INTOCADOS: CartaoTese, GradeFoco, morph (useViradaCartao / .vt-tese-N).
+// ---------------------------------------------------------------------------
 export const metadata: Metadata = {
   title: "Teses",
   description:
@@ -38,112 +54,136 @@ function formatDataIso(iso: string): string {
 export default function TesesPage() {
   const exemplos = exemplosProntos();
   // Contagem derivada do catálogo (nunca hardcoded): evita a copy divergir do
-  // conjunto real quando um novo exemplo entra/sai (Fase 2 multiativo).
+  // conjunto real quando um exemplo entra/sai (Fase 2 multiativo).
   const acoes = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
   const fiis = exemplos.filter((p) => p.classe === "fii").length;
   const rendaFixa = exemplos.filter((p) => p.classe === "renda_fixa").length;
+  const dataCarteira = formatDataIso(DATA_CARTEIRA_IBOV);
 
   return (
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Masthead da galeria */}
-        <section aria-labelledby="teses-titulo" className="border-b border-line">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-14 sm:px-6">
-            {/* D4 (brasa gratuita no eyebrow): a brasa é acento de ação/evidência,
-                não decoração de rótulo — padrão dos demais eyebrows do site
-                (text-ink-3). Crit. 11: o jargão "warm-cache" saiu da UI. */}
-            <Reveal>
-              <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-                Galeria de teses prontas
-              </p>
-            </Reveal>
-            <Reveal className="i-1">
-              <h1
-                id="teses-titulo"
-                className="max-w-3xl font-display text-h1 font-semibold tracking-tight text-ink"
-              >
-                {exemplos.length} teses de exemplo — ações, FII e Tesouro Direto
-              </h1>
-            </Reveal>
-            <Reveal className="i-2">
-              <p className="max-w-2xl font-sans text-ui leading-relaxed text-ink-2">
-                Pré-geradas pelo motor e mantidas prontas: os {acoes} maiores pesos da{" "}
-                <TermoTooltip {...tooltipDe("carteira-teorica")}>
-                  carteira teórica do Ibovespa
-                </TermoTooltip>{" "}
-                (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}), mais {fiis} FII e {rendaFixa}{" "}
-                título do Tesouro Direto — prova viva do motor multiativo, com a mesma
-                trilha de citações de uma tese sob demanda. Abrem na hora; se o cache
-                tiver expirado, a tese é regenerada automaticamente.
-              </p>
-            </Reveal>
-            <Reveal className="i-3">
-              <p className="font-mono text-meta text-ink-3">
-                {exemplos.length}{" "}
-                <TermoTooltip {...tooltipDe("warm-cache")}>teses prontas</TermoTooltip> ·
-                renovadas a cada ciclo diário · {acoes} ações do Ibovespa + {fiis} FII +{" "}
-                {rendaFixa} Tesouro Direto
-              </p>
-            </Reveal>
+        {/* Masthead sobre veludo full-bleed (D19/D20): o escopo-veludo da raia
+            1B re-declara os semânticos em PARES COMPLETOS (E5/E6) — nada de
+            token é redeclarado aqui. */}
+        <section aria-labelledby="teses-titulo" className="bancada">
+          <div className="b-sangria vitrine-veludo veludo-escopo">
+            <div className="bancada w-full">
+              {/* E30 (correção-mãe, wt-horizonte 2026-07-14): este wrapper
+                  vivia em `.b-medida-esq` (medida + só MEIA trilha de palco)
+                  — a rota fechava 21px mais estreita que a produção em
+                  768–1024px. Eyebrow/H1/meta não são prosa (medida ≤68ch é
+                  lei só para prosa, §0.9): o wrapper vira `.b-palco` (as duas
+                  trilhas, sangra igual à produção) e os DOIS parágrafos de
+                  prosa real (i-2/i-3) ganham `max-w-[68ch]` próprio — a lei
+                  tipográfica continua valendo para eles, só não pela trilha
+                  do wrapper inteiro. */}
+              <div className="b-palco flex flex-col gap-5">
+                <Reveal>
+                  <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+                    Galeria de teses prontas
+                  </p>
+                </Reveal>
+                <Reveal className="i-1">
+                  <h1
+                    id="teses-titulo"
+                    className="font-display text-h1 font-semibold tracking-tight text-ink"
+                  >
+                    {exemplos.length} teses de exemplo — ações, FII e Tesouro Direto
+                  </h1>
+                </Reveal>
+                <Reveal className="i-2">
+                  <p className="max-w-[68ch] font-sans text-lede leading-relaxed text-ink-2">
+                    Nenhuma delas espera geração: estão prontas e abrem no clique. São
+                    os {acoes} maiores pesos da{" "}
+                    <TermoTooltip {...tooltipDe("carteira-teorica")}>
+                      carteira teórica do Ibovespa
+                    </TermoTooltip>{" "}
+                    (B3, {dataCarteira}), mais {fiis} FII e {rendaFixa} título do
+                    Tesouro Direto — prova viva de que o motor cobre as três classes.
+                  </p>
+                </Reveal>
+                <Reveal className="i-3">
+                  <p className="max-w-[68ch] font-sans text-ui leading-relaxed text-ink-2">
+                    Use qualquer uma como amostra do produto inteiro: a régua de
+                    auditoria é a mesma da tese que você gerar depois. Escolha um
+                    número, clique na citação, chegue ao documento público que a
+                    sustenta.
+                  </p>
+                </Reveal>
+                <Reveal className="i-4">
+                  <p className="max-w-[68ch] font-mono text-meta text-ink-3">
+                    {exemplos.length}{" "}
+                    <TermoTooltip {...tooltipDe("warm-cache")}>
+                      teses prontas
+                    </TermoTooltip>{" "}
+                    · renovadas a cada ciclo diário · fonte dos pesos: B3 ·{" "}
+                    {dataCarteira}
+                  </p>
+                </Reveal>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Grade densa 2×5 (desktop) de cards-manchete */}
-        <section aria-labelledby="grade-titulo">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-14 sm:px-6">
-            <h2 id="grade-titulo" className="sr-only">
-              Grade de teses pré-geradas
-            </h2>
-            {/* GradeFoco (spike cinema, §4): mesma luz fria por delegação da
-                galeria teaser da home (page.tsx) — 1 listener de pointermove
-                para a grade inteira liga --mx/--my no `.cartao-ticker` sob o
-                cursor. Continua GRADE DENSA (lei A1 do red-team: comparação
-                de 13 teses lado a lado, nunca um carrossel). */}
-            <GradeFoco
-              seletorAlvo=".cartao-ticker"
-              className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
-            >
-              {exemplos.map((papel, indice) => (
-                <li key={papel.ticker}>
-                  <Reveal
-                    variant="reveal-ticker"
-                    className={`i-${Math.min(indice + 1, 12)}`}
-                  >
-                    <CartaoTese papel={papel} dataCarteira={DATA_CARTEIRA_IBOV} />
-                  </Reveal>
-                </li>
-              ))}
-            </GradeFoco>
-          </div>
+        {/* A grade sobre pedestais, no palco largo (E30: `.b-palco` chega a
+            96rem — mais largo que o `max-w-6xl`/72rem que existia aqui). */}
+        <section aria-labelledby="grade-titulo" className="bancada gap-y-8 py-14">
+          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            {null}
+          </Reveal>
+          <h2 id="grade-titulo" className="sr-only">
+            Grade de teses prontas
+          </h2>
+          {/* GradeFoco INTOCADO (1 listener passivo, delegado, escrevendo
+              `--mx`/`--my` por CSSOM no cartão sob o cursor — o palco S1
+              CONSOME essas vars). Continua GRADE DENSA (lei A1 do red-team:
+              as teses lado a lado, nunca um carrossel) e SEM deriva (D36). */}
+          <GradeFoco
+            seletorAlvo=".cartao-ticker"
+            className="grade-teses b-palco stagger grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+          >
+            {exemplos.map((papel, indice) => (
+              <li key={papel.ticker} className="vitrine-pedestal">
+                <Reveal
+                  variant="reveal-ticker"
+                  className={`i-${Math.min(indice + 1, 12)} block h-full`}
+                >
+                  <CartaoTese papel={papel} dataCarteira={DATA_CARTEIRA_IBOV} />
+                </Reveal>
+              </li>
+            ))}
+          </GradeFoco>
         </section>
 
         {/* Bloco "gerar nova tese" */}
-        <section aria-labelledby="gerar-titulo" className="border-t border-line">
-          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6">
-            <div className="flex flex-col gap-4 border border-line bg-card px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-              <div className="flex flex-col gap-1.5">
-                <h2
-                  id="gerar-titulo"
-                  className="font-display text-h3 font-semibold text-ink"
-                >
-                  Não achou o ticker que procura?
-                </h2>
-                <p className="max-w-xl font-sans text-ui text-ink-2">
-                  O motor gera a tese completa de qualquer companhia aberta, FII ou
-                  título do Tesouro Direto sob demanda — basta o{" "}
-                  <TermoTooltip {...tooltipDe("ticker")}>ticker</TermoTooltip>. As
-                  mesmas dimensões e citações da classe; a única diferença é o tempo de
-                  geração.
-                </p>
-              </div>
-              <Link
-                href="/tese"
-                className="w-fit bg-brasa px-6 py-3 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+        <section aria-labelledby="gerar-titulo" className="bancada gap-y-8 py-14">
+          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            {null}
+          </Reveal>
+          <div className="b-palco flex flex-col gap-4 border border-line bg-card px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <div className="flex flex-col gap-1.5">
+              <h2
+                id="gerar-titulo"
+                className="font-display text-h3 font-semibold text-ink"
               >
-                Gerar nova tese
-              </Link>
+                Não achou o ticker que procura?
+              </h2>
+              <p className="max-w-[68ch] font-sans text-ui leading-relaxed text-ink-2">
+                O motor gera a tese completa de qualquer companhia aberta, FII ou
+                título do Tesouro Direto sob demanda — basta o código do ativo. As
+                regras são idênticas às da galeria: citação, fonte e data em toda
+                afirmação factual, lacuna declarada quando o dado não existe. A única
+                diferença é o tempo de geração.
+              </p>
             </div>
+            <Link
+              href="/tese"
+              className="w-fit shrink-0 bg-brasa px-6 py-3 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+            >
+              Gerar nova tese
+            </Link>
           </div>
         </section>
       </main>

@@ -53,6 +53,34 @@
  * COR: var(--accent-confianca) (safira — papel "trilha de auditoria" do
  * DESIGN-TOKENS.md), keyline ≤2px = micro-área; hue ~215°, fora da faixa
  * proibida 70–200°; decorativo, isento de AA.
+ *
+ * EXTENSÃO ADITIVA (Onda 1A, missão FRONTEND HORIZONTE, 2026-07-14) —
+ * waypoints `[data-fio-via]`: o palco largo da Bancada (`cinema/
+ * bancada.css`) torna a distância entre o `sup [1]` e a 1ª gema muito maior
+ * que a antiga coluna `max-w-5xl` — uma única curva em "S" (2 pontos)
+ * esticaria fino demais ou cortaria por cima de conteúdo no meio do
+ * caminho. A prop nova `via` (seletor, default `[data-fio-via]`) deixa o
+ * integrador marcar pontos intermediários; o fio passa a ser uma cadeia de
+ * segmentos cúbicos (mesma fórmula de "barriga suave" de cada segmento,
+ * encadeados ponta a ponta) em vez de um segmento único.
+ *
+ * RETROCOMPATIBILIDADE (100%, testável por leitura): com ZERO elementos
+ * `[data-fio-via]` no pai (o caso de TODOS os usos atuais do componente),
+ * a lista de pontos é exatamente `[origem, destino]` — o laço de
+ * construção do `d` roda UMA única iteração com a MESMA fórmula de
+ * controle (`y1 + dy*0.45`, `y2 - dy*0.3`) do código original. Byte a
+ * byte, o `d` produzido é idêntico ao de antes desta extensão.
+ *
+ * MEDIÇÃO DOS WAYPOINTS (R12e, mesma lei): `offsetLeft/offsetTop`
+ * acumulados até o pai (nunca `getBoundingClientRect`) — imune a
+ * `transform` de um CenaScrub ancestral. Convenção do ponto de conexão:
+ * origem = centro-base (como hoje); waypoints = CENTRO do próprio elemento
+ * (`offsetWidth/2`, `offsetHeight/2` — um waypoint é "passe por aqui", não
+ * "chegue por cima" como o destino); destino = topo, recuo ≤28px da borda
+ * esquerda (como hoje). Um waypoint fora da cadeia de `offsetParent` até o
+ * pai (contrato quebrado pelo integrador) é simplesmente IGNORADO — o fio
+ * ainda desenha entre os pontos válidos restantes (degradação honesta,
+ * nunca uma exceção que apaga o fio inteiro).
  */
 
 import { useEffect, useRef } from "react";
@@ -62,6 +90,13 @@ type PropsFioDaFonte = {
   de?: string;
   /** Seletor da âncora de DESTINO (o chip de fonte), resolvido no pai. */
   ate?: string;
+  /**
+   * Seletor dos waypoints intermediários (extensão aditiva, 2026-07-14),
+   * resolvidos no pai em ORDEM DE DOCUMENTO. Ausente ou sem matches ⇒
+   * comportamento idêntico ao de antes desta extensão (segmento único
+   * origem→destino).
+   */
+  via?: string;
   className?: string;
 };
 
@@ -73,6 +108,7 @@ function arred(n: number): number {
 export function FioDaFonte({
   de = "[data-fio-de]",
   ate = "[data-fio-ate]",
+  via = "[data-fio-via]",
   className,
 }: PropsFioDaFonte) {
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -124,15 +160,47 @@ export function FioDaFonte({
       }
       // Sai do centro-base do [n]; chega no topo do chip, perto da borda
       // esquerda (onde mora o fio duplo de citação) — teto de 28px de recuo.
-      const x1 = arred(pOrigem.x + origem.offsetWidth / 2);
-      const y1 = arred(pOrigem.y + origem.offsetHeight);
-      const x2 = arred(pDestino.x + Math.min(destino.offsetWidth / 2, 28));
-      const y2 = arred(pDestino.y);
-      const dy = y2 - y1;
-      // Curva cúbica com barriga suave de tinta (funciona subindo/descendo).
-      const d = `M ${x1} ${y1} C ${x1} ${arred(y1 + dy * 0.45)}, ${x2} ${arred(
-        y2 - dy * 0.3,
-      )}, ${x2} ${y2}`;
+      const pontos: Array<{ x: number; y: number }> = [
+        {
+          x: arred(pOrigem.x + origem.offsetWidth / 2),
+          y: arred(pOrigem.y + origem.offsetHeight),
+        },
+      ];
+      // Waypoints (extensão aditiva): centro do próprio elemento, em ordem
+      // de documento; fora da cadeia offsetParent→pai é ignorado (degrada
+      // sem apagar o fio inteiro).
+      if (via) {
+        const viasEl = Array.from(pai.querySelectorAll<HTMLElement>(via));
+        for (const elVia of viasEl) {
+          const pVia = posLocal(elVia);
+          if (!pVia) continue;
+          pontos.push({
+            x: arred(pVia.x + elVia.offsetWidth / 2),
+            y: arred(pVia.y + elVia.offsetHeight / 2),
+          });
+        }
+      }
+      pontos.push({
+        x: arred(pDestino.x + Math.min(destino.offsetWidth / 2, 28)),
+        y: arred(pDestino.y),
+      });
+      if (pontos.length < 2) {
+        trilho.removeAttribute("d");
+        return;
+      }
+      // Cadeia de curvas cúbicas com barriga suave por segmento (funciona
+      // subindo/descendo em qualquer trecho) — com 0 waypoints (todos os
+      // usos de hoje) roda 1 iteração e produz o MESMO `d` de antes desta
+      // extensão (retrocompatibilidade byte a byte).
+      let d = `M ${pontos[0].x} ${pontos[0].y}`;
+      for (let i = 0; i < pontos.length - 1; i += 1) {
+        const p1 = pontos[i];
+        const p2 = pontos[i + 1];
+        const dy = p2.y - p1.y;
+        d += ` C ${p1.x} ${arred(p1.y + dy * 0.45)}, ${p2.x} ${arred(
+          p2.y - dy * 0.3,
+        )}, ${p2.x} ${p2.y}`;
+      }
       // viewBox 1:1 com o box do pai → unidades do path = px CSS (o
       // stroke-width da folha vale literalmente). Atributos de GEOMETRIA,
       // não de estilo — fora do escopo de style-src.
@@ -158,7 +226,7 @@ export function FioDaFonte({
       ro.disconnect();
       window.cancelAnimationFrame(idQuadro);
     };
-  }, [de, ate]);
+  }, [de, ate, via]);
 
   return (
     <svg

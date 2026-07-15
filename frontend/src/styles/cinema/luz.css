@@ -184,6 +184,16 @@ body[data-secao="hero"] {
 body[data-secao="prova"] {
   --luz-aurora-alfa: 0.06;
 }
+/* Emenda mínima (Onda 1A, missão FRONTEND HORIZONTE, 2026-07-14): capítulo
+   "papel" entre #prova e #galeria (D6 — ritmo papel→papel→papel→veludo→
+   veludo→papel), mesmo teto de #prova (ambos "papel", vizinhos na leitura).
+   CONTRATO COM O INTEGRADOR (E25, Onda 2): esta regra só deixa de ser dead
+   code quando `AmbienteLanding.tsx`/`useSecaoAtiva.ts` incluírem "nascimento"
+   na lista de ids observados — dono daquele arquivo é o integrador da
+   Onda 2, não esta raia. */
+body[data-secao="nascimento"] {
+  --luz-aurora-alfa: 0.06;
+}
 body[data-secao="galeria"] {
   --luz-aurora-alfa: 0.05;
 }
@@ -198,6 +208,9 @@ body[data-secao="postura"] {
     --luz-aurora-alfa: 0.08;
   }
   body[data-secao="prova"] {
+    --luz-aurora-alfa: 0.07;
+  }
+  body[data-secao="nascimento"] {
     --luz-aurora-alfa: 0.07;
   }
   body[data-secao="galeria"] {

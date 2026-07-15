@@ -13,8 +13,23 @@ import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
-// Copy reescrita na missão APOTEOSE (crit. 11): tooltips consomem
-// lib/glossario.ts (D7); contagens seguem derivadas de exemplosProntos().
+// ---------------------------------------------------------------------------
+// HORIZONTE (2026-07-14, Onda 3 · raia 3B) — "AS TRÊS VITRINES".
+// Direção §9: TRÍPTICO full-bleed — 3 painéis-vitrine (ações dominante 1.6fr,
+// FII, renda fixa), cada um com SELO DE FONTES e PEDESTAL (`.vitrine-pedestal`,
+// folha da raia 1B: elipse de sombra no chão + keyline ouro no aro).
+// ELEMENTO NOVO (principal): ARO SPECULAR no hover/focus-within do painel
+// (S4 contido, teto homologado `--bolha-specular-alfa` = 0.10) — keyline ouro
+// + calota de luz no quadrante superior-esquerdo, `.painel-vitrine` (emenda de
+// rito S3 em cinema/palco.css).
+// ELEMENTO NOVO (reserva, E27 — SEM glow/specular/sombra): o SELO DE FONTES
+// acende (ink-3 -> ink) e IMPRIME sua régua (hairline scaleX da esquerda) no
+// hover/focus-within — sobrevive intacto ao recuo binário do S4 no AA.
+// Layout: `.bancada` — prosa na medida (<=68ch); tríptico no `.b-palco` (até
+// 96rem: MAIS largo que o antigo max-w-5xl/64rem — mini-gate E30).
+// Copy: `.maestro/ondas/copy-horizonte-spec.md` §5, verbatim. Selo dormente
+// "Em breve" preservado (só renderiza se `disponivel: false`).
+// ---------------------------------------------------------------------------
 export const metadata: Metadata = {
   title: "Cobertura",
   description:
@@ -35,6 +50,13 @@ type ClasseInvestimento = {
   numero: string;
   titulo: string;
   descricao: ReactNode;
+  // Selo de fontes do painel (D19/§9: "rótulos = dados com fonte"). É a MESMA
+  // régua factual que o CartaoTese imprime por classe (REGUA_POR_CLASSE em
+  // components/teses/CartaoTese.tsx — fonte oficial por dimensão, verificada
+  // em orquestracao.py/app/services/ativos/*.py). Nenhum número novo, nenhuma
+  // métrica de "cobertura" fabricada.
+  selo: string;
+  seloDetalhe?: string;
   disponivel: boolean;
   // Exemplo pronto (cache aquecido) desta classe — cada classe leva a um
   // ticker distinto em vez do genérico "/tese" (Fase 2 multiativo).
@@ -47,13 +69,13 @@ const CLASSES: ClasseInvestimento[] = [
     titulo: "Ações B3",
     descricao: (
       <>
-        Qualquer companhia aberta com cadastro na CVM — do topo da carteira teórica do
-        Ibovespa a papéis fora do índice. A tese cruza fundamentos, pares globais, macro
-        Brasil, macro global e elos causais em até cinco dimensões, e fecha com síntese
-        e <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip> — cada
-        número com fonte e data.
+        A classe com o quadro completo: fundamentos da CVM, pares globais na SEC,
+        macro do Brasil e do mundo, elos causais e{" "}
+        <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip>. É
+        onde a tese vai mais fundo — e onde há mais número para você conferir.
       </>
     ),
+    selo: "D1 CVM · D2 SEC · D3 BCB · D4 WB · D5 ELOS",
     disponivel: true,
     href: "/tese",
   },
@@ -62,15 +84,15 @@ const CLASSES: ClasseInvestimento[] = [
     titulo: "FIIs",
     descricao: (
       <>
-        Fundos de investimento imobiliário listados na B3 — mesma disciplina de fonte e
-        citação das ações, com o{" "}
-        <TermoTooltip {...tooltipDe("informe-mensal-cvm")}>
-          informe mensal da CVM
-        </TermoTooltip>{" "}
-        como eixo próprio de fundamentos: carteira, receitas e vacância lidos no dado
-        primário do regulador, cruzados com o cenário de juros e os elos causais.
+        Fundos imobiliários listados, pelo{" "}
+        <TermoTooltip {...tooltipDe("informe-mensal-cvm")}>informe mensal</TermoTooltip>{" "}
+        que o fundo entrega à CVM: carteira, receitas, vacância e distribuições. Sem
+        pares globais e sem macro global dedicada — a tese diz quais dimensões
+        ficaram de fora.
       </>
     ),
+    selo: "D1 CVM · D3 BCB · D5 ELOS",
+    seloDetalhe: "Informe mensal CVM",
     disponivel: true,
     href: "/tese?ticker=HGLG11",
   },
@@ -79,25 +101,21 @@ const CLASSES: ClasseInvestimento[] = [
     titulo: "Renda fixa / Tesouro",
     descricao: (
       <>
-        Títulos públicos do Tesouro Direto — taxas e preços oficiais com{" "}
-        <TermoTooltip {...tooltipDe("data-base")}>Data Base</TermoTooltip>,{" "}
+        Títulos públicos, pelos dados abertos do Tesouro Nacional: taxa e preço sempre
+        com a <TermoTooltip {...tooltipDe("data-base")}>data base</TermoTooltip>,{" "}
         <TermoTooltip {...tooltipDe("marcacao-a-mercado")}>
           marcação a mercado
         </TermoTooltip>{" "}
-        explicada no texto e cenário de juros e inflação — sempre separados de qualquer
-        sugestão de compra ou de{" "}
-        <TermoTooltip {...tooltipDe("carrego")}>carrego</TermoTooltip>.
+        e <TermoTooltip {...tooltipDe("carrego")}>carrego</TermoTooltip> descritos como
+        conceito — nunca como sugestão de montar ou desfazer posição.
       </>
     ),
+    selo: "D1 STN · D3 BCB · D5 ELOS",
+    seloDetalhe: "Tesouro Transparente + Focus",
     disponivel: true,
     href: "/tese?ticker=TD-IPCA-2035",
   },
 ];
-
-// D6 (hierarquia de banca, CORRECOES-RODADA-1.md): Ações é sempre a
-// capa-lead (primeira entrada de CLASSES); FIIs e Renda fixa formam o par
-// secundário abaixo dela.
-const [CLASSE_LEAD, ...CLASSES_SECUNDARIAS] = CLASSES;
 
 type TipoDeTese = {
   numero: string;
@@ -110,13 +128,13 @@ const TIPOS: TipoDeTese[] = [
     numero: "01",
     titulo: "Tese completa sob demanda",
     descricao:
-      "Processada na hora para qualquer código válido — ação da B3, FII ou título do Tesouro Direto. As dimensões variam por classe: ações cruzam cinco (fundamentos, pares globais, macro Brasil, macro global e elos causais); FIIs, três (informe mensal CVM, macro de juros e elos); Tesouro, três (taxas e preços da STN, juros e inflação e elos) — cada uma com sua fonte.",
+      "Você informa o código do ativo e o motor monta a tese do zero, com as dimensões daquela classe. Leva alguns minutos — e sai com a mesma trilha de citações da galeria.",
   },
   {
     numero: "02",
     titulo: "Teses prontas da galeria",
     descricao:
-      "Um lote fixo de ativos que o motor mantém pronto e renova a cada ciclo diário: abrem na hora, sem custo de geração, com a mesma trilha de citações de uma tese sob demanda — a régua de auditoria não muda por ser exemplo.",
+      "Já geradas e renovadas em ciclo diário: abrem na hora. A régua de auditoria não muda por ser exemplo — é o mesmo documento, com as mesmas citações e datas.",
   },
 ];
 
@@ -128,192 +146,170 @@ export default function Cobertura() {
   const acoes = exemplos.filter((p) => (p.classe ?? "acao") === "acao").length;
   const fiis = exemplos.filter((p) => p.classe === "fii").length;
   const rendaFixa = exemplos.filter((p) => p.classe === "renda_fixa").length;
+  const dataCarteira = formatDataIso(DATA_CARTEIRA_IBOV);
 
   return (
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Abertura */}
-        <section className="border-b border-line">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-14 sm:px-6 sm:py-20">
-            {/* D7 (baixa): `atraso-regua` presume uma régua irmã (Impressão de
-                Régua) logo antes — aqui não há nenhuma, então o delay de
-                80ms não tinha o que "esperar". Stagger simples (.i-N). */}
-            <Reveal className="i-1">
-              <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
-                Cobertura
-              </p>
-            </Reveal>
-            <Reveal className="i-2">
-              <h1 className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink">
-                O que está impresso nesta edição.
-              </h1>
-            </Reveal>
-            <Reveal className="i-3">
-              <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                Cobertura para as ações da B3; FIIs pelo informe mensal da
-                CVM; em renda fixa, os títulos públicos do Tesouro Direto — a
-                mesma disciplina de fonte e citação nas três classes. O que
-                muda por classe é o conjunto de dimensões; o que nunca muda é
-                a regra: todo número com fonte e data, toda lacuna declarada.
-              </p>
-            </Reveal>
-          </div>
+        {/* Abertura — E30 (correção-mãe, wt-horizonte 2026-07-14): eyebrow e H1
+            NÃO são prosa (medida ≤68ch é lei só para prosa, §0.9) — vão no
+            `.b-palco` (sangram, e é o que garante que a rota nunca fecha mais
+            estreita que a produção em 768–1024px: `.b-medida-esq` sozinho
+            perdia 25px ali, porque só herda MEIA trilha de palco). Os dois
+            parágrafos de prosa real continuam em `.b-medida-esq` (≤68ch,
+            lei intacta). */}
+        <section className="bancada gap-y-4 py-14 sm:py-20">
+          <Reveal className="b-palco i-1">
+            <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
+              Cobertura
+            </p>
+          </Reveal>
+          <Reveal className="b-palco i-2">
+            <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
+              O que está impresso nesta edição.
+            </h1>
+          </Reveal>
+          <Reveal className="b-medida-esq i-3">
+            <p className="text-lede leading-relaxed text-ink-2">
+              Três classes de ativo, uma só régua. O que muda de uma para outra é o
+              conjunto de dimensões; o que nunca muda é a regra: todo número com fonte
+              e data, toda lacuna declarada.
+            </p>
+          </Reveal>
+          <Reveal className="b-medida-esq i-4">
+            <p className="text-ui leading-relaxed text-ink-2">
+              Se você está começando, comece pelas ações — é a classe com o quadro
+              completo de dimensões. Se já acompanha o mercado, vá direto ao que lhe
+              interessa: as três colunas abaixo dizem exatamente quais fontes sustentam
+              cada tese.
+            </p>
+          </Reveal>
         </section>
 
-        {/* Classes de investimento */}
-        <section aria-labelledby="classes-titulo" className="border-b border-line">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-14 sm:px-6">
-            <Reveal
-              variant="reveal-regua"
-              className="h-px w-full origin-left bg-line-strong"
-              aria-hidden
-            >
-              {null}
-            </Reveal>
-            <h2
-              id="classes-titulo"
-              className="atraso-regua font-display text-h2 font-semibold tracking-tight text-ink"
-            >
-              Classes de investimento
-            </h2>
-            {/* D6 (hierarquia de banca): Ações é a capa-lead (largura/proeminência
-                maior); FIIs + Renda fixa formam o par secundário abaixo — mesma
-                estrutura completa. As 3 classes estão `disponivel: true` hoje
-                (Fase 2 multiativo); o selo "Em breve" abaixo fica dormente,
-                pronto para uma futura classe ainda não coberta, sem precisar
-                reescrever o layout quando isso acontecer. */}
-            <div className="stagger flex flex-col gap-4">
-              <Reveal
-                variant="reveal-ticker"
-                className="cartao-ticker i-1 flex flex-col gap-5 border-2 border-line-strong bg-card p-8 sm:flex-row sm:items-center sm:gap-8"
-              >
-                {/* `.paralaxe-numero` (2.4, propagação Onda 1D): profundidade
-                    de camadas — o folio grande desloca alguns px num ritmo
-                    levemente distinto do resto ao rolar (scroll-driven,
-                    @supports + fallback estático; globals.css). */}
-                <span
-                  aria-hidden
-                  className="paralaxe-numero font-mono text-h1 font-semibold text-line-strong sm:shrink-0"
+        {/* O TRÍPTICO — 3 painéis-vitrine (ações dominante 1.6fr), cada um com
+            pedestal + selo de fontes. Palco largo (E30: até 96rem, contra o
+            antigo max-w-5xl). */}
+        <section aria-labelledby="classes-titulo" className="bancada gap-y-8 pb-14">
+          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            {null}
+          </Reveal>
+          <h2
+            id="classes-titulo"
+            className="b-medida-esq atraso-regua font-display text-h2 font-semibold tracking-tight text-ink"
+          >
+            Classes de investimento
+          </h2>
+          {/* As 3 classes estão `disponivel: true` hoje (Fase 2 multiativo); o
+              selo "Em breve" fica dormente, pronto para uma futura classe ainda
+              não coberta, sem reescrever o layout. */}
+          <ul className="b-palco stagger grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
+            {CLASSES.map((classe, i) => (
+              <li key={classe.numero} className="vitrine-pedestal">
+                <Reveal
+                  variant="reveal-ticker"
+                  className={`painel-vitrine i-${i + 1} flex h-full flex-col gap-4 border border-line bg-card p-6 sm:p-8`}
                 >
-                  {CLASSE_LEAD.numero}
-                </span>
-                <div className="flex flex-1 flex-col gap-3">
-                  <h3 className="font-display text-h1 font-semibold tracking-tight text-ink">
-                    {CLASSE_LEAD.titulo}
+                  <div className="flex items-start justify-between gap-3">
+                    {/* `.paralaxe-numero`: o folio grande desloca alguns px num
+                        ritmo distinto do resto ao rolar (scroll-driven,
+                        @supports + fallback estático; globals.css). */}
+                    <span
+                      aria-hidden
+                      className={`paralaxe-numero font-mono font-semibold text-line-strong ${
+                        i === 0 ? "text-h1" : "text-h3"
+                      }`}
+                    >
+                      {classe.numero}
+                    </span>
+                    {!classe.disponivel && (
+                      <span className="border border-aviso-borda bg-aviso-fundo px-2 py-1 font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
+                        Em breve
+                      </span>
+                    )}
+                  </div>
+                  <h3
+                    className={`font-display font-semibold tracking-tight text-ink ${
+                      i === 0 ? "text-h1" : "text-h3"
+                    }`}
+                  >
+                    {classe.titulo}
                   </h3>
-                  <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                    {CLASSE_LEAD.descricao}
+                  <p className="max-w-[68ch] text-ui leading-relaxed text-ink-2">
+                    {classe.descricao}
                   </p>
-                  {CLASSE_LEAD.disponivel && (
+                  {/* SELO DE FONTES (elemento-novo reserva, E27): acende e
+                      imprime a régua no hover/focus-within — as dimensões que o
+                      motor monta para a classe, com a fonte oficial de cada uma
+                      (mesma régua factual do CartaoTese). */}
+                  <p className="painel-selo mt-auto flex flex-col gap-0.5 border-t border-line pt-3 font-mono text-meta tracking-wide">
+                    <span>{classe.selo}</span>
+                    {classe.seloDetalhe && <span>{classe.seloDetalhe}</span>}
+                  </p>
+                  {classe.disponivel ? (
                     <Link
-                      href={CLASSE_LEAD.href}
-                      className="mt-1 inline-flex min-h-11 w-fit items-center bg-brasa px-6 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
+                      href={classe.href}
+                      className="inline-flex min-h-11 w-fit items-center bg-brasa px-6 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
                     >
                       Gerar tese →
                     </Link>
+                  ) : (
+                    <p className="font-sans text-meta text-ink-3">
+                      Em desenvolvimento — parte da Fase 2 multiativo do motor. Sem
+                      previsão de data.
+                    </p>
                   )}
-                </div>
-              </Reveal>
-
-              <ul className="grid gap-4 sm:grid-cols-2">
-                {CLASSES_SECUNDARIAS.map((classe, i) => (
-                  <li key={classe.numero}>
-                    <Reveal
-                      variant="reveal-ticker"
-                      className={`cartao-ticker i-${i + 2} flex h-full flex-col gap-4 border border-line bg-card p-6`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <span
-                          aria-hidden
-                          className="paralaxe-numero font-mono text-h3 font-semibold text-line-strong"
-                        >
-                          {classe.numero}
-                        </span>
-                        {!classe.disponivel && (
-                          <span className="border border-aviso-borda bg-aviso-fundo px-2 py-1 font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">
-                            Em breve
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-1 flex-col gap-2">
-                        <h3 className="font-display text-h3 font-semibold text-ink">
-                          {classe.titulo}
-                        </h3>
-                        <p className="text-ui leading-relaxed text-ink-2">
-                          {classe.descricao}
-                        </p>
-                      </div>
-                      {classe.disponivel ? (
-                        <Link
-                          href={classe.href}
-                          className="mt-2 inline-flex min-h-11 w-fit items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
-                        >
-                          Gerar tese →
-                        </Link>
-                      ) : (
-                        <p className="mt-2 font-sans text-meta text-ink-3">
-                          Em desenvolvimento — parte da Fase 2 multiativo do
-                          motor. Sem previsão de data.
-                        </p>
-                      )}
-                    </Reveal>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* Tipos de tese */}
-        <section aria-labelledby="tipos-titulo">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-14 sm:px-6">
-            <Reveal
-              variant="reveal-regua"
-              className="h-px w-full origin-left bg-line-strong"
-              aria-hidden
-            >
-              {null}
-            </Reveal>
-            <h2
-              id="tipos-titulo"
-              className="atraso-regua font-display text-h2 font-semibold tracking-tight text-ink"
-            >
-              Tipos de tese
-            </h2>
-            <ul className="stagger grid gap-4 sm:grid-cols-2">
-              {TIPOS.map((tipo, i) => (
-                <li key={tipo.numero}>
-                  <Reveal
-                    variant="reveal-ticker"
-                    className={`i-${i + 1} flex h-full flex-col gap-2 border border-line bg-card p-6`}
+        <section aria-labelledby="tipos-titulo" className="bancada gap-y-8 pb-14">
+          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            {null}
+          </Reveal>
+          <h2
+            id="tipos-titulo"
+            className="b-medida-esq atraso-regua font-display text-h2 font-semibold tracking-tight text-ink"
+          >
+            Tipos de tese
+          </h2>
+          <ul className="b-palco stagger grid gap-4 sm:grid-cols-2">
+            {TIPOS.map((tipo, i) => (
+              <li key={tipo.numero} className="vitrine-pedestal">
+                <Reveal
+                  variant="reveal-ticker"
+                  className={`painel-vitrine i-${i + 1} flex h-full flex-col gap-2 border border-line bg-card p-6`}
+                >
+                  <span
+                    aria-hidden
+                    className="paralaxe-numero font-mono text-h3 font-semibold text-line-strong"
                   >
-                    <span
-                      aria-hidden
-                      className="paralaxe-numero font-mono text-h3 font-semibold text-line-strong"
-                    >
-                      {tipo.numero}
-                    </span>
-                    <h3 className="font-display text-h3 font-semibold text-ink">
-                      {tipo.titulo}
-                    </h3>
-                    <p className="text-ui leading-relaxed text-ink-2">{tipo.descricao}</p>
-                  </Reveal>
-                </li>
-              ))}
-            </ul>
-            <p className="font-mono text-meta text-ink-3">
-              {exemplos.length} teses prontas na galeria · os {acoes} maiores pesos da{" "}
-              <TermoTooltip {...tooltipDe("carteira-teorica")}>
-                carteira teórica do Ibovespa
-              </TermoTooltip>{" "}
-              (B3, {formatDataIso(DATA_CARTEIRA_IBOV)}) + {fiis} FII + {rendaFixa}{" "}
-              Tesouro Direto ·{" "}
-              <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
-                ver a galeria completa
-              </Link>
-            </p>
-          </div>
+                    {tipo.numero}
+                  </span>
+                  <h3 className="font-display text-h3 font-semibold text-ink">
+                    {tipo.titulo}
+                  </h3>
+                  <p className="max-w-[68ch] text-ui leading-relaxed text-ink-2">
+                    {tipo.descricao}
+                  </p>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+          <p className="b-medida-esq font-mono text-meta leading-relaxed text-ink-3">
+            {exemplos.length} teses prontas · {acoes} ações · {fiis} FII · {rendaFixa}{" "}
+            Tesouro Direto · fonte dos pesos:{" "}
+            <TermoTooltip {...tooltipDe("carteira-teorica")}>
+              carteira teórica do Ibovespa
+            </TermoTooltip>{" "}
+            (B3) · {dataCarteira} ·{" "}
+            <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
+              ver a galeria completa
+            </Link>
+          </p>
         </section>
       </main>
       <Footer

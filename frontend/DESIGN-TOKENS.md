@@ -337,8 +337,8 @@ zero definição inventada).
 | `--ticker-luz-alfa` | `0.08` | `0.10` | alfa do specular `.ticker-luz` (`--valor-brilho`) sobre cards/masthead/combobox/histórico | teto ≤0.10 nos dois temas (provisório — final na calibração de QA). Recuo: falhou AA → 0.05 (piso de `--luz-foco-card-alfa`) |
 | `--cvm-halo-alfa` | `0.08` | *(n/a — dark usa keyline)* | halo `--accent-valor` do Box CVM sobre `--warn-bg` | teto ≤0.08 (S2/D5). Recuo BINÁRIO: falhou AA → keyline sem glow, nunca itera |
 | `--cvm-keyline-dark` | *(n/a — claro usa halo)* | `var(--accent-valor)` | keyline 1px do Box CVM no escuro (elevação = borda, S2) | alias de componente; troca de tema já vem de `--accent-valor` |
-| `--constelacao-traco-largura` | `1.5px` | idem | espessura do traçado SVG da constelação | fixo (geometria, não AA) |
-| `--constelacao-contorno-alfa` | `0.10` | *(n/a — dark usa borda sólida)* | glow do contorno do painel ativo (S2) | teto ≤0.12. Recuo: falhou AA → contorno também vira borda sólida no claro |
+| `--constelacao-traco-largura` | `1.5px` | idem | espessura do traçado SVG — **sobrevive à demolição da folha `constelacao.css` (D25, missão HORIZONTE)**: `cinema/salao.css` (fio lapidário do Salão) consome o MESMO nome/papel; a folha original morreu, o token não | fixo (geometria, não AA) |
+| ~~`--constelacao-contorno-alfa`~~ | ~~`0.10`~~ | ~~*(n/a)*~~ | **REMOVIDO 2026-07-14 (LIMPEZA Onda D/HORIZONTE)** — glow do contorno do painel ativo da constelação (S2); único consumidor era `constelacao.css`, demolida na Onda 2 (D25); grep em `src/` confirmou zero uso residual antes da remoção | dead code — não recriar sem consumidor real |
 
 Cores dos stops da constelação (safira/ink/ouro) e das partes da marca NÃO
 ganham token de componente novo — consomem os semânticos existentes direto
@@ -427,6 +427,321 @@ mas a ordem é reforço deliberado do plano, não uma dependência única.
   não a tocou) — qualquer modo novo (ex.: por-palavra da HERO) deve ser
   ADITIVO/retrocompatível.
 - Href/label `/glossario` (COPY cria a rota; CHROME linka no nav).
+
+### Emenda HORIZONTE 2026-07-14 (Onda 0: fundação)
+
+> LEI da missão: `.maestro/plano-horizonte.md` (worktree `wt-horizonte`) —
+> §0 vetos, §1 supersessões, §3 spec por critério, §4 ondas, **§5 emendas do
+> red-team E1–E30 (PREVALECEM sobre a direção e sobre este resumo)**, §6
+> não-regredir — e `.maestro/direcao-horizonte.md` (D1–D40, a direção de
+> arte, §12 tabela de tokens). Este bloco registra o que a Onda 0 (Fundação)
+> publica: as 4 emendas de governança decretadas ANTES da 1ª linha de
+> código (D2), o sistema full-bleed **A Bancada** (D3), os tokens novos e o
+> clamp/colisão de tooltip (D34/E13).
+
+#### Emendas de governança decretadas (D2 — obrigatórias antes da 1ª onda)
+
+- **S4 — set-pieces de glow, de 4 para 8** (estende S2/Apoteose): somam-se
+  (5) `.gema-chip` da Prova Viva, (6) bolhas-bancada do Salão, (7) fio
+  lapidário + faísca, (8) pedestais da vitrine. Cada um com teto próprio
+  (tabela de tokens abaixo) e **recuo BINÁRIO**: reprovou AA por pixel →
+  keyline sem specular, nunca itera às cegas. Doutrina dark intacta:
+  elevação-base continua = borda/keyline (nunca glow puro no escuro).
+- **S5 — o veludo como superfície de palco**: a ameixa (~285°, fora do hue
+  banido 70–200°) deixa de ser keyline decorativa e vira **superfície
+  OPACA** (`--veludo-fundo`), exclusiva de DUAS faixas da landing (vitrine
+  + salão) e do aside de método do `/sobre`. NÃO é acento: nenhum
+  controle/estado/dado usa veludo como cor de significado; a brasa segue o
+  único acento; `bg-realce` segue exclusivo de citação. **Recuo binário
+  registrado**: se o dono rejeitar o veludo no wow-gate, salão e vitrine
+  re-skinam sobre `--bg-page` com vinheta fria — a mecânica (grid/deriva/
+  pin/fio) sobrevive inteira; nenhuma onda pode acoplar lógica ao valor de
+  `--veludo-fundo`.
+- **M3-b — re-escopo da trava M3 para superfícies com bisel**: a exigência
+  "100% dos pixels do chip idênticos ao token puro" (trava M3, Bazley)
+  passa a valer só para o **campo interno de texto** (onde número/citação/
+  fonte moram) das superfícies com bisel (`.gema-chip`, placas gravadas);
+  as arestas de 1px do bisel (`--gema-aresta` luz / `--gema-quilha`
+  sombra) ficam FORA da área aferida e são provadas separadamente como
+  decorativas. A trava plena (token puro em 100%) segue valendo onde não
+  há bisel.
+- **Contrato de altura — DUAS constantes** (`--altura-tarja` E
+  `--altura-header`; **E1 do red-team substitui o `.dobra-capa` único de
+  D9**): cada var documenta a altura que o componente JÁ TEM, sem alterar
+  nenhuma propriedade computada da Tarja/Header (nada de "fixar"
+  padding/line-height para caber no número escolhido). **Por que duas e
+  não uma**: um wrapper único envolvendo Header+hero (a ideia original D9)
+  puxaria o `<header>` para dentro do `<main>` — e `<header>` descendente
+  de `<main>` perde o role `banner` implícito (regressão de landmark) — ou
+  tiraria o `#hero` de dentro do `<main>`, quebrando o skip-link. A
+  correção (E1) é: **zero wrapper novo**; Header e `<main>` ficam
+  exatamente onde já estão; a capa vira uma regra de altura no PRÓPRIO
+  `#hero` (`min-block-size: calc(100svh - var(--altura-tarja) -
+  var(--altura-header))`, escrita por `cinema/hero.css`, dona: Onda 1D).
+  **Gate (E4, estende o §1 original "5 breakpoints" da emenda APOTEOSE)**:
+  **varredura contínua 320→1920px (passo ≤16px) + zoom de texto 200% +
+  text-spacing**, comparando `offsetHeight` real × var, para os DOIS
+  componentes; se divergir, um escritor CSSOM único (fora do caminho
+  crítico: `resize` + `fonts.ready`, rAF-coalescido) corrige a var — o
+  valor estático permanece como default de first-paint (**CLS zero**);
+  todo consumidor usa `min-*`, nunca altura exata. Essa varredura completa
+  é execução de uma onda de QA/integração posterior — a Onda 0 só publica
+  o contrato e os valores de partida (tabela abaixo), ancorados nos
+  breakpoints reais de wrap de cada componente: Tarja (conteúdo textual
+  quebra a ~640/1024px, valores do §12 da direção) e Header (nav
+  mobile↔desktop no `md`=768px — **estimativa de Onda 0**, lida em
+  `Header.tsx`/`Tarja.tsx`, sujeita à correção fina da varredura E4 numa
+  onda posterior).
+
+#### Sistema full-bleed oficial — "A Bancada" (D3, mata a linha imaginária)
+
+Folha nova `src/styles/cinema/bancada.css` (dona única desta missão: a
+Onda 0 cria o grid/fios/capa; nenhuma outra onda edita esta folha).
+Content-grid de colunas nomeadas em que a **medida (≤68ch) é o DEFAULT** e
+o **palco é opt-in** (o grid de 12 colunas alternativo foi rejeitado pelo
+conselho — D3): `.bancada > * { grid-column: medida }` torna impossível
+esticar prosa por acidente; `.b-palco`/`.b-sangria`/`.b-vazante-esq`/
+`.b-vazante-dir`/`.b-medida-esq`/`.b-medida-dir` são os opt-ins de
+largura. Variantes `.bancada--display` (`--medida: 88rem`, títulos/cenas)
+e `.bancada--densa` (`--medida: 76ch`, fichas) — prosa NUNCA sai de ≤68ch
+por fora dessas variantes deliberadas. Aninhável (um `.bancada` dentro de
+um `.b-sangria` recria as colunas dentro de um palco de veludo), RTL-safe,
+CLS-safe (first-paint puro, zero medição JS).
+
+**`--sangria`/`--medida`/`--palco-max` vivem em `globals.css` (:root), não
+redeclarados dentro de `.bancada`** — decisão desta Onda 0 (a direção
+mostra esses três como declaração local no bloco ilustrativo do §2, mas
+`cinema/tooltip.css`/D34 também consome `var(--sangria)` fora de qualquer
+`.bancada` ancestral garantido; centralizar como token global evita
+depender de herança por posição no DOM). `bancada.css` só CONSOME os três.
+
+**E3 (red-team) — `vw` PROIBIDO em largura de palco**: `100vw` inclui a
+barra de rolagem clássica do Windows (~15px) no Chrome/Firefox — overflow-x
+global permanente (viola §0.10 do plano) e largura errada de pin-spacer.
+Toda largura de palco/sangria usa **`inline-size`/colunas do grid**, nunca
+`vw`. Regra vale para TODA a missão, não só para o Salão (onde o PoC do
+pin full-viewport valida com
+`document.scrollingElement.scrollWidth === clientWidth`).
+
+**Chrome FORA da migração** (D4): Header/Footer/Tarja mantêm `max-w-6xl`
+interno intacto — a lei do container morre só nas SEÇÕES das páginas,
+nunca no chrome global.
+
+**Assinatura de seção — `.fio-travessa`** (D6): hairline
+`border-line-strong` de sangria a sangria abrindo cada seção, combinado
+com a classe `.reveal-regua` já existente (`globals.css`, scaleX 0→1) —
+nenhum mecanismo de animação novo, só a geometria full-bleed. Ritmo de
+capítulos da landing (D6): papel-claro (capa) → papel (prova) → papel
+(nascimento) → **veludo** (vitrine) → **veludo escurecendo** (salão) →
+papel (contrato).
+
+**Vocabulário da CAPA** (D10, em `bancada.css`): `.capa-orelha` (mono,
+texto verbatim CVM à esquerda / edição+fontes à direita, ancoradas via
+`.b-vazante-esq`/`.b-vazante-dir`), `.capa-cartola` (Archivo caps
+condensada), `.capa-linha-fina` (2 colunas ≤34ch cada com fio de goteira
+central; 1 coluna no mobile), `.capa-vinco` (rótulo mono do limite da
+dobra), `.fio-de-prumo` (hairline 1px que se desenha com o scroll,
+`animation-timeline: scroll(root block)`, `animation-range: 0 120svh` —
+mesmo PADRÃO de `marca-fio-recolhe` de `cinema/marca.css`, mas com
+keyframe PRÓPRIO desta folha; reusa o token `--fio-lapidario`, mesmo
+motivo estético do fio do Salão). **E1: não existe `.dobra-capa`** — a
+altura da capa vive numa regra do próprio `#hero` (`hero.css`, dona: Onda
+1D); esta folha só declara o vocabulário estático. Reduced-motion:
+`.fio-de-prumo` é "**progress**" (isento, mesma doutrina de
+`.regua-leitura`/`aurora-drift`); nenhum outro efeito novo desta folha é
+decorativo-animado (a régua usa `.reveal-regua` global, já coberta pelo
+bloco de redução existente).
+
+#### Tokens novos (`globals.css` :root / dark) — teto + recuo por token
+
+| Token | Claro | Escuro | Papel | Teto / recuo |
+|---|---|---|---|---|
+| `--text-capa` (em `@theme inline`, gera `text-capa`) | `min(clamp(3rem, 9.5vw, 8rem), 13svh)` | idem | manchete de capa (E11: teto svh evita estouro em 1366×768) | recuo LCP: 8rem→7rem só se o gate de fold (E2E 1366×768/1280×720) reprovar |
+| `--altura-tarja` | `2.75rem` (≥1024px) / `4rem` (640–1023px) / `5.25rem` (<640px) | idem | contrato de altura da Tarja | declarada sem tocar computado; gate E4 (sweep 320–1920+zoom+text-spacing) |
+| `--altura-header` | `4.5rem` (≥768px) / `5.5rem` (<768px) | idem | contrato de altura do Header (E1) — **estimativa Onda 0** | mesmo gate E4 |
+| `--sangria` | `1rem` (≥640px: `1.5rem`) | idem | respiro mínimo de borda da Bancada | fixo (geometria) |
+| `--medida` / `--palco-max` | `68ch` / `96rem` | idem | colunas da Bancada | ≤68ch é lei (D3) |
+| `--veludo-fundo` | `#241e2b` | `#16121c` | superfície do salão/vitrine (S5, hue ~285°) | superfície opaca, nunca wash; recuo S5: re-skin `--bg-page` |
+| `--veludo-tinta` | `#efe9e4` | `#e9e5df` | tinta primária sobre veludo | ≥12:1 (verificado ~13,5:1) |
+| `--veludo-tinta-2` | `#beb3c6` | `#b3a9bc` | metadados/legendas/controles sobre veludo | ≥4.5:1 texto / ≥3:1 UI no pico real; recuo: clarear lightness |
+| `--veludo-anel` | `var(--valor-brilho)` | idem | `:focus-visible` DENTRO do escopo veludo (E15) — `--accent-text` global dá ~2,39:1 ali | ≥3:1 (estimado ~11:1) |
+| `--veludo-vinheta-alfa` | `0.35` | `0.45` | vinheta radial das faixas (anel, centro limpo) | decorativa; nunca sob texto |
+| `--gema-aresta` | `var(--valor-brilho)` | idem | aresta de luz do bisel (1px topo/esquerda) | alias; fora do campo de texto (M3-b) |
+| `--gema-quilha` | `rgb(90 49 83 / 0.28)` | `rgb(0 0 0 / 0.45)` | aresta de sombra do bisel (1px baixo/direita) | ≤0.30/0.50; recuo: keyline simples |
+| `--gema-elevacao` | `0 2px 6px rgb(42 54 84/.16), 0 14px 32px rgb(42 54 84/.10)` | `none` (keyline) | sombra de peso de chip/placa no claro | S2/S4: dark = borda; recuo binário |
+| `--fio-lapidario` | `var(--accent-valor)` | idem | traço do fio (salão + fio de prumo da capa) | alias; decorativo |
+| `--fio-faisca` | `var(--valor-brilho)` | idem | faísca na frente de corte (dasharray 0.02 1) | decorativa; `display:none` sob reduce |
+| `--bolha-specular-alfa` | `0.10` | `0.10` | calota specular da bolha-bancada (S4) | teto de partida 0.10 (0.12 só com pixel-prova); recuo binário → keyline |
+| `--deriva-vel` | `12` (px/s; mobile <640px: `8`) | idem | cruzeiro da vitrine (lido 1× por `getComputedStyle`) | ≤16; recuo perf: update 30fps; reduce = nem monta |
+
+Mecanismo **escopo-veludo** (D20/E5/E6 — não é token, é contrato, para as
+raias 1B/1C aplicarem): `.vitrine-veludo`/`.salao-fundo` re-declaram
+localmente **PARES COMPLETOS** de semânticos (superfície+tinta+on-accent:
+`--bg-card`/`--bg-elevated`, `--ink-primary/-2/-3`, `--text-sobre-brasa`,
+`--border-line/-strong`, anel) — nunca meio-par (E5: um `bg-card` claro
+herdando `ink-primary` do tema errado é quase-branco sobre branco). O ramo
+de elevação (sombra fria claro / keyline dark) é forçado por **CLASSE**
+(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)` (E6). Todos
+os pares entram na re-enumeração AA por pixel (Onda 4). Zero hex de
+conteúdo/tinta/brasa existente muda; zero hue novo em 70–200°.
+
+#### Tooltip — clamp de largura (D34) + colisão horizontal (E13)
+
+`cinema/tooltip.css` ganha a regra ÚNICA de clamp (D34, vale para TODOS os
+palcos novos): `.tt-popup { max-inline-size: min(20rem, calc(100vw - 2 *
+var(--sangria))) }` — como `max-inline-size` mapeia para a mesma
+propriedade física de `max-width` (CSS Logical Properties, cascade por
+propriedade correspondente), esta regra da folha cinema (importada depois
+de `@import "tailwindcss"`) prevalece sobre o `max-w-[...]` arbitrário
+aplicado hoje via className em `TermoTooltip.tsx`, sem precisar de
+`!important` — mesma doutrina de cascade já registrada acima ("folhas
+cinema... em especificidade igual, quem vem depois no arquivo vence").
+
+**E13 — o clamp limita LARGURA, não POSIÇÃO**: a bolha do Salão que "espia
+pela borda" (design deliberado) pode abrir um popup que ainda estoura o
+viewport horizontalmente mesmo com a largura clampada, e o wrapper
+`.salao-pinado { overflow-x: clip }` cortaria a sobra. `TermoTooltip.tsx`
+ganha colisão horizontal ADITIVA (contrato D7 continua intacto: definição
+só de `lib/glossario.ts`/`o_que_mede`): ao abrir, mede
+`getBoundingClientRect()` do popup e escreve `--tt-dx` (px de correção)
+via `popup.style.setProperty` — **zero `style=` inline, zero
+`setAttribute('style')`** (mesmo carve-out CSSOM já documentado acima).
+`tooltip.css` passa a consumir `left: calc(50% + var(--tt-dx, 0px))` no
+lugar de `left: 50%` fixo — o `transform: translate(-50%, …)` das
+keyframes de entrada segue intocado (só o ANCORAMENTO horizontal muda, não
+a centralização relativa a ele). QA da Onda 4 prova por pixels que 100% do
+popup fica visível nos dois lados (pior caso: bolha da borda do salão).
+
+### Registro de fechamento — missão HORIZONTE (Onda D, 2026-07-14)
+
+> Consolidação final (a próxima missão lê isto ANTES de tocar em Bancada,
+> veludo, salão ou capa). Fonte primária dos números: gates rodados na Onda
+> 4 (`.maestro/defeitos-onda4.md`, `.maestro/evidencias/aa/aa_tabela_horizonte.md`,
+> `.maestro/evidencias/perf/css_bytes.json`).
+
+**A Bancada — sistema de layout oficial, com a armadilha que custou caro.**
+`grid-column: medida` (forma curta de um único nome) **NÃO** resolve para o
+par de linhas `[medida-inicio] … [medida-fim]`: o atalho de um nome só vira
+range quando as linhas terminam literalmente em `-start`/`-end` (regra do
+próprio spec de CSS Grid, que gera esses nomes a partir de uma
+`grid-area`). Como os nomes de linha da casa são em português
+(`-inicio`/`-fim`, não `-start`/`-end`), a forma curta cai em
+**auto-placement** e o item é espremido numa faixa estreita na borda — o
+full-bleed inteiro (a correção-mãe da missão) ficou **inerte** até isso ser
+achado. **Regra permanente: sempre `X-inicio / X-fim` por extenso**, nunca o
+atalho de um nome, em qualquer novo opt-in de coluna que a Bancada ganhar.
+Ver o comentário-prova em `cinema/bancada.css` (linhas 64–72).
+
+**A segunda armadilha — `gap-N` do Tailwind num nó `.bancada`.** Um
+`className="bancada gap-4"` (ou qualquer `gap-N` sem sufixo de eixo) aplica
+`column-gap`, que **soma-se** às larguras já calculadas das trilhas
+nomeadas do grid (`sangria`/`palco`/`medida`) — a soma das trilhas deixa de
+bater com `100%` e o documento ganha **overflow-x real** (achado como
+bloqueante B3 em `not-found.tsx`/`error.tsx`: `column-gap: 20px` num
+`main#conteudo.bancada`). **Regra permanente: `gap-y-N`, nunca `gap-N` puro,
+em qualquer nó que tenha a classe `.bancada`** — o espaçamento entre linhas
+de conteúdo empilhado não precisa (e não pode) de gap horizontal, porque as
+colunas já são geometria do grid, não espaçamento de flex/gap.
+
+**Os contratos de altura (`--altura-tarja`/`--altura-header`).** Os degraus
+vivem em `globals.css` (`@media (min-width: 400/768/880/944px)`) —
+ancorados nos **platôs REAIS de wrap** de cada componente, medidos por
+varredura contínua (gate E4: a 1ª estimativa em breakpoints do Tailwind
+reprovou 202/202 medições; a Tarja quebra de linha em ~400px e de novo em
+~880px, o Header tem um platô anômalo de ~137px entre 768–943px — nenhum
+desses pontos é um breakpoint padrão do Tailwind). A ilha `MedidaCromo.tsx`
+(`src/components/motion/MedidaCromo.tsx`) é o **backstop CSSOM**: mede
+`getBoundingClientRect().height` da Tarja/Header real via `ResizeObserver` +
+`fonts.ready` (a fonte com `display:swap` muda a altura DEPOIS do 1º paint)
+e só reescreve a var quando o valor diverge ≥0,5px — sob zoom de texto 200%
+(1.4.4) e text-spacing (1.4.12), onde os platôs mudam de forma não-linear
+(divergência medida de até +180px na 1ª estimativa). **O default estático é
+quem é dono do first-paint**: no caso comum (zoom 100%, espaçamento padrão)
+a ilha reescreve o MESMO valor que já estava lá — nenhum shift, **CLS
+zero** (pós-fix: 303/303 medições com delta 0,0px). `MedidaCromo` NUNCA
+altera uma propriedade computada da Tarja/Header — só mede e publica.
+
+**A exceção 2.2.2 da vitrine** — a única animação contínua do site (D21,
+`useVitrineDeriva.ts` + `GaleriaBanca.tsx`): deriva por scroll real
+(`rail.scrollLeft`), pêndulo com rampas, pausa por interação, gates de
+`IntersectionObserver`+`visibilitychange`+`prefers-reduced-motion`. O
+controle on-page mora em `GaleriaBanca.tsx`: botão ≥44px com **rótulo FIXO
+"Movimento da vitrine"** (nunca troca — só `aria-pressed` porta o estado; um
+rótulo que trocasse JUNTO com `aria-pressed` faria o leitor de tela anunciar
+algo como "Girar vitrine, pressionado", um anti-padrão) + `role="status"`
+sr-only que anuncia **só** mudança iniciada pelo usuário (clique/tecla,
+nunca por scroll/gesto) + persistência em
+`localStorage("tese-ai:vitrine-pausada")`, lida de forma síncrona (E16,
+antes do 1º rAF da deriva) em `useLayoutEffect` — nunca durante o 1º render
+(bloqueante B1 corrigido: ler `localStorage` no render diverge o HTML do
+servidor do cliente e quebra a hidratação; a leitura correta acontece
+depois do render inicial, sempre servidor-primeiro).
+
+**O escopo-veludo (`.veludo-escopo`)** — re-declaração de **pares
+completos** (superfície+tinta+on-accent: `--bg-card`/`--bg-elevated`,
+`--ink-primary/-2/-3`, `--text-sobre-brasa`, `--border-line/-strong`, anel),
+nunca meio-par. Por quê: re-declarar só a tinta (sem a superfície-par) deixa
+a cascata descer até sub-superfícies opacas internas com o tema ERRADO —
+ex.: um `bg-card` claro herdando `--ink-primary` do tema escuro vira
+quase-branco sobre branco (texto invisível). O ramo de elevação (sombra fria
+no claro / keyline ouro no escuro) é forçado **por CLASSE**
+(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
+pergunta "qual é o tema do SISTEMA operacional", não "este elemento está
+sobre veludo" — no tema CLARO sobre um veludo (superfície opaca ~285°,
+sempre escura) o ramo por media query aplicaria o tratamento de elevação do
+claro (sombra fria) num fundo que precisa do tratamento do escuro (keyline),
+errando o lado exatamente na combinação onde o defeito é mais visível
+(bloqueante B2 confirmado: o dot da Banca ficava a 1,03:1 dentro do veludo
+porque usava `--bg-card` — cor de SUPERFÍCIE — como preenchimento; corrigido
+para `--veludo-tinta-2`/`--veludo-tinta`/`--accent-valor`, ≥3:1 provado por
+pixel).
+
+**Tokens novos (veludo/gema/fio/bolha/deriva/capa)** — tabela completa com
+teto e recuo binário por token na seção "Tokens novos (`globals.css` :root
+/ dark)" logo acima desta nota. **Resultado do AA re-enumerado (Onda 4,
+`aa_tabela_horizonte.md`): 110 PASSOU · 0 FALHOU** (mais 8 pares pendentes
+de integração e 28 informativos — decorativos/specular, fora do gate por
+construção) — nos dois temas, incluindo os pares herdados da Banca no
+veludo, `--veludo-anel`, o campo interno das gemas, bolha, fio/faísca, a
+capa sob o `uMask` re-medido e a pedra do 404.
+
+**`--bolha-dy-1..5` precisa ser px puro** (contrato entre `salao.css` e
+`SalaoDimensoes.tsx`): o valor computado de uma custom property é o TOKEN
+em si, não um comprimento resolvido — `getComputedStyle(li).getPropertyValue
+("--bolha-dy")` devolveria a STRING `"min(8vh, 80px)"` (não um número em px)
+se o token usasse `min()`/`clamp()`/`vh`. O `translate` do `<li>` consome a
+var e o JS lê a MESMA var para compor o centro do círculo publicado
+(`cy = offsetTop + offsetHeight/2 + dy`, E2) — trocar por uma unidade
+relativa quebraria essa leitura **em silêncio** (sem erro de build, sem
+warning: o JS receberia uma string não-numérica, o cálculo do centro do
+círculo ficaria `NaN` ou usaria um fallback errado, e a catenária do fio
+cortaria por dentro da bolha — exatamente o defeito que a demolição do
+filmstrip/constelação tentou resolver). Variações por viewport vêm SEMPRE de
+`@media`, nunca de fórmulas dentro do próprio valor do token (ver
+`cinema/salao.css`, linhas 25–36 e 126–130/470–474).
+
+**Limpeza de CSS desta Onda (arbitragem A2 do maestro):** o CSS compilado
+cresceu +5,18KB gzip contra o teto de +4KB do gate E23 — o teto era um
+PROXY do medo de degradar o LCP de /tese; a medição real mostrou o
+**LCP de /tese MELHORANDO** (a Onda 4 mediu 120→104ms) com CLS 0 nos dois
+lados. **Decisão: o delta é ACEITO e documentado**, com duas limpezas de
+risco zero: (a) remoção do token órfão `--constelacao-contorno-alfa` (ver
+tabela de tokens da emenda APOTEOSE acima — a folha `constelacao.css` que o
+consumia foi demolida; `--constelacao-traco-largura` sobrevive porque
+`salao.css` o consome de verdade); (b) deduplicação de `cinema/palco.css`
+entre `.banca-rail .cartao-ticker`/`.grade-teses .cartao-ticker` (seletores
+combinados onde os valores eram byte-idênticos — `:focus-visible`,
+recuo/dim dos irmãos, keyline do dark-mode, bloco `reduced-motion`; a
+`transition` da regra base permanece deliberadamente separada porque a
+grade soma uma transição de `transform` que a Banca não tem — somá-la à
+Banca mudaria a física da mola JS do `usePalco`/`quickTo`). Novo delta
+medido após a limpeza: ver `.maestro/evidencias/perf/css_bytes.json`
+(re-executar `gate_css_bytes.py` reporta o número corrente). Follow-up NÃO
+executado nesta limpeza (fica registrado para a próxima missão, se o
+orçamento apertar de novo): escopar `salao.css`/`lapidacao.css` (~+2,3KB)
+para fora das rotas que não os usam via CSS Modules/route-level import, em
+vez do `@import` global único que hoje entra em toda rota via
+`globals.css`.
 
 ---
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CenaNascimento } from "@/components/cena/CenaNascimento";
 import { Reveal } from "@/components/motion/Reveal";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
@@ -9,14 +10,19 @@ import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 import { newsreaderItalico } from "@/lib/fontes";
 import { IndiceNav } from "./IndiceNav";
+// Folha NOVA, exclusiva desta rota (posse da raia 3C) — importada aqui em
+// vez de entrar na lista central de globals.css (posse do integrador),
+// suportado nativamente pelo App Router (ver cabeçalho do arquivo).
+import "@/styles/cinema/como-funciona.css";
 
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta — mesma regra de toda página
 // nova (ARQUITETURA.md, rail 5).
 export const dynamic = "force-dynamic";
 
-// Copy reescrita na missão APOTEOSE (crit. 11): tooltips consomem
-// lib/glossario.ts (D7); âncoras e IndiceNav preservados.
+// Copy reescrita na missão FRONTEND HORIZONTE (direção §9 "A Oficina",
+// copy-horizonte-spec.md §3): tooltips consomem lib/glossario.ts (D7);
+// âncoras e IndiceNav preservados.
 export const metadata: Metadata = {
   title: "Como funciona",
   description:
@@ -36,24 +42,27 @@ const ETAPAS: readonly { rotulo: string; texto: ReactNode }[] = [
     rotulo: "Ticker",
     texto: (
       <>
-        O <TermoTooltip {...tooltipDe("ticker")}>ticker</TermoTooltip> é validado no
-        formato oficial — negociação B3 (ação ou FII) ou título do Tesouro Direto. Não
-        há lista fechada: qualquer companhia aberta com cadastro na CVM entra.
+        Você informa o código do ativo — o{" "}
+        <TermoTooltip {...tooltipDe("ticker")}>ticker</TermoTooltip> de uma ação da B3,
+        de um FII ou de um título do Tesouro Direto. Dele o motor resolve a classe do
+        ativo e quais dimensões a tese vai cruzar.
       </>
     ),
   },
   {
     rotulo: "Ingestão",
     texto:
-      "Até cinco dimensões, conforme a classe do ativo — cada uma buscada diretamente na sua fonte oficial, com rótulo e data de cada série.",
+      "O motor busca os dados nas fontes públicas — CVM, SEC EDGAR, Banco Central, Banco Mundial, Tesouro Nacional e B3 — e guarda, junto de cada valor, o documento e a data de onde ele saiu.",
   },
   {
     rotulo: "Síntese com citações",
     texto: (
       <>
+        A síntese é escrita com{" "}
         <TermoTooltip {...tooltipDe("citations")}>Anthropic Citations</TermoTooltip>:
-        cada afirmação factual sai ligada ao trecho exato do documento-fonte — a frase
-        carrega a própria prova.
+        cada afirmação factual fica presa ao trecho exato do documento de origem.
+        Afirmação sem trecho de origem não vira fato — ou é rotulada como
+        interpretação, ou sai do texto.
       </>
     ),
   },
@@ -61,9 +70,12 @@ const ETAPAS: readonly { rotulo: string; texto: ReactNode }[] = [
     rotulo: "Tese auditável",
     texto: (
       <>
-        Síntese e <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip>{" "}
-        (<TermoTooltip {...tooltipDe("bull-bear")}>bull × bear</TermoTooltip>), fato
-        separado de interpretação e lacunas declaradas, nunca estimadas.
+        Sai um documento com seção por dimensão, citações numeradas, registro de
+        fontes com data,{" "}
+        <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip> (
+        <TermoTooltip {...tooltipDe("bull-bear")}>bull × bear</TermoTooltip>) e a lista
+        do que não foi encontrado. É o que você abre — e pode contestar linha por
+        linha.
       </>
     ),
   },
@@ -172,7 +184,7 @@ function TracoDoElo() {
         role="img"
         aria-labelledby="traco-elo-titulo"
         aria-describedby="traco-elo-desc"
-        className="h-auto w-full max-w-2xl text-line-strong"
+        className="h-auto w-full max-w-none text-line-strong"
       >
         <title id="traco-elo-titulo">Diagrama causal: do evento geopolítico à empresa</title>
         <desc id="traco-elo-desc">
@@ -225,20 +237,62 @@ export default function ComoFuncionaPage() {
           /tese) que renderiza itálico de verdade — a voz narrada da
           cláusula 05. */}
       <main id="conteudo" className={`${newsreaderItalico.variable} flex-1`}>
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-          <Reveal className="max-w-2xl">
+        {/* Masthead full-bleed (D5/E30 — migrado para a Bancada; o palco
+            chega a 96rem, bem mais largo que o max-w-6xl de antes). Abre com
+            o fio lapidário sangria-a-sangria (assinatura `.fio-travessa` de
+            bancada.css + `.reveal-regua` — o "clac" de régua na largura
+            inteira da viewport, não só do container). `.fio-travessa` só
+            funciona como item DIRETO do grid `.bancada` (grid-column
+            depende do container pai) — por isso vive dentro dele, não como
+            irmão solto. */}
+        <div className="bancada py-10 sm:py-14">
+          <Reveal
+            variant="reveal-regua"
+            className="fio-travessa origin-left bg-line-strong"
+            aria-hidden="true"
+          >
+            {null}
+          </Reveal>
+          <Reveal className="b-medida-esq mt-8 flex flex-col gap-3">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
-              Como funciona
+              Como o motor monta uma tese
             </h1>
-            <p className="mt-3 text-body leading-relaxed text-ink-2">
-              O motor monta a tese por camadas: até cinco dimensões de dados — cada uma presa à
-              sua fonte oficial —, uma síntese com citações verificáveis e, no fim, um documento
-              em que dá para conferir de onde veio cada número. Esta página percorre o caminho
-              inteiro, do ticker à tese — inclusive o que o motor se recusa a entregar.
+            <p className="text-body leading-relaxed text-ink-2">
+              Do código do ativo ao documento auditável, em quatro etapas. Nenhuma delas
+              é caixa-preta: no fim, dá para conferir de onde veio cada número —
+              inclusive o que o motor se recusou a entregar.
+            </p>
+            <p className="text-body leading-relaxed text-ink-2">
+              Você não precisa saber ler um balanço para usar a página: o motor faz o
+              cruzamento e mostra o caminho. Quem já lê balanço ganha outra coisa — a
+              chance de conferir cada passo, em vez de confiar na conclusão.
+            </p>
+            <p className="text-ui text-ink-3">
+              Toda etapa abaixo termina do mesmo jeito: um número, uma fonte, uma data.
             </p>
           </Reveal>
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
+          {/* ELEMENTO NOVO principal (direção §9): a mesma `CenaNascimento`
+              (Server, SVG, ZERO JS) da landing, reusada aqui em versão
+              ESTÁTICA — scrubbed por uma view-timeline NOMEADA CSS-only
+              (`.oficina-cena-scrub`, cinema/como-funciona.css). R2 absoluto
+              desta missão: zero gsap em rota interna — por isso NÃO importa
+              `NascimentoScrub`. Sob `@supports not`, a regra some inteira e
+              o SVG fica no estado FINAL (D16, lapidacao.css) — diagrama
+              completo, nunca uma tela vazia. */}
+          <div className="b-palco mt-12">
+            <p className="mx-auto mb-4 max-w-2xl text-ui text-ink-3">
+              Veja o mesmo processo em ação, com um número real: da fonte pública até a
+              citação carimbada na tese.
+            </p>
+            <div className="oficina-cena-scrub">
+              <CenaNascimento />
+            </div>
+          </div>
+        </div>
+
+        <div className="bancada py-10">
+          <div className="b-palco grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
             {/* Sumário: fixo na lateral no desktop, dobrável no mobile — mesmo
                 padrão do sumário da tese (TeseView.tsx). */}
             <div className="lg:sticky lg:top-24 lg:self-start">
@@ -272,30 +326,46 @@ export default function ComoFuncionaPage() {
                       mouse não alcançava o popup para ler/clicar "ver
                       glossário"). Custo: o reveal-ticker (translateY 12px,
                       opacity 0→1) transborda ≤12px durante a entrada —
-                      imperceptível com o fade. */}
-                  <ol className="stagger grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-                    {/* #24 do inventário (§6 M6): estas 4 células eram
-                        `className="reveal-ticker i-N ..."` FIXO no `<li>` —
-                        sem passar por `<Reveal>`/`useReveal`, `.is-armed`/
-                        `.is-revealed` nunca eram adicionadas, então a
-                        assinatura de entrada nunca rodava de verdade (as
-                        células só ficavam sempre visíveis, sem revelar).
-                        `<Reveal variant="reveal-ticker">` (mesmo padrão de
-                        PRINCIPIOS em page.tsx e das CLAUSULAS logo abaixo)
-                        corrige. */}
-                    {ETAPAS.map((etapa, i) => (
-                      <li key={etapa.rotulo}>
-                        <Reveal
-                          variant="reveal-ticker"
-                          className={`i-${i + 1} flex h-full flex-col gap-2 bg-card p-5`}
-                        >
-                          <span className="font-mono text-meta text-ink-3">{`0${i + 1}`}</span>
-                          <span className="font-sans text-ui font-semibold text-ink">{etapa.rotulo}</span>
-                          <p className="text-ui leading-relaxed text-ink-2">{etapa.texto}</p>
-                        </Reveal>
-                      </li>
-                    ))}
-                  </ol>
+                      imperceptível com o fade.
+
+                      HORIZONTE (direção §9): as 4 células viram "estações de
+                      bancada" — reusam o bisel/relevo de `.gema-chip`/
+                      `.gema-chip__corpo` (gema.css, raia 1A) — numa fila
+                      ASSIMÉTRICA (deslocamento vertical alternado por `<li>`,
+                      nó DIFERENTE do que o Reveal anima — zero colisão de
+                      escritor de `transform`), ligadas por um fio ESTÁTICO
+                      "por fora das caixas" (linha absoluta atrás da fileira,
+                      -z-10, decorativa). */}
+                  <div className="relative">
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-6 top-1/2 -z-10 hidden border-t border-line-strong sm:block"
+                    />
+                    <ol className="stagger grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+                      {ETAPAS.map((etapa, i) => {
+                        const desvio = [
+                          "",
+                          "lg:-translate-y-5",
+                          "lg:translate-y-5",
+                          "lg:-translate-y-2",
+                        ][i];
+                        return (
+                          <li key={etapa.rotulo} className={desvio}>
+                            <Reveal
+                              variant="reveal-ticker"
+                              className={`i-${i + 1} gema-chip block h-full`}
+                            >
+                              <div className="gema-chip__corpo flex h-full flex-col gap-2 bg-card p-5">
+                                <span className="font-mono text-meta text-ink-3">{`0${i + 1}`}</span>
+                                <span className="font-sans text-ui font-semibold text-ink">{etapa.rotulo}</span>
+                                <p className="text-ui leading-relaxed text-ink-2">{etapa.texto}</p>
+                              </div>
+                            </Reveal>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
                 </Reveal>
               </section>
 
@@ -307,17 +377,16 @@ export default function ComoFuncionaPage() {
                     As cinco dimensões
                   </h2>
                   <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                    Cada cláusula abaixo é buscada e citada na fonte oficial correspondente; a
-                    síntese final separa sempre o que é fato do que é interpretação. O quadro
-                    completo vale para as ações da B3 — FIIs e títulos do Tesouro Direto usam um
-                    subconjunto próprio, sem pares globais (02) nem macro global dedicada (04):
-                    FIIs cruzam o{" "}
+                    Cada dimensão é uma camada de evidência com uma fonte oficial atrás:
+                    demonstrações da CVM,{" "}
                     <TermoTooltip {...tooltipDe("informe-mensal-cvm")}>
-                      informe mensal CVM
+                      informe mensal
                     </TermoTooltip>{" "}
-                    com juros e elos; o Tesouro, taxas e preços da{" "}
-                    <TermoTooltip {...tooltipDe("stn")}>STN</TermoTooltip> com juros, inflação e
-                    elos.
+                    dos FIIs, arquivos da SEC, séries do Banco Central e do Banco Mundial,
+                    dados do{" "}
+                    <TermoTooltip {...tooltipDe("stn")}>Tesouro Nacional</TermoTooltip>. A
+                    régua impressa em cada tese mostra quais camadas entraram naquele ativo —
+                    e quais não se aplicam.
                   </p>
                 </Reveal>
 
@@ -343,21 +412,30 @@ export default function ComoFuncionaPage() {
                           <h3 id={`clausula-${c.numero}-titulo`} className="font-display text-h3 font-semibold text-ink">
                             {c.numero} · {c.titulo}
                           </h3>
-                          <p
-                            className={
-                              c.narrada
-                                ? // font-display-italico (P1): família itálica REAL — só
-                                  // `italic` sozinho sintetizaria um oblíquo falso a partir
-                                  // do Newsreader normal (única instância do layout raiz).
-                                  "max-w-prose font-display-italico text-lede italic font-medium leading-relaxed text-ink-2"
-                                : "max-w-prose text-body leading-relaxed text-ink-2"
-                            }
-                          >
-                            {c.descricao}
-                          </p>
+                          {c.narrada ? (
+                            // HORIZONTE (direção §9): a cláusula narrada ganha
+                            // moldura de pull-quote em `--moldura-ameixa`
+                            // (token já publicado — DESIGN-TOKENS.md §S5/E5,
+                            // "keyline 1px de molduras editoriais... pull-
+                            // quotes"), reusando o mesmo Tailwind estático de
+                            // /tese (`border-moldura-ameixa`) — zero CSS novo.
+                            <blockquote className="max-w-prose border-l-2 border-moldura-ameixa pl-5 font-display-italico text-lede italic font-medium leading-relaxed text-ink-2">
+                              {c.descricao}
+                            </blockquote>
+                          ) : (
+                            <p className="max-w-prose text-body leading-relaxed text-ink-2">
+                              {c.descricao}
+                            </p>
+                          )}
                           <ChipFonte>{c.fonte}</ChipFonte>
                           {c.narrada && (
-                            <div className="mt-2">
+                            // "TracoDoElo ganha palco largo" (direção §9): o
+                            // diagrama deixa de ficar preso ao max-w-2xl da
+                            // coluna estreita — o card em si já é bem mais
+                            // largo agora (rota migrada ao b-palco, D5/E30),
+                            // então liberar a largura do SVG aqui é o que o
+                            // torna visivelmente maior.
+                            <div className="mt-2 w-full">
                               <TracoDoElo />
                             </div>
                           )}
@@ -376,10 +454,9 @@ export default function ComoFuncionaPage() {
                     O que a tese entrega — e o que não entrega
                   </h2>
                   <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                    A ferramenta estrutura o raciocínio de investimento; a decisão é sempre do
-                    leitor — postura alinhada à regulação da CVM, tratada aqui como parte do
-                    produto, não como ressalva. O quadro abaixo é literal: é o que sai impresso
-                    no documento — e o que nunca sai.
+                    A lista abaixo é curta de propósito. O que está à esquerda, você pode
+                    auditar; o que está à direita, não existe aqui — e não vai passar a
+                    existir.
                   </p>
                 </Reveal>
 
@@ -418,8 +495,8 @@ export default function ComoFuncionaPage() {
 
                 <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
                   <p className="flex-1 text-ui text-ink-2">
-                    Quer ver esse pipeline aplicado? Abra uma tese pronta da galeria ou gere a
-                    de um ticker da B3 — e siga qualquer número até a fonte.
+                    Quer ver esse pipeline aplicado a um caso real? Abra uma tese pronta e
+                    siga qualquer número até a fonte.
                   </p>
                   <Link
                     href="/teses"

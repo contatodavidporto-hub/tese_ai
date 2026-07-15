@@ -17,6 +17,27 @@
 // - Reveals mais ricos: linhas entram como "Fila do Ticker"
 //   (variant="reveal-ticker" + stagger .i-N por posição DENTRO do grupo do
 //   dia, teto i-6 — grupos longos não acumulam atraso).
+//
+// Missão HORIZONTE (2026-07-14 — "A Hemeroteca", direcao-horizonte.md §9):
+// ELEMENTO NOVO desta rota — os cabeçalhos de dia viram LOMBADAS de volume
+// encadernado: no desktop (md+), sticky na LATERAL ESQUERDA de cada grupo
+// (não mais uma faixa horizontal cobrindo a largura toda), texto mono em
+// `writing-mode: vertical-rl` (lido de cima para baixo, como o dorso de um
+// livro). No mobile, o sticky de TOPO atual é preservado tal qual (mesmas
+// classes, sem `md:`). O offset agora usa o CONTRATO `--altura-tarja`
+// (Onda 0/E4) em vez do `top-10` aproximado de antes — mais preciso em
+// TODOS os breakpoints, sem precisar de outro número mágico.
+//
+// Zero cobertura de foco (E19/D33-doutrina): a lombada vive numa COLUNA
+// própria (`md:self-start`), nunca sobre a coluna das entradas — e o
+// `[id] { scroll-margin-top: 6rem }` global (globals.css) já cobre o caso
+// em que o foco chega por âncora direta (`#registro-{id}`), nos dois modos.
+//
+// Relevo das entradas: cada linha ganha `.gema-chip__corpo` (cinema/gema.css,
+// reuso "sem o filho" — D14 já documenta esse padrão para nós que já
+// respondem a :hover/:focus-within sozinhos, como esta linha). Zero CSS
+// novo: a classe já existe, só é aplicada aqui pela 1ª vez fora da Prova
+// Viva/hero.
 
 import Link from "next/link";
 import { useMemo, useRef, useSyncExternalStore } from "react";
@@ -123,11 +144,21 @@ export function HistoricoClient() {
   usePonteiro(raizRef, { seletorAlvo: ".ticker-luz" });
 
   return (
-    <div ref={raizRef} className="flex flex-col gap-8">
+    // `[overflow-x:clip]` (defeito 3, gate de geometria, wt-horizonte
+    // 2026-07-14): cada entrada É `.ticker-luz` (cinema/ticker-luz.css) — o
+    // sprite `::after` (46vmax) transborda a caixa do link mesmo sem
+    // hover/toque algum (posição neutra `--mx:0/--my:0` de globals.css já
+    // extrapola a largura da coluna). Sem um ancestral que clipe, o
+    // `scrollWidth` do documento estoura em mobile (mesmo padrão de
+    // `.salao-pinado`: clip, nunca hidden — não é ancestral da régua/Tarja).
+    <div ref={raizRef} className="flex flex-col gap-8 [overflow-x:clip]">
       {itens.length === 0 ? (
         <div className="flex flex-col items-start gap-3 border border-line bg-card px-6 py-8">
-          {/* Microcopy da casa (enxerto Noturna #11): sem ilustração fofa. */}
-          <p className="font-sans text-ui text-ink-2">nenhum registro neste período.</p>
+          {/* Copy HORIZONTE (copy-horizonte-spec.md §8, verbatim). */}
+          <p className="font-sans text-ui text-ink-2">
+            Nenhuma tese gerada neste navegador ainda. Comece por uma pronta
+            da galeria — ou gere a primeira agora.
+          </p>
           <Link
             href="/tese"
             className="flex min-h-11 items-center bg-brasa px-4 font-sans text-ui font-semibold text-sobre-brasa transition-colors duration-[var(--dur-tick)] hover:bg-brasa-forte"
@@ -138,20 +169,28 @@ export function HistoricoClient() {
       ) : (
         <>
           {grupos.map((grupo) => (
-            <section key={grupo.chave} aria-labelledby={`dia-${grupo.chave}`}>
-              {/* Offset aproximado da Tarja regulatória (sticky top-0, z-50) —
-                  o cabeçalho de dia fica logo abaixo dela ao rolar.
-                  REVALIDADO na missão APOTEOSE: a marca do header tem altura
-                  reservada = wordmark atual (CLS zero, cinema/marca.css) e a
-                  Tarja é intocada — top-10 e o scroll-margin-top globais
-                  continuam calibrados. */}
+            <section
+              key={grupo.chave}
+              aria-labelledby={`dia-${grupo.chave}`}
+              className="md:flex md:items-start md:gap-6"
+            >
+              {/* A LOMBADA (D)ia: mobile preserva o sticky de topo atual
+                  (offset agora pelo contrato --altura-tarja, E4 — mais
+                  preciso que o top-10 aproximado de antes). Desktop (md+):
+                  sticky NA COLUNA ESQUERDA do próprio grupo (não mais uma
+                  faixa horizontal), mono vertical (writing-mode: vertical-rl)
+                  — a lombada de um volume encadernado. `md:self-start`
+                  ancora no topo da linha flex; o sticky natural a mantém
+                  visível enquanto o grupo (mais alto que ela) rola por
+                  baixo — nunca sobre a coluna das entradas (zero cobertura
+                  de foco, E19). */}
               <h2
                 id={`dia-${grupo.chave}`}
-                className="sticky top-10 z-10 border-b border-line-strong bg-page py-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
+                className="sticky top-[var(--altura-tarja)] z-10 border-b border-line-strong bg-page py-2 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 md:top-[calc(var(--altura-tarja)_+_1.5rem)] md:w-9 md:shrink-0 md:self-start md:border-b-0 md:border-r md:border-line-strong md:bg-transparent md:py-4 md:pr-3 md:text-left md:[writing-mode:vertical-rl]"
               >
                 {grupo.rotulo}
               </h2>
-              <ul className="flex flex-col">
+              <ul className="flex flex-1 flex-col md:pl-2">
                 {grupo.itens.map((item, indice) => (
                   <li key={item.id} className="border-b border-line">
                     {/* Fila do Ticker (crit.10): stagger por posição no grupo
@@ -163,15 +202,17 @@ export function HistoricoClient() {
                       {/* A1 (foco não obscurecido, 2.4.11): id estável herda
                           `[id] { scroll-margin-top: 6rem }` (globals.css) — sem
                           isso, focar este link por teclado e rolar até ele o
-                          deixava colado sob o cabeçalho de dia sticky (top-10). */}
+                          deixava colado sob o cabeçalho de dia sticky.
+                          Relevo (Hemeroteca): `.gema-chip__corpo`
+                          (cinema/gema.css — reuso "sem o filho", D14) dá o
+                          bisel/keyline + lift 2px no hover/focus a cada
+                          entrada. A linha É o ticker: `.ticker-luz` aqui
+                          (crit.7), sprite z:-1 contido pelo isolation da
+                          própria primitiva. */}
                       <Link
                         id={`registro-${item.id}`}
                         href={`/tese?id=${encodeURIComponent(item.id)}&ticker=${encodeURIComponent(item.ticker)}`}
-                        // D8: a linha inteira já É o link — o "abrir →" era um CTA
-                        // redundante (grid de 2 colunas agora, não 3). A linha É o
-                        // ticker: `.ticker-luz` aqui (crit.7), sprite z:-1 contido
-                        // pelo isolation da própria primitiva.
-                        className="ticker-luz grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-4 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr]"
+                        className="ticker-luz gema-chip__corpo grid min-h-11 grid-cols-[4.5rem_1fr] items-center gap-4 px-3 py-3 transition-colors duration-[var(--dur-tick)] hover:bg-card sm:grid-cols-[5.5rem_1fr]"
                       >
                         <span className="font-mono text-meta text-ink-3">
                           {formatHora(item.criadoEm)}

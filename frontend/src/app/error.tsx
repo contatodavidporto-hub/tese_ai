@@ -24,33 +24,53 @@
 //   roda; reduced-motion já é tratado nominalmente no bloco de redução do
 //   globals.css (transform zerado). Nenhum Reveal/LinkCinema aqui: <Link>
 //   puro é a navegação mais garantida dentro de um boundary de erro.
+//
+// Missão HORIZONTE (2026-07-14 — "A Pedra Bruta", direcao-horizonte.md §9):
+// - Migração D3/D5: `mx-auto max-w-xl` -> `.bancada` (mesma lei prosa
+//   ≤68ch — bloco só texto+CTAs, E30 preservado); zero mudança na regra
+//   "SEM Header/Footer" (D9-Apoteose, boundary de erro).
+// - Mesma pedra bruta do not-found.tsx (SVG inline, `d` DUPLICADO — zero
+//   import novo, mesmo raciocínio da pegadinha 3): aqui, CSS-only via
+//   `.entrada-hero`/`.i-N` (NUNCA `<Reveal>` — este arquivo continua
+//   autossuficiente, sem observer/hook que possa re-errar).
 import Link from "next/link";
 
 import { Marca } from "@/components/site/Marca";
 
 export default function ErroGlobal({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main
-      id="conteudo"
-      className="mx-auto flex w-full max-w-xl flex-1 flex-col items-start gap-5 px-4 py-24 sm:px-6"
-    >
+    // `gap-y-5`, NUNCA `gap-5`: este `<main>` É a `.bancada` (display:grid) —
+    // a forma curta do Tailwind vira `column-gap` na grade de 5 trilhas e
+    // soma px que estouram a viewport (gate de geometria, defeito 4).
+    <main id="conteudo" className="bancada flex-1 items-start gap-y-5 py-24">
       {/* Selo sempre com o wordmark (cláusula M-c do guia de marca). */}
       <span className="entrada-hero flex items-center gap-2 text-ink">
         <Marca variante="carimbo" />
         <span className="font-display text-h3 font-semibold">Tese AI</span>
       </span>
-      <span className="entrada-hero i-1 border border-erro-borda bg-erro-fundo px-2 py-1 font-sans text-label font-semibold uppercase tracking-[0.16em] text-erro-texto">
+      <svg
+        viewBox="405 135 110 85"
+        className="entrada-hero i-1 h-16 w-auto"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M 420 150 L 470 143 L 508 168 L 497 208 L 438 212 L 413 183 Z"
+          className="nascimento-pedra-bruta"
+        />
+      </svg>
+      <span className="entrada-hero i-2 border border-erro-borda bg-erro-fundo px-2 py-1 font-sans text-label font-semibold uppercase tracking-[0.16em] text-erro-texto">
         Falha técnica
       </span>
-      <h1 className="entrada-hero i-2 font-display text-h1 font-semibold tracking-tight text-ink">
+      <h1 className="entrada-hero i-3 font-display text-h1 font-semibold tracking-tight text-ink">
         Esta edição não fechou.
       </h1>
-      <p className="entrada-hero i-3 max-w-md text-body leading-relaxed text-ink-2">
-        Um erro inesperado interrompeu o carregamento desta página. Nenhum
-        dado foi perdido — as teses já geradas continuam disponíveis no
-        Histórico deste navegador.
+      <p className="entrada-hero i-4 text-body leading-relaxed text-ink-2">
+        Um erro inesperado interrompeu o carregamento. Nenhum dado foi
+        perdido — as teses já geradas continuam no Histórico deste
+        navegador, com as mesmas citações e fontes.
       </p>
-      <div className="entrada-hero i-4 flex flex-wrap gap-3">
+      <div className="entrada-hero i-5 flex flex-wrap gap-3">
         <button
           type="button"
           onClick={reset}

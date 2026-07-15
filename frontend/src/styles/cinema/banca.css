@@ -161,6 +161,23 @@
   }
 }
 
+/* ============================================================
+ * EMENDA S3-RITO (missão FRONTEND HORIZONTE, raia 1B VITRINE, 2026-07-14)
+ * — dona desta emenda: raia 1B. Adiciona SÓ `.banca-derivando` (espelho de
+ * `.banca-arrastando` acima); nada mais nesta folha é tocado (rito do
+ * precedente S3 — comentário de emenda, dono da onda assina).
+ *
+ * `.banca-derivando` é aplicada/removida por useVitrineDeriva.ts a cada
+ * TRANSIÇÃO de fase (nunca por quadro) — desliga o snap ENQUANTO a deriva
+ * escreve `rail.scrollLeft` (o `mandatory` prenderia cada escrita, o mesmo
+ * bug clássico do drag). Ao assentar, o hook já assentou explicitamente no
+ * ponto vizinho ANTES de remover a classe (D21/D23) — o snap volta a valer
+ * exatamente onde já estamos: jump zero.
+ * ============================================================ */
+.banca-rail.banca-derivando {
+  scroll-snap-type: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Rail segue navegável (setas/dots/teclado/scroll) com deslocamento
      instantâneo; carimbo NOMINALMENTE desligado — "decorativo" (o guard

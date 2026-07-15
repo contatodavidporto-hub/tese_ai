@@ -25,12 +25,16 @@
  *       ouro não cruza 60–90° nem 70–200°). Sob @supports: sem
  *       background-clip:text a palavra herda a tinta do H1 (fallback digno).
  *
- *   .glifo-fantasma     — "[1]" monumental ~38vw, Newsreader, α 0.045,
- *       aria-hidden, contra-cursor (fator −0.03×) via --mx/--my escritas
- *       NESTA folha-elemento por usePonteiro (lista escreverEm do FocoLuz —
- *       CSSOM; nunca @property inherits:false). will-change:transform SÓ
- *       nesta folha (nunca em ancestral — trava C2). No tema claro é ele
- *       quem carrega o WOW.
+ *   .glifo-fantasma     — "[1]" monumental ~52vw (mobile ~70vw), Newsreader,
+ *       α 0.045, aria-hidden, contra-cursor (fator −0.03×) via --mx/--my
+ *       escritas NESTA folha-elemento por usePonteiro (lista escreverEm do
+ *       FocoLuz — CSSOM; nunca @property inherits:false). will-change:
+ *       transform SÓ nesta folha (nunca em ancestral — trava C2). No tema
+ *       claro é ele quem carrega o WOW.
+ *       ⚠ HORIZONTE/B2: o elemento é um `<svg><path>` (contorno vetorial da
+ *       Newsreader), NÃO um nó de texto — é o que o tira da lista de
+ *       candidatos de LCP sem encolher o desenho. Ver §3, que é a lei disto:
+ *       quem trocar o <path> por <text>/<span> devolve o glifo ao LCP.
  *
  *   .campo-brasa        — o <canvas> WebGL (CampoBrasa.tsx): camada irmã
  *       dentro do hero .tem-foco, transparente, z-index:-1, por cima do bg
@@ -160,18 +164,73 @@
    de luz/profundidade do hero, pintado na própria cor da luz; decisão 1A).
    --mx/--my chegam ESCRITAS NESTA FOLHA (lista escreverEm do FocoLuz);
    default 0px herdado de :root = parado e centrado. O overflow:hidden do
-   .tem-foco clipa o transbordo. */
+   .tem-foco clipa o transbordo.
+
+   ============================================================
+   HORIZONTE / rodada B2 (perf, 2026-07-14) — O GLIFO CONTINUA A 52vw.
+   O QUE MUDOU: ele deixou de ser NÓ DE TEXTO e virou CONTORNO VETORIAL
+   (<svg><path>, server-rendered em page.tsx). A escala aprovada (D10/D13:
+   ~52vw desktop / ~70vw mobile, sangrando pela borda direita) está INTACTA —
+   o recuo a 14vw da rodada anterior foi REVERTIDO por decisão do dono.
+
+   POR QUE (medido, `.maestro/evidencias/onda5/B2-perf/`):
+   pela spec de LCP, são candidatos <img>, <image> de SVG, poster de <video>,
+   elemento com background-image e **bloco que contém nós de TEXTO**. O glifo
+   a 52vw tem ≈550.000px² e a maior palavra do H1 ≈49.000px² (a cascata D13
+   quebra o H1 em spans POR PALAVRA — cada palavra compete sozinha): o glifo
+   goleava e VENCIA o LCP, e um glifo maior em área custa mais para
+   rasterizar/compor → o relógio ia de 112ms (baseline, 38vw) para 148ms.
+   Sendo `aria-hidden` e α 0,045, ele ser o "maior conteúdo" é ARTEFATO, não
+   verdade sobre a experiência: a correção é tirá-lo da lista de candidatos —
+   não mutilar o desenho.
+
+   O QUE NÃO FUNCIONA (tudo MEDIDO nesta rodada, para ninguém tentar de novo):
+     • `<svg><text>`   → AINDA é candidato (size 540.629px²): o
+                         PaintTimingDetector do Chromium conta texto SVG.
+     • `<text>` dentro de `<mask>` → também é reportado (676.488px²).
+     • `::before { content: "[1]" }` → conteúdo gerado por CSS é texto (rodada
+                         anterior).
+     • `font-size` pequeno + `transform: scale()` → o rect é MAPEADO pelo
+                         transform (601.029px²): não engana.
+     • `color: transparent` + `text-shadow` → segue reportado (602.508px²).
+   `<path>` é a única rota provada: geometria SVG não-<image> não entra na
+   lista de candidatos. Confirmado: com o path, o LCP volta ao H1.
+
+   FIDELIDADE DO DESENHO (não é um "[1]" desenhado à mão): o `d` são as
+   curvas REAIS da Newsreader variável instanciada em wght 500 / opsz 72 — o
+   opsz que o `font-optical-sizing: auto` já escolhia a 748px (o eixo satura
+   em 72) —, compostas com os avanços da fonte e o letter-spacing -0,04em
+   embutido. Conferência contra o motor de texto do próprio Chromium: a
+   largura da caixa bate em 0,01px (816,94px vs 816,95px @1440).
+   GEOMETRIA (é o que preserva a composição): a caixa do <svg> é a MESMA
+   caixa que o <span> tinha — `font-size` segue sendo a unidade de escala
+   (52vw/70vw) e a caixa é declarada em em: inline-size 1.091em (= o avanço
+   de "[1]" com o letter-spacing) × block-size 0.9em (= o line-height que
+   fazia a caixa). O viewBox (0 0 2182 1800, em unidades da fonte: upem 2000)
+   mapeia 1:1 nessa caixa, com a baseline no MESMO lugar (0.685em do topo —
+   a half-leading do Chromium). `overflow: visible` porque a tinta transborda
+   o topo da caixa em ~0,05em (o line-height 0.9 é menor que asc+desc da
+   fonte) — exatamente como transbordava no <span>. Quem clipa a sangria
+   continua sendo o overflow:hidden do .tem-foco.
+   BÔNUS: o glifo não depende mais do swap da webfont para pintar.
+   ============================================================ */
 .glifo-fantasma {
   position: absolute;
   top: 50%;
-  right: -4vw;
+  /* HORIZONTE crit.2 (D10/D13): ~52vw desktop, sangrando cortado pela borda
+     direita — o recuo negativo escala proporcionalmente ao tamanho
+     (era -4vw @38vw ≈ -10,5% do próprio corpo; mantido aqui em -6vw @52vw)
+     para o glifo continuar "mordido" pela borda do .tem-foco (overflow:
+     hidden), nunca inteiro nem sumido. Mobile: ~70vw (§ abaixo). */
+  right: -6vw;
   z-index: -1;
-  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
-  font-weight: 500;
-  font-size: 38vw;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-  white-space: nowrap;
+  /* `font-size` NÃO pinta texto nenhum aqui — é a UNIDADE DE ESCALA do glifo
+     (a caixa abaixo é declarada em em). Mantê-lo em vw preserva a lei
+     original: o monumento cresce com a viewport. */
+  font-size: 52vw;
+  inline-size: 1.091em; /* avanço real de "[1]" (fonte + letter-spacing) */
+  block-size: 0.9em; /* o antigo line-height: 0.9 */
+  overflow: visible; /* a tinta transborda o topo da caixa (~0,05em) */
   color: rgb(var(--luz-tinta));
   opacity: 0.045;
   pointer-events: none;
@@ -183,6 +242,18 @@
   );
   transition: transform 700ms var(--ease-cena);
   will-change: transform;
+}
+/* A tinta do glifo = a MESMA cor de registro frio de antes, agora por
+   `fill: currentColor` (o `color` acima segue sendo o único escritor da cor:
+   um-escritor-por-propriedade, e o tema continua governando o token). */
+.glifo-fantasma path {
+  fill: currentColor;
+}
+@media (max-width: 639px) {
+  .glifo-fantasma {
+    font-size: 70vw;
+    right: -10vw;
+  }
 }
 
 /* ---------- 4. Canvas do CampoBrasa (posicionamento; motor no componente) */
@@ -277,6 +348,249 @@
         scale var(--dur-set) var(--ease-cena);
     }
   }
+}
+
+/* ============================================================
+ * ---------- 6. HERO EM TELA CHEIA — "A CAPA" (HORIZONTE crit.2) ----------
+ * IMPLEMENTADA (Onda 1D — CAPA). LEI: .maestro/plano-horizonte.md §3 crit.2
+ * (E1 substitui D9) + .maestro/direcao-horizonte.md §4/D9-D13. Markup fica
+ * com o integrador (Onda 2, page.tsx) — o snippet exato está no relatório
+ * da raia. Nada abaixo toca H1-organismo/sheen/CampoBrasa(motor)/FocoLuz/
+ * entrada-hero/IlhaMagnetica (D13: intocados; só ESCALA/DISPOSIÇÃO mudam).
+ *
+ * E1 (red-team, substitui D9): NÃO existe `.dobra-capa`. Header e `<main>`
+ * ficam exatamente onde já estão (role banner + skip-link preservados); a
+ * altura de "tela cheia" vive nesta regra do PRÓPRIO `#hero`:
+ * ============================================================ */
+#hero {
+  /* min-block-size, NUNCA height: viewport exótico (barra de endereço
+     dinâmica mobile, teclado virtual) só ESTICA, nunca clipa/corta o CTA.
+     svh (nunca vh/dvh). --altura-tarja/--altura-header calibradas nos
+     platôs reais (Onda 0, gate E4) + backstop CSSOM (MedidaCromo.tsx,
+     zoom 200%/text-spacing) — este `calc` nunca precisa saber disso: as
+     duas vars já chegam corretas para a largura/zoom correntes. */
+  min-block-size: calc(100svh - var(--altura-tarja) - var(--altura-header));
+  display: grid;
+}
+
+/* ---------- 7. Composição da capa — vocabulário D10 disposto em grade
+   vertical dentro da própria Bancada (a onda 2 aplica no wrapper de
+   conteúdo: `className="bancada bancada--display capa-grade"`, filho DIRETO
+   de `#hero`, IRMÃO de glifo-fantasma/CampoBrasa/FocoLuz/OrganismoH1 — nunca
+   wrapper delas, trava C2 intacta). 4 linhas nomeadas, ordem = ordem do DOM
+   (topo->meio->base->dobra; `order` CSS PROIBIDO — não usado aqui). Larguras
+   (colunas) são declaradas DIRETO em cada `.capa-linha--*` (ver ACHADO
+   abaixo — não dependem de `.b-palco`/`.b-medida-*` no className):
+     topo  — as duas orelhas, largura = palco inteiro; flex justify-between
+             (no mobile colapsam/({achatam} — recuos §mobile abaixo).
+     meio  — cartola + H1 (`text-capa`) + linha-fina, largura = da borda do
+             palco até o fim da medida (D10); `minmax(0,1fr)` absorve o
+             espaço sobrando e empurra a base/dobra para o fim da grade.
+     base  — CTAs (esquerda) + `.citacao-pin-hero` como 1ª gema (direita),
+             largura = palco inteiro, um único wrapper flex
+             `justify-content:space-between` (evita a sobreposição de
+             grid-column que colunas "medida-esq"/"medida-dir" separadas
+             teriam no meio da medida — ambas compartilhariam a coluna
+             "medida" inteira; um wrapper flex único resolve sem conflito).
+     dobra — `.fio-travessa` (D6, já existe) + `.capa-vinco` (D10, já
+             existe), largura = sangria a sangria, no limite físico dos
+             100svh.
+   ------------------------------------------------------------ */
+.capa-grade {
+  min-block-size: 100%;
+  grid-template-rows:
+    [topo-inicio] auto
+    [topo-fim meio-inicio] minmax(0, 1fr)
+    [meio-fim base-inicio] auto
+    [base-fim dobra-inicio] auto
+    [dobra-fim];
+  row-gap: clamp(1rem, 2.5svh, 2rem);
+  padding-block: clamp(0.75rem, 2svh, 1.5rem);
+}
+/* ACHADO DESTA RAIA — DOIS bugs de nomenclatura de linha de grid, mesma
+   causa-raiz, medidos por geometria real (`.maestro/evidencias/onda1/
+   1D-capa/`):
+   (1) NÃO É ARQUIVO MEU (bancada.css é posse exclusiva da Onda 0,
+       documentado aqui + no relatório p/ o dono corrigir): `.b-palco`/
+       `.b-sangria` usam a forma CURTA `grid-column: palco` / `: sangria`
+       (um único nome). Essa forma só vira atalho de RANGE quando as linhas
+       terminam literalmente em "-start"/"-end" (convenção do spec de CSS
+       Grid, em inglês, não localizável) — as linhas desta casa terminam em
+       "-inicio"/"-fim", então o atalho NÃO resolve e o item cai no
+       auto-placement, espremido numa faixa estreita na borda. `.b-vazante-*`/
+       `.b-medida-*` (RANGE explícito `X / Y`) não têm o bug.
+   (2) NESTA PRÓPRIA FOLHA: a 1ª versão usava o MESMO atalho quebrado nas
+       LINHAS (`grid-row: topo` etc.) contra `grid-template-rows` nomeado
+       com o padrão "-inicio"/"-fim" (`[topo-inicio] ... [topo-fim
+       meio-inicio] ...`) — exatamente o defeito de (1), agora corrigido
+       abaixo com RANGE explícito em toda linha. Lição para a casa inteira:
+       nomear linhas em português proíbe o atalho de 1 palavra; toda
+       referência precisa do range completo `X-inicio / X-fim`.
+
+       ACHADO 3 (mesma família, especificidade em vez de nome): mesmo com o
+       range corrigido, `.capa-linha--topo`/`--base`/`--dobra` (specificity
+       0,1,0) continuavam sendo VENCIDAS por `.bancada > * { grid-column:
+       medida }` (bancada.css, TAMBÉM 0,1,0) — em empate de especificidade
+       quem vem DEPOIS no arquivo concatenado vence, e `bancada.css` é
+       importada DEPOIS de `hero.css` em globals.css (ordem que não é desta
+       raia mexer). `.b-medida-esq`/`.b-vazante-*` escapam disso porque são
+       declaradas mais abaixo NO MESMO ARQUIVO bancada.css (depois do
+       default `.bancada > *`) — um recurso que esta folha não tem. Fix:
+       selector composto `.capa-grade > .capa-linha--*` (0,2,0) — vence por
+       especificidade, imune à ordem de import. */
+.capa-grade > .capa-linha--topo {
+  grid-row: topo-inicio / topo-fim;
+  grid-column: palco-inicio / palco-fim;
+}
+.capa-grade > .capa-linha--meio {
+  grid-row: meio-inicio / meio-fim;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(1rem, 2.5svh, 1.5rem);
+}
+.capa-grade > .capa-linha--base {
+  grid-row: base-inicio / base-fim;
+  grid-column: palco-inicio / palco-fim;
+}
+.capa-grade > .capa-linha--dobra {
+  grid-row: dobra-inicio / dobra-fim;
+  grid-column: sangria-inicio / sangria-fim;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* O vinco fica ANCORADO sobre o fio-travessa da própria linha (D10):
+   posiciona-se por cima da hairline full-bleed sem um 2º wrapper (a régua
+   é `.b-sangria`; o vinco entra como filho seguinte na MESMA linha nomeada,
+   centralizado por `justify-content:center` do `.capa-linha--dobra`). */
+.capa-linha--dobra > .fio-travessa {
+  position: absolute;
+  inset-inline: 0;
+}
+.capa-linha--dobra > .capa-vinco {
+  position: relative;
+  background: var(--bg-page);
+  padding-inline: 0.75rem;
+}
+
+/* Mobile (D10 §4) — achado MEDIDO nesta raia (evidência em
+   `.maestro/evidencias/onda1/1D-capa/`): CTAs `py-4 px-8` (D10, "maiores")
+   empilhados cheios + citação-gema abaixo somam conteúdo genuinamente mais
+   alto que o orçamento de 100svh em 375×812 — 3 recuos, do mais barato ao
+   mais caro, medidos em sequência (nunca às cegas):
+   (1) orelhas de fato FUNDIDAS numa linha (D10 mobile: "sob o header"; o
+       flex-wrap sozinho deixava 2 linhas, ~82px — nowrap+fonte reduzida
+       fecha em 1 linha real);
+   (2) respiro vertical do miolo comprimido (row-gap/padding-block/gap do
+       `.capa-linha--meio`);
+   (3) ÚLTIMO recuo, binário: a citação-gema (reforço decorativo — a MESMA
+       citação já vive no `sup [1]` do H1 e na Prova Viva logo abaixo, não
+       é 2ª fonte) sai do fluxo medido no menor breakpoint (<400px, o mesmo
+       platô onde a Tarja já vira 2 linhas) — CTA primário + vinco são o
+       requisito duro (E11); a gema, não. */
+@media (max-width: 639px) {
+  .capa-grade {
+    row-gap: 0.5rem;
+    padding-block: 0.375rem;
+  }
+  .capa-grade > .capa-linha--meio {
+    gap: 0.625rem;
+  }
+  .capa-linha--meio .capa-linha-fina {
+    gap: 0.75rem;
+  }
+  .capa-linha--topo {
+    flex-wrap: nowrap;
+  }
+  .capa-orelha {
+    font-size: 0.6875rem;
+    letter-spacing: 0.03em;
+  }
+  .capa-linha--base [data-capa-ctas] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .capa-linha--base [data-capa-ctas] > a {
+    width: 100%;
+    text-align: center;
+  }
+  .capa-linha--base .citacao-pin-hero {
+    margin-block-start: 0.5rem;
+  }
+}
+@media (max-width: 399px) {
+  /* Recuo (3): mesmo platô de wrap da Tarja (--altura-tarja salta p/
+     5.25rem abaixo de 400px, globals.css) — o orçamento de 100svh aperta
+     ainda mais aqui. Reduz binário, do menos essencial ao mais essencial
+     (nunca itera às cegas): (a) a gema decorativa some (mesma citação já
+     vive no sup [1] do H1 e na Prova Viva); (b) a orelha DIREITA
+     (metadado editorial "EDIÇÃO DE…", não-verbatim/não-CVM) some — o
+     verbatim CVM (D11, orelha ESQUERDA) fica sozinho na linha, com a
+     largura toda para si (o texto legal não é candidato a recuo). */
+  .capa-linha--base .citacao-pin-hero {
+    display: none;
+  }
+  .capa-orelha--dir {
+    display: none;
+  }
+}
+
+/* Manchete de capa: `--text-capa` (globals.css, @theme inline — utilitário
+   Tailwind `text-capa`, já com o teto svh do E11 e lh/ls corretos herdados
+   do par `--text-capa--line-height`/`--text-capa--letter-spacing`). Só o
+   PISO mobile precisa de regra própria aqui: `--text-capa` é ÚNICO token
+   (compartilhado por mastheads de outras rotas, D3) — reescrevê-lo dentro
+   de um media query neste arquivo vazaria para consumidores futuros fora
+   do hero. Em vez disso, sobrescreve-se o seletor DESTA manchete por
+   especificidade maior (ID > classe da utility), doutrina já registrada no
+   cabeçalho desta folha. */
+@media (max-width: 639px) {
+  #hero-titulo {
+    font-size: clamp(2.75rem, 13vw, 4rem);
+  }
+}
+
+/* ---------- 8. `.capa-mascara` — referência de geometria do uMask (E1/D13)
+   Elemento IRMÃO, zero conteúdo/pintura (aria-hidden, pointer-events:none),
+   filho de `.capa-grade`, que existe SÓ para dar ao CampoBrasa (motor em
+   campoBrasa.frag.ts) um alvo `[data-mascara-brasa]` estável: a MESMA faixa
+   de coluna do texto (`.b-medida-esq`, igual à linha "meio"/CTAs), mas
+   ESTICADA por todas as linhas da grade (`grid-row: 1 / -1`, índices
+   numéricos sempre disponíveis ao lado das linhas nomeadas) — cobre a
+   orelha esquerda (D11, verbatim CVM — texto crítico) em cima e o vinco
+   centralizado embaixo (que cai dentro desta faixa: `medida-fim` normalmente
+   passa do centro físico da viewport, ver relatório da raia) sem precisar
+   de um 2º retângulo (o shader só aceita UM `uMask`, `zero mudança de
+   motor`). A orelha DIREITA (metadado não-crítico, fora desta faixa,
+   perto da beira onde o campo fica livre por design) fica FORA da
+   máscara — risco residual pequeno e sinalizado no relatório para a
+   re-enumeração AA da Onda 4 (D39 já lista "capa com uMask re-medido"). */
+.capa-grade > .capa-mascara {
+  grid-column: palco-inicio / medida-fim;
+  grid-row: 1 / -1;
+  pointer-events: none;
+}
+
+/* ---------- 9. Fio de prumo — sizing da instância da capa (D10/E1)
+   `.fio-de-prumo` (cinema/bancada.css) só declara a PINTURA/animação
+   (largura 1px, cor, scroll(root)/animation-range); esta folha (dona da
+   composição da capa) dá a ele altura/posição PARA ESTA instância. Ele
+   precisa ficar FORA de `#hero` (que é `.tem-foco`: overflow:hidden clipa
+   qualquer coisa que tente "mergulhar" para a seção seguinte) — a onda 2
+   posiciona o elemento como IRMÃO logo depois de `</section id="hero">`,
+   antes da próxima seção (nunca dentro do `.tem-foco`). Seletor por
+   adjacência: só esta instância ganha a geometria; qualquer outro uso do
+   vocabulário `.fio-de-prumo` (outra rota) fica livre para sua própria
+   altura, sem herdar isto. */
+#hero + .fio-de-prumo {
+  display: block;
+  block-size: 4rem;
+  margin-block-start: -1.25rem;
+  margin-inline: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -313,9 +313,21 @@ export function montarCampoBrasa(
     alturaHero = Math.max(rc.height, 1);
     larguraHero = Math.max(rc.width, 1);
 
-    // Máscara da coluna de texto (uv, origem embaixo). A Onda 2 pode marcar
-    // o wrapper do conteúdo com [data-mascara-brasa] para precisão; sem a
-    // marca, capa os 68% à esquerda (onde a coluna vive no layout atual).
+    // Máscara da coluna de texto (uv, origem embaixo). HORIZONTE crit.2
+    // (Onda 1D, re-medição do uMask/E1): a composição da capa deixou de ser
+    // um bloco centrado único — vira uma referência DEDICADA e invisível,
+    // `.capa-mascara` (cinema/hero.css §8), medida aqui do mesmo jeito de
+    // sempre (getBoundingClientRect do alvo `[data-mascara-brasa]` — zero
+    // mudança de motor, só troca QUEM está marcado). Ela cobre a faixa da
+    // coluna de texto esquerda (manchete/linha-fina/CTAs + a orelha
+    // esquerda/vinco, que caem dentro da mesma faixa vertical) do topo ao
+    // fim do rolo da capa; a orelha DIREITA (metadado não-crítico) fica
+    // fora, no lado onde o campo é livre por design (ver relatório da
+    // Onda 1D/CAPA — sinalizado para a re-enumeração AA da Onda 4, D39).
+    // Sem a marca (defesa em profundidade — nunca deveria faltar, a Onda 2
+    // sempre a inclui): fallback aproxima a faixa esquerda nova (~60% —
+    // mais estreita que os 68% do layout centrado anterior, já que a capa
+    // ancora a manchete a partir de `palco-inicio`, não do centro do hero).
     const alvo = container.querySelector("[data-mascara-brasa]");
     if (alvo) {
       const rm = alvo.getBoundingClientRect();
@@ -325,7 +337,7 @@ export function montarCampoBrasa(
       const y1 = Math.min(1, 1 - (rm.top - rc.top) / rc.height);
       gl.uniform4f(uMask, x0, y0, x1, y1);
     } else {
-      gl.uniform4f(uMask, 0, 0, 0.68, 1);
+      gl.uniform4f(uMask, 0, 0, 0.6, 1);
     }
     acordar();
   }

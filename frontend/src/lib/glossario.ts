@@ -128,6 +128,15 @@ export const GLOSSARIO: readonly Verbete[] = [
     fonteDoConceito: "CVM",
   },
   {
+    slug: "lacuna-declarada",
+    termo: "Lacuna declarada",
+    definicao:
+      "Quando o dado não é encontrado na fonte pública, a tese registra “dado não encontrado” no lugar do número, em vez de estimar. A ausência fica visível no texto e no registro de fontes — abster é mais honesto que preencher com chute.",
+    detalhe:
+      "Cada tese abre com a contagem de lacunas ao lado da contagem de citações e de fontes: o que faltou é parte do documento, não uma omissão. É por isso que uma lacuna nunca vira número aproximado no meio do texto.",
+    verTambem: ["citations"],
+  },
+  {
     slug: "marcacao-a-mercado",
     termo: "Marcação a mercado",
     definicao:

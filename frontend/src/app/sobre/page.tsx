@@ -36,19 +36,21 @@ type Clausula = {
 // slogans — cada um corresponde a uma regra aplicada no motor (AGENTS.md /
 // ARQUITETURA.md). Reescrita APOTEOSE: mesmo contrato, mais contexto — a
 // cláusula diz o que o motor faz E por que isso protege quem lê.
+//
+// Copy HORIZONTE (copy-horizonte-spec.md §6, verbatim — só o `texto` de cada
+// cláusula mudou; `titulo` é rótulo estável, não coberto pelo spec): as 4
+// cláusulas viram placas gravadas (cinema/gema.css, `.placa-gravada` — D14/
+// C6, "mesma gramática da Sala do Contrato").
 const CLAUSULAS: Clausula[] = [
   {
     numero: "01",
     titulo: "Não emitimos ordem de compra nem de venda.",
     texto: (
       <>
-        A plataforma estrutura a tese — síntese,{" "}
-        <TermoTooltip {...tooltipDe("contra-tese")}>contra-tese</TermoTooltip>, riscos e
-        elos — e para ali, deliberadamente. Nenhuma frase diz o que fazer com o ativo:
-        sem ordem de compra ou de venda, sem “alvo” de preço, sem timing. A decisão é
-        sempre do leitor. Tratamos a postura que a regulação da CVM espera de uma
-        ferramenta de estruturação como honra da casa, não como letra miúda — é o que
-        separa análise organizada de recomendação disfarçada.
+        Nenhuma ordem de compra ou de venda, nenhum “alvo” de preço, nenhuma sugestão de
+        momento. A ferramenta organiza o raciocínio e expõe os dois lados; a decisão é
+        sempre do leitor — é o que a regulação da CVM espera, e é o que a casa trata como
+        honra.
       </>
     ),
   },
@@ -57,12 +59,10 @@ const CLAUSULAS: Clausula[] = [
     titulo: "Todo número com fonte e data.",
     texto: (
       <>
-        Cada afirmação factual sai ancorada em citação verificável (
-        <TermoTooltip {...tooltipDe("citations")}>Anthropic Citations</TermoTooltip>
-        ): link, hospedeiro e o trecho exato do documento público de origem, com a data.
-        Sem citação, a afirmação não entra como fato — ou vira interpretação rotulada,
-        ou sai do texto. Qualquer leitor pode refazer o caminho de qualquer número até a
-        fonte.
+        Toda afirmação factual sai com{" "}
+        <TermoTooltip {...tooltipDe("citations")}>citação</TermoTooltip>, fonte pública e
+        data. Um número inventado contaminaria a tese inteira — por isso a regra não tem
+        exceção, nem para o dado mais banal.
       </>
     ),
   },
@@ -71,27 +71,36 @@ const CLAUSULAS: Clausula[] = [
     titulo: "Lacuna declarada, nunca preenchida.",
     texto: (
       <>
-        Quando o dado público não existe, não foi publicado ou não foi encontrado, a
-        tese registra “dado não encontrado” no lugar exato onde o número estaria — e
-        segue. Abster é mais honesto do que estimar: a lacuna visível preserva a
-        auditoria; um número inventado contaminaria a tese inteira.
+        Quando a fonte não tem o dado, a tese registra a{" "}
+        <TermoTooltip {...tooltipDe("lacuna-declarada")}>lacuna</TermoTooltip> e segue.
+        Abster é mais honesto que estimar: o buraco fica visível, e você sabe exatamente
+        onde a evidência acaba.
       </>
     ),
   },
   {
     numero: "04",
     titulo: "O diferencial: elos causais narrados, com fonte nas duas pontas.",
+    // Correção (defeito 5, gate copy wt-horizonte 2026-07-14): a 1ª frase do
+    // corpo repetia o título verbatim (mesmo texto empilhado 2x na tela).
+    // Reescrita sem duplicar o título e sem novo toque da metáfora da
+    // joalheria (teto 2-3 no site, §11 do spec — nenhuma palavra nova).
     texto: (
       <>
-        A camada que liga evento, commodity, setor e empresa é interpretação — e é
-        apresentada como tal, em cenários condicionais, nunca como fato. A disciplina:
-        cada ponta do <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>{" "}
-        carrega sua própria fonte e data. É o diferencial do motor — e, por isso mesmo,
-        a parte mais vigiada dele.
+        Aqui a tese interpreta, não só relata:{" "}
+        <TermoTooltip {...tooltipDe("elo-causal")}>elos causais</TermoTooltip> narrados,
+        com fonte nas duas pontas. É a parte interpretativa da tese — e justamente por
+        isso a mais vigiada: vem rotulada como interpretação, em cenários condicionais,
+        nunca como fato.
       </>
     ),
   },
 ];
+
+// C6/E27 — coluna desalinhada: deslocamento CUMULATIVO de ~1rem por placa no
+// desktop (mobile ~0,5rem) — a "escada" de A/C, mesma gramática da Sala do
+// Contrato (page.tsx #postura). Zero style inline: só classes Tailwind.
+const DESLOCAMENTO_PLACA = ["", "ml-2 md:ml-4", "ml-4 md:ml-8", "ml-6 md:ml-12"] as const;
 
 // Método resumido — dimensões canônicas verificadas em
 // backend/app/services/orquestracao.py (ARQUITETURA.md, fonte factual).
@@ -111,137 +120,182 @@ const FONTES_PUBLICAS = [
   "Tesouro Nacional",
 ] as const;
 
+// Migração HORIZONTE (D3/D5/E30, "A Bancada" — cinema/bancada.css): os 3
+// containers `mx-auto max-w-5xl` da recon (sobre:120/148/237) viram grades
+// `.bancada`. E30 — mini-gate de largura: o masthead fica em `medida`
+// (prosa ≤68ch, lei D3 — já era ~max-w-2xl/672px antes, não regride); as
+// duas seções de conteúdo (cláusulas+aside e o fecho) usam `.b-palco`
+// (~96rem/1536px de teto) — MAIS largas que o max-w-5xl (1024px) anterior,
+// nunca mais estreitas (prova: screenshot local vs baseline :3010).
 export default function Sobre() {
   return (
     <>
       <Header />
       <main id="conteudo" className="flex-1">
         <section aria-labelledby="sobre-titulo" className="border-b border-line">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-14 sm:px-6 sm:py-20">
+          <div className="bancada gap-y-4 py-14 sm:py-20">
             {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
-                aqui não há nenhuma. Stagger simples (.i-N). */}
-            <Reveal className="i-1">
+                aqui não há nenhuma. Stagger simples (.i-N).
+                E30 (correção-mãe, wt-horizonte 2026-07-14): este masthead
+                vivia no default `.bancada > *` (medida sozinha, sem palco
+                nenhum) — a pior das três rotas regredidas (-50px em
+                768–1024px). Eyebrow e H1 não são prosa (medida ≤68ch é lei só
+                para prosa, §0.9): ganham `.b-palco`. Os dois parágrafos de
+                prosa real ganham `.b-medida-esq` (mais generoso que a medida
+                pura, ainda ≤68ch de fato — nunca mais estreito que antes). */}
+            <Reveal className="b-palco i-1">
               <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
                 Sobre
               </p>
             </Reveal>
-            <Reveal className="i-2">
+            <Reveal className="b-palco i-2">
               <h1
                 id="sobre-titulo"
-                className="max-w-2xl font-display text-h1 font-semibold tracking-tight text-ink"
+                className="font-display text-h1 font-semibold tracking-tight text-ink"
               >
                 Quatro cláusulas. Nenhuma promessa que não se possa auditar.
               </h1>
             </Reveal>
-            <Reveal className="i-3">
-              <p className="max-w-2xl text-body leading-relaxed text-ink-2">
-                O Tese AI faz uma coisa: estrutura o raciocínio de investimento com
-                evidência verificável. O que a plataforma afirma, ela mostra de onde
-                veio; o que não consegue sustentar, declara que falta. Esta página é o
-                contrato de leitura — e ele vale para toda tese que sai do motor, sem
-                exceção.
+            <Reveal className="b-medida-esq i-3">
+              <p className="text-body leading-relaxed text-ink-2">
+                O Tese AI faz uma coisa só: estrutura o raciocínio de investimento com
+                evidência verificável. Esta página é o contrato de leitura — e vale para
+                toda tese que sai do motor, sem exceção.
+              </p>
+            </Reveal>
+            {/* Corpo NOVO (copy-horizonte-spec.md §6). */}
+            <Reveal className="b-medida-esq i-4">
+              <p className="text-body leading-relaxed text-ink-2">
+                Não há letra miúda depois. As quatro cláusulas abaixo são o produto
+                inteiro: se alguma delas for quebrada em qualquer tese, é defeito — e
+                você tem como provar, porque o caminho do número está impresso.
               </p>
             </Reveal>
           </div>
         </section>
 
-        <div className="mx-auto grid w-full max-w-5xl gap-12 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr]">
-          {/* Manifesto — cláusulas numeradas */}
-          <section aria-labelledby="clausulas-titulo" className="flex flex-col">
-            <h2 id="clausulas-titulo" className="sr-only">
-              Princípios
-            </h2>
-            <Reveal
-              variant="reveal-regua"
-              className="mb-8 h-px w-full origin-left bg-line-strong"
-              aria-hidden
-            >
-              {null}
-            </Reveal>
-            {CLAUSULAS.map((clausula, i) => (
-              <article
-                key={clausula.numero}
-                className={i > 0 ? "mt-10 border-t border-line-strong pt-10" : ""}
-              >
-                <Reveal className={`stagger i-${i + 1} flex gap-6`}>
-                  <span
-                    aria-hidden
-                    className="font-mono text-h2 font-semibold text-line-strong"
-                  >
-                    {clausula.numero}
-                  </span>
-                  <div className="flex flex-col gap-3">
-                    <h3 className="font-display text-h2 font-semibold leading-tight tracking-tight text-ink">
-                      {clausula.titulo}
-                    </h3>
-                    <p className="max-w-[65ch] text-body leading-relaxed text-ink-2">
-                      {clausula.texto}
-                    </p>
-                  </div>
-                </Reveal>
-              </article>
-            ))}
-          </section>
-
-          {/* Coluna secundária: método + fontes */}
-          <aside aria-labelledby="metodo-titulo" className="flex flex-col gap-10">
-            <div className="flex flex-col gap-4">
-              <h2
-                id="metodo-titulo"
-                className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
-              >
-                Método — até cinco dimensões
+        <div className="bancada py-14">
+          <div className="b-palco grid gap-12 md:grid-cols-[1.6fr_1fr]">
+            {/* Manifesto — cláusulas numeradas viram placas gravadas
+                (cinema/gema.css `.placa-gravada`, D14/C6 — ELEMENTO NOVO
+                principal desta rota, junto da faixa-assinatura do fecho). */}
+            <section aria-labelledby="clausulas-titulo" className="flex flex-col">
+              <h2 id="clausulas-titulo" className="sr-only">
+                Princípios
               </h2>
-              <ol className="flex flex-col gap-3 border-t border-line">
-                {METODO.map((dimensao) => (
-                  <li
-                    key={dimensao.id}
-                    className="flex items-baseline justify-between gap-3 border-b border-line py-2"
+              <Reveal
+                variant="reveal-regua"
+                className="mb-8 h-px w-full origin-left bg-line-strong"
+                aria-hidden
+              >
+                {null}
+              </Reveal>
+              {CLAUSULAS.map((clausula, i) => (
+                <article
+                  key={clausula.numero}
+                  className={`placa-gravada bg-card px-6 py-6 sm:px-8 ${
+                    i > 0 ? "mt-6 sm:mt-8" : ""
+                  } ${DESLOCAMENTO_PLACA[i] ?? ""}`}
+                >
+                  <Reveal
+                    variant="reveal-ticker"
+                    className={`stagger i-${i + 1} flex gap-6`}
+                    threshold={0.15}
                   >
-                    <span className="flex items-baseline gap-2">
-                      <span className="font-mono text-meta font-semibold text-brasa-texto">
-                        {dimensao.id}
-                      </span>
-                      <span className="text-ui text-ink">{dimensao.titulo}</span>
+                    <span
+                      aria-hidden
+                      className="placa-gravada__numeral inline-block px-2 py-1 font-mono text-h2 font-semibold"
+                    >
+                      {clausula.numero}
                     </span>
-                    <span className="font-mono text-meta text-ink-3">{dimensao.fonte}</span>
-                  </li>
-                ))}
-              </ol>
-              <p className="font-mono text-meta text-ink-3">
-                O quadro completo vale para as ações da B3; FIIs e títulos do Tesouro
-                Direto usam um subconjunto próprio de dimensões, cada uma com sua fonte —
-                a régua impressa em cada tese mostra exatamente quais entraram.
-              </p>
-            </div>
+                    <div className="flex flex-col gap-3">
+                      <h3 className="font-display text-h2 font-semibold leading-tight tracking-tight text-ink">
+                        {clausula.titulo}
+                      </h3>
+                      <p className="max-w-[65ch] text-body leading-relaxed text-ink-2">
+                        {clausula.texto}
+                      </p>
+                    </div>
+                  </Reveal>
+                </article>
+              ))}
+            </section>
 
-            <div className="flex flex-col gap-4">
-              <h2 className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
-                Fontes públicas usadas
-              </h2>
-              <ul className="flex flex-col gap-1 font-mono text-meta text-ink-2">
-                {FONTES_PUBLICAS.map((fonte) => (
-                  <li key={fonte}>{fonte}</li>
-                ))}
-              </ul>
-              <p className="font-mono text-meta text-ink-3">
-                Todas abertas: qualquer citação de qualquer tese pode ser conferida na
-                origem, sem cadastro e sem intermediário.
-              </p>
-            </div>
-          </aside>
+            {/* Coluna secundária: ficha técnica sobre veludo estreito
+                (S5/D19-D20 — reusa `.veludo-escopo` de cinema/vitrine.css:
+                redeclara os semânticos consumidos por `text-ink`/`text-ink-2`/
+                `text-ink-3`/`border-line`/`text-brasa-texto` abaixo — nenhum
+                fork de token novo, o mesmo mecanismo da Vitrine/Salão). */}
+            <aside
+              aria-labelledby="metodo-titulo"
+              className="veludo-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_35%,transparent)] bg-[var(--veludo-fundo)] px-6 py-8 sm:px-8"
+            >
+              <div className="flex flex-col gap-4">
+                <h2
+                  id="metodo-titulo"
+                  className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3"
+                >
+                  Método — até cinco dimensões
+                </h2>
+                <ol className="flex flex-col gap-3 border-t border-line">
+                  {METODO.map((dimensao) => (
+                    <li
+                      key={dimensao.id}
+                      className="flex items-baseline justify-between gap-3 border-b border-line py-2"
+                    >
+                      <span className="flex items-baseline gap-2">
+                        <span className="font-mono text-meta font-semibold text-brasa-texto">
+                          {dimensao.id}
+                        </span>
+                        <span className="text-ui text-ink">{dimensao.titulo}</span>
+                      </span>
+                      <span className="font-mono text-meta text-ink-3">
+                        {dimensao.fonte}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="font-mono text-meta text-ink-3">
+                  O quadro completo vale para as ações da B3; FIIs e títulos do Tesouro
+                  Direto usam um subconjunto próprio de dimensões, cada uma com sua fonte —
+                  a régua impressa em cada tese mostra exatamente quais entraram.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <h2 className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+                  Fontes públicas usadas
+                </h2>
+                <ul className="flex flex-col gap-1 font-mono text-meta text-ink-2">
+                  {FONTES_PUBLICAS.map((fonte) => (
+                    <li key={fonte}>{fonte}</li>
+                  ))}
+                </ul>
+                <p className="font-mono text-meta text-ink-3">
+                  Todas abertas: qualquer citação pode ser conferida na origem, sem
+                  cadastro e sem intermediário.
+                </p>
+              </div>
+            </aside>
+          </div>
         </div>
 
-        {/* Fecho — o contrato aplicado, não prometido. */}
+        {/* Fecho — faixa-assinatura final full-bleed (ELEMENTO NOVO
+            principal, junto das placas), aberta pelo `.fio-travessa` que se
+            IMPRIME via scaleX no scroll (E27 — elemento-novo RESERVA,
+            independente de qualquer glow/specular: é geometria pura). */}
         <section aria-labelledby="fecho-titulo" className="border-t border-line">
-          <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
-            <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
+          <div className="bancada py-10">
+            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+              {null}
+            </Reveal>
+            <div className="b-palco mt-8 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
               <p className="flex-1 text-ui text-ink-2">
                 <span id="fecho-titulo" className="font-semibold text-ink">
                   O contrato acima não é aspiração
                 </span>{" "}
                 — é o que está impresso em cada tese da galeria, hoje. Abra uma com olho
-                de auditor: siga um número qualquer até a fonte.
+                de auditor: escolha um número qualquer e siga até a fonte.
               </p>
               <LinkCinema
                 href="/teses"

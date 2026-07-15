@@ -1,0 +1,69 @@
+/* ============================================================
+ * cinema/como-funciona.css — folha NOVA, exclusiva da rota /como-funciona
+ * (raia 3C, missão "FRONTEND HORIZONTE", 2026-07-14 — direção §9 "A
+ * Oficina"). Importada DIRETO por `src/app/como-funciona/page.tsx`
+ * (`import "@/styles/cinema/como-funciona.css"`) em vez de entrar na lista
+ * central de @import de globals.css (posse do integrador da Onda 0/2, fora
+ * da posse desta raia — ver nota no relatório da missão). Next.js suporta
+ * CSS global importado em QUALQUER layout/página/componente do app router,
+ * não só no layout raiz (node_modules/next/dist/docs/01-app/01-getting-
+ * started/11-css.md, seção "Global CSS": "Global styles can be imported
+ * into any layout, page, or component inside the app directory") — a
+ * própria doc observa que o stylesheet pode persistir após navegação SPA
+ * para outra rota; inofensivo aqui porque as classes abaixo são
+ * namespaced `oficina-*` (zero colisão com qualquer outra folha/rota).
+ *
+ * CONTEÚDO: só o que Tailwind não expressa nesta página — o scrub CSS-only
+ * da versão ESTÁTICA da cena do nascimento (`CenaNascimento.tsx`, Server
+ * Component da raia 1A, reusado aqui SEM `NascimentoScrub`: R2 absoluto,
+ * zero gsap em rota interna). A régua de leitura, o pipeline em "estações
+ * de bancada" (`.gema-chip`/`.gema-chip__corpo`, gema.css) e a linha
+ * estática que as liga usam só utilitários Tailwind direto no JSX — nada
+ * disso precisa de regra própria aqui.
+ *
+ * D16 (lapidacao.css, dona 1A) já garante que o SVG nasce no estado
+ * FINAL/completo (todo `[data-plano]` com `opacity:1` por default) — esta
+ * folha só ACRESCENTA uma entrada suave quando o navegador suporta scroll-
+ * driven animations (`view-timeline-name` NOMEADA, direção §9). Sem
+ * suporte, a regra abaixo inteira é descartada por `@supports` — o
+ * visitante já vê o diagrama pronto (degradação digna, aceita pela direção
+ * para uma rota de aprofundamento, distinta do rig GSAP de 240svh da
+ * landing). O seletor `.oficina-cena-scrub` é um wrapper PRÓPRIO desta
+ * página — nunca toca `.nascimento-*`/`.gema-chip` (posse de 1A), então
+ * zero risco de contaminar a instância da landing.
+ * ============================================================ */
+
+@supports (view-timeline-name: --oficina-cena) {
+  .oficina-cena-scrub {
+    view-timeline-name: --oficina-cena;
+    view-timeline-axis: block;
+    animation-name: oficina-cena-revela;
+    animation-timeline: --oficina-cena;
+    animation-range: entry 5% cover 45%;
+    animation-fill-mode: both;
+  }
+
+  @keyframes oficina-cena-revela {
+    from {
+      opacity: 0.4;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL (LEI §0): o avanço aqui reflete o scroll que o
+     próprio leitor decidiu fazer (mesma doutrina de `.fio-de-prumo`/
+     `.regua-leitura`), mas a rampa de entrada parte de um estado
+     PARCIALMENTE oculto (opacity .4) — por precaução, tratada como
+     decorativa: sob reduce, o estado final entra direto, sem rampa. */
+  .oficina-cena-scrub {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
