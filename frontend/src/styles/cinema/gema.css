@@ -188,6 +188,76 @@
 }
 
 /* ------------------------------------------------------------
+ * 2b. Relevo + cravação das placas de #postura (missão OURIVESARIA,
+ *     raia 2A · §3-C6, conceito B §6.2/§6.4)
+ * ------------------------------------------------------------
+ * Escopo pelo ID `#postura` (E25 — ids das seções são contrato): as
+ * placas de /sobre seguem byte-idênticas (posse 2C intacta). Sem classe
+ * de opt-in: seletores 100% de substrings JÁ existentes no bundle — um
+ * token novo de classe custava gzip acima do teto 6.9 (medido).
+ * — LIFT: `translate` −3px que ASSENTA (--ease-ink) — propriedade
+ *   SEPARADA do `transform` inline do GSAP (a placa é [data-cena-el];
+ *   precedente exato do lift da gema). One-shot por mudança de estado
+ *   (2.2.2 ✓ — nada contínuo).
+ * — LUME DE KEYLINE: anel de 1px em --fio-lapidario 55% POR FORA da
+ *   borda (spread de box-shadow — a border line-strong fica intacta
+ *   embaixo: o par AA de repouso não muda; box-shadow da PLACA não tinha
+ *   dono — um escritor ✓). SEM .tem-foco (§7-F5 — doutrina 1.4.13 de
+ *   #postura: nada de overflow:hidden em ancestral de TermoTooltip).
+ *   Mesmo tratamento nos 2 temas (keyline, não glow — S2 folgada; a
+ *   sombra-fria alongada do conceito foi CORTADA pelo teto de bytes da
+ *   landing, ruling 6.9 — decisão registrada no relatório da raia).
+ * — CRAVAÇÃO DO NUMERAL: quando o ato do scrub chega à seção, o espelho
+ *   body[data-secao="postura"] (AmbienteLanding/useSecaoAtiva — mecanismo
+ *   EXISTENTE da landing que acompanha a cena ativa; zero escritor novo,
+ *   zero transform) acende o numeral ink-3 → --accent-valor (cravação de
+ *   COR sobre o baixo-relevo estático — aprofundar a sombra custava bytes
+ *   acima do teto 6.9; registrado). Hover/focus-within da placa acende o
+ *   MESMO estado (paridade fora do espelho/no-JS; par AA único do gate
+ *   G5). Transição de color one-shot --ease-ink — categoria "transições
+ *   de color" ISENTA registrada (§7-F7).
+ * Reduce (§7-F7, NOMINAL — bloco no fim desta folha): transition none +
+ * translate none; o lume/cravação viram troca de estado INSTANTÂNEA
+ * (estado, não movimento — mesmo racional do .exemplo-vivo). */
+/* `#postura` no seletor de TRANSITION: especificidade que VENCE a regra
+   `.bg-card` do corpo do globals (cross-fade de tema — corpo do globals
+   ganha o empate, provado por computed na sonda da raia). CUSTO ACEITO
+   (teto de bytes 6.9): o cross-fade de tema das 3 placas vira corte seco
+   — re-listar background/border-color aqui estourava o teto +150B da
+   landing (decisão registrada no relatório da raia). Nos demais seletores
+   o id é DESNECESSÁRIO (nenhuma regra global disputa translate/box-shadow/
+   color ali) e fica de fora pelo mesmo teto. */
+#postura .placa-gravada,
+.placa-gravada__numeral {
+  /* Lista calcada byte-a-byte na do lift da gema (box-shadow+translate a
+     --dur-tick) + o par de color do cross-fade do body (--dur-set) — os
+     três termos são substrings JÁ presentes no bundle (gzip backref; foi
+     o que coube no teto 6.9). O numeral dispensa o id (nenhuma regra
+     global disputa color ali; em /sobre a transition é INERTE — nenhum
+     estado muda color). */
+  transition:
+    box-shadow var(--dur-tick) var(--ease-ink),
+    translate var(--dur-tick) var(--ease-ink),
+    color var(--dur-set) var(--ease-ink);
+}
+/* Lume da keyline: --fio-lapidario (e não --valor-brilho) — provado por
+   pixel na sonda da raia: o brilho-pálido sobre papel claro media 1.06:1
+   (invisível); o ouro-base lê nos DOIS temas (mesma família; ornamento
+   aditivo — a border line-strong de repouso segue por baixo). */
+#postura .placa-gravada:hover,
+#postura .placa-gravada:focus-within {
+  translate: 0 -3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fio-lapidario) 55%, transparent);
+}
+/* Cravação = COR (o baixo-relevo estático já é a "sombra" — aprofundá-la
+   custava bytes acima do teto 6.9; registrado). */
+[data-secao="postura"] .placa-gravada__numeral,
+#postura .placa-gravada:hover .placa-gravada__numeral,
+#postura .placa-gravada:focus-within .placa-gravada__numeral {
+  color: var(--accent-valor);
+}
+
+/* ------------------------------------------------------------
  * 3. `.exemplo-vivo` — espaço reservado + reveal por opacity (D35)
  * ------------------------------------------------------------
  * SEMPRE no DOM, SEMPRE ocupando sua altura natural desde o SSR — zero
@@ -228,13 +298,21 @@
  *     reduzir: já são estado final por construção).
  * ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .gema-chip__corpo {
+  /* 2A (§7-F7, nominal): lift/lume/cravação das placas de #postura —
+     transition none + translate none; keyline do lume e cor da cravação
+     seguem como TROCA DE ESTADO instantânea (estado, não movimento —
+     "transições de color" isentas registradas). */
+  .gema-chip__corpo,
+  #postura .placa-gravada,
+  .placa-gravada__numeral {
     transition: none;
   }
   .gema-chip:hover .gema-chip__corpo,
   .gema-chip:focus-within .gema-chip__corpo,
   .gema-chip__corpo:hover,
-  .gema-chip__corpo:focus-within {
+  .gema-chip__corpo:focus-within,
+  #postura .placa-gravada:hover,
+  #postura .placa-gravada:focus-within {
     translate: none;
   }
   .exemplo-vivo {

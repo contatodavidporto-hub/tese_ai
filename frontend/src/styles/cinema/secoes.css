@@ -197,6 +197,55 @@
 }
 
 /* ============================================================
+ * SALA DO CONTRATO VIVA (missão OURIVESARIA, raia 2A · §3-C6)
+ * ============================================================
+ * FIO DO AVAL — o <FioDaFonte/> REUSADO em #postura (zero JS novo): o
+ * CenaScrub da seção encontra o [data-fio-path] e desenha o traço na
+ * janela 0.20–0.65 da timeline (mecanismo idêntico ao fio de #prova —
+ * scrub reversível por natureza). Material OURO --fio-lapidario 1px
+ * (conceito B §6.1): o fio de #prova segue safira (trilha de auditoria);
+ * o do aval é a luz da bancada costurando as 3 placas do contrato.
+ * Âncoras em page.tsx: numeral 01 → numerais 02/03 → base da fileira de
+ * placas — o traço TERMINA acima do box CVM por construção (honra/M3).
+ * Reduce: HERDADO de .fio-da-fonte (bloco no fim desta folha:
+ * dashoffset 0 !important = fio completo estático — registro nominal).
+ * D3c (fio × content-visibility): consulta de offsetLeft/Top em subárvore
+ * skipped FORÇA o layout (spec c-v; interação já auditada em #prova na
+ * P.4) — coexistência re-provada por sonda na raia 2A (gate do scrub).
+ * Especificidade: o id vence o stroke safira base de .fio-da-fonte. */
+#postura [data-fio-path] {
+  stroke: var(--fio-lapidario);
+  stroke-width: 1;
+}
+
+/* LUME DA SEÇÃO (2A) — camada irmã decorativa sob o conteúdo, montada
+ * como REUSO da primitiva `.aurora-masthead` (globals): o ::before dela
+ * pinta a poça safira `rgb(var(--luz-tinta)/var(--luz-aurora-alfa))` —
+ * e `--luz-aurora-alfa` já é modulada por body[data-secao="postura"]
+ * (luz.css): o lume respira com o ambiente da casa, zero gradiente novo
+ * (o desenho autoral de poça dupla ouro+safira foi CORTADO pelo teto de
+ * bytes 6.9 — o ouro da sala vem do fio do aval + keyline/cravação;
+ * decisão registrada). O overflow:hidden da primitiva clipa só o ::before
+ * DESTE div vazio — o div é IRMÃO (jamais ancestral) dos TermoTooltips:
+ * §7-F5 intacta. Esta regra só POSICIONA (o id vence o position:relative
+ * da primitiva — globals corpo ganharia o empate): topo da seção, 24rem —
+ * jamais sobre .exemplo-vivo/box CVM (M3 por geometria; placas bg-card
+ * opacas por cima); z:-1 sob o texto (#postura é stacking context por
+ * construção: content-visibility ⇒ contain paint — se o carve-out D3c um
+ * dia remover o c-v, re-adicionar `isolation:isolate` no MESMO commit).
+ * A OPACITY do div é da timeline do CenaScrub (é [data-cena-el] — dona
+ * única; zero escritor novo): 0→1 na entrada, piso 0.55 na saída;
+ * default no-JS/reduce = 1 (D16, sala acesa; o gradiente em si é
+ * estático — movimento = só a opacity do scrub, coberta pelo bloco
+ * reduce nominal desta folha). */
+#postura .lume-postura {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 24rem;
+  z-index: -1;
+}
+
+/* ============================================================
  * PERF — content-visibility SELETIVO (§3-C10/H3 + §7-D1 · ruling 6.7)
  * DONA: Onda P.4 (missão OURIVESARIA, 2026-07-17)
  * ============================================================
