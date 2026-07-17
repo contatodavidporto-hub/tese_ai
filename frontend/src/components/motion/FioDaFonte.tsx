@@ -12,8 +12,8 @@
  *
  * DECISÃO DE INTEGRAÇÃO (contrato com CenaScrub, documentada nos dois
  * lados): o desenho é INTEGRADO NA TIMELINE da seção — o CenaScrub da prova
- * viva encontra o <path data-fio-path pathLength=1> e tweena
- * strokeDashoffset 1→0 (scrub 0.6) do meio da entrada ao fim do platô.
+ * viva encontra o <path data-fio-path pathLength=100> e tweena
+ * strokeDashoffset 100→0 (scrub 0.6) do meio da entrada ao fim do platô.
  * A alternativa (CSS var de progresso escrita por quadro na folha do path)
  * foi descartada: teria dois mecanismos para o mesmo progresso e uma
  * escrita extra de propriedade por quadro. Um escritor por propriedade:
@@ -44,7 +44,7 @@
  *   - sem JS: SSR emite o SVG sem `d` — nada é desenhado, nada é oculto
  *     (decorativo por construção);
  *   - com JS sem gsap (falha de chunk): o fio fica recolhido
- *     (stroke-dashoffset:1 via folha, só sob no-preference) — decorativo,
+ *     (stroke-dashoffset:100 via folha, só sob no-preference) — decorativo,
  *     nenhum conteúdo depende dele;
  *   - reduced-motion: bloco reduce de cinema/secoes.css força
  *     stroke-dashoffset:0 !important — fio COMPLETO, estático (o traço da
@@ -235,9 +235,16 @@ export function FioDaFonte({
       focusable="false"
       className={className ? `fio-da-fonte ${className}` : "fio-da-fonte"}
     >
-      {/* pathLength=1 normaliza o comprimento: dasharray/dashoffset operam
-          em 0–1 para QUALQUER geometria (mesmo truque da dataviz). */}
-      <path data-fio-path="" pathLength={1} />
+      {/* pathLength=100 normaliza o comprimento: dasharray/dashoffset operam
+          em 0–100 para QUALQUER geometria (mesmo truque da dataviz).
+          OURIVESARIA 3A (registro-2a d.2): era 1 — o escritor de
+          strokeDashoffset serializa px INTEIROS, e no range [0,1] o desenho
+          virava binário (1px↔0px, sem intermediários; provado no obase por
+          sonda_2a_fio_prova). Com 100, o scrub ganha ~100 degraus (desenho
+          progressivo de verdade). VALOR SINCRONIZADO com: CenaScrub.tsx
+          (fromTo 100→0) e secoes.css (.fio-da-fonte dasharray/dashoffset
+          100). O reduce (dashoffset 0 !important) independe do range. */}
+      <path data-fio-path="" pathLength={100} />
     </svg>
   );
 }
