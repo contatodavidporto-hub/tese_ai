@@ -111,18 +111,20 @@ function edicaoDeHoje(): string {
 
 // Dimensões canônicas D1…D5 (ARQUITETURA.md — verificadas em
 // backend/app/services/orquestracao.py). `numero`/`titulo`/`fonte` INTACTOS;
-// `texto` = copy nova, aplicada VERBATIM de .maestro/ondas/copy-horizonte-spec.md
-// §2.5. `texto` é ReactNode (contrato do SalaoDimensoes, raia 1C): é aqui que
-// entram os TermoTooltip DENTRO das bolhas — o gatilho focável é o que torna
-// `focusin → travelling` um caminho REAL de teclado (e o pior caso 1.4.13 da
-// bolha da borda, E13). Slugs SÓ de src/lib/glossario.ts (D7).
+// `texto` = copy nova, TRANSCRITA byte-fiel de .maestro/copy-ourivesaria.md
+// §2 (COPY CONGELADA da missão Ourivesaria — §7-E5: divergência sobe ao
+// maestro, nunca se resolve aqui). `texto` é ReactNode (contrato do
+// SalaoDimensoes, raia 1C): é aqui que entram os TermoTooltip DENTRO das
+// bolhas — o gatilho focável é o que torna `focusin → travelling` um caminho
+// REAL de teclado (e o pior caso 1.4.13 da bolha da borda, E13). Tooltips nos
+// MESMOS termos/slugs de antes; slugs SÓ de src/lib/glossario.ts (D7).
 const DIMENSOES: readonly DimensaoSalao[] = [
   {
     numero: "D1",
     titulo: "Fundamentos",
     fonte: "CVM",
     texto:
-      "O que a empresa declara ao regulador: receita, margens, dívida — direto das demonstrações públicas da CVM. Nada além do que o documento sustenta.",
+      "O que a empresa declara ao regulador: receita, margens, dívida e caixa, direto das demonstrações públicas arquivadas na CVM. A tese não completa o que o documento não diz — cada linha vem do arquivo, com data de publicação.",
   },
   {
     numero: "D2",
@@ -131,9 +133,9 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     texto: (
       <>
         Como empresas parecidas aparecem nos{" "}
-        <TermoTooltip {...tooltipDe("sec-edgar")}>arquivos da SEC</TermoTooltip>, lá fora.
-        Comparação selecionada, com a ressalva de moeda e padrão contábil — nunca
-        equivalência.
+        <TermoTooltip {...tooltipDe("sec-edgar")}>arquivos da SEC</TermoTooltip>, lá fora. A
+        comparação é selecionada e rotulada: moeda, padrão contábil e porte entram como
+        ressalva explícita, porque semelhança não é equivalência.
       </>
     ),
   },
@@ -143,9 +145,9 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     fonte: "BCB",
     texto: (
       <>
-        O chão em que a empresa pisa: juros, câmbio e atividade nas séries do Banco Central,
-        e o preço do petróleo <TermoTooltip {...tooltipDe("brent")}>Brent</TermoTooltip> —
-        cada série com rótulo e data.
+        O chão em que a empresa pisa: juros, câmbio e atividade nas séries abertas do Banco
+        Central, e o preço do petróleo <TermoTooltip {...tooltipDe("brent")}>Brent</TermoTooltip>.
+        Cada série chega com rótulo, unidade e data — nunca um índice sem origem.
       </>
     ),
   },
@@ -154,7 +156,7 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     titulo: "Macro global",
     fonte: "World Bank + Tesouro",
     texto:
-      "O vento que vem de fora: atividade e juros globais, pelo Banco Mundial e pelo Tesouro dos EUA — o contexto que também pressiona a tese, com rótulo e data.",
+      "O vento que vem de fora: atividade global pelo Banco Mundial e juros longos pelo Tesouro dos EUA. É o contexto que pressiona a tese de longe — medido, datado e citado como tudo o mais.",
   },
   {
     numero: "D5",
@@ -162,9 +164,10 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     fonte: "fonte nas duas pontas",
     texto: (
       <>
-        A ligação narrada entre evento, commodity, setor e empresa. É interpretação, marcada
-        como tal — e com fonte nas duas pontas de cada{" "}
-        <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>.
+        A ligação narrada entre evento, commodity, setor e empresa. É interpretação — e é
+        marcada como interpretação, com fonte nas duas pontas de cada{" "}
+        <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>. Você pode discordar do
+        meio segurando as duas pontas.
       </>
     ),
   },
