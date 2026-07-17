@@ -537,15 +537,18 @@ export default function Home() {
         </CenaScrub>
 
         {/* ============================================================
-            3. A CENA DO NASCIMENTO (crit. 3c) — seção NOVA entre #prova e
-            #galeria, FORA de qualquer CenaScrub (R1: nenhum ancestral do
-            sticky pode receber transform — grep de auditoria).
-            O cabeçalho e o colofão ficam FORA do rolo de 240svh: o
-            `.nascimento-cena` é o ÚNICO filho do rolo, então o sticky começa
-            exatamente onde a timeline do NascimentoScrub começa (trigger "top
-            top" do rolo). Um cabeçalho dentro do rolo dessincronizaria o
-            scrub do grude. `aria-labelledby` cruza a fronteira por ID — o
-            nome acessível da seção continua sendo o h2 visível.
+            3. A CENA DO NASCIMENTO (crit. 3) — 8 planos em 420svh (missão
+            OURIVESARIA 1C, §3-C3/§7-B5), FORA de qualquer CenaScrub (R1:
+            nenhum ancestral do sticky pode receber transform — grep de
+            auditoria). O cabeçalho e o colofão ficam FORA do rolo de
+            420svh: o `.nascimento-cena` é o ÚNICO filho do rolo, então o
+            sticky começa exatamente onde a timeline do NascimentoScrub
+            começa (trigger "top top" do rolo). Um cabeçalho dentro do rolo
+            dessincronizaria o scrub do grude. `aria-labelledby` cruza a
+            fronteira por ID — o nome acessível da seção continua sendo o
+            h2 visível. `legendasVisiveis` liga o letreiro (E-A3: o próprio
+            <ol>, fonte única); `.nascimento-poeira` é camada decorativa da
+            atmosfera --nasc-lume (aria-hidden, cinema/nascimento.css).
             ============================================================ */}
         <div className="bancada gap-y-3 pt-14">
           <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
@@ -572,7 +575,8 @@ export default function Home() {
             className="nascimento-rolo b-sangria"
           >
             <div className="nascimento-cena">
-              <CenaNascimento />
+              <CenaNascimento legendasVisiveis />
+              <div aria-hidden="true" className="nascimento-poeira" />
             </div>
           </section>
         </NascimentoScrub>
