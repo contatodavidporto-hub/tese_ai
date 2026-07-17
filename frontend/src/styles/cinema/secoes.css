@@ -196,6 +196,55 @@
   }
 }
 
+/* ============================================================
+ * PERF — content-visibility SELETIVO (§3-C10/H3 + §7-D1 · ruling 6.7)
+ * DONA: Onda P.4 (missão OURIVESARIA, 2026-07-17)
+ * ============================================================
+ * MOTIVO: pular render/layout/paint das duas seções scrubadas mais
+ * distantes da dobra na janela de load (a fração de menor risco do
+ * −153ms provado em bloco pela Horizonte). SÓ #prova e #postura —
+ * JAMAIS salão pinado (#dimensoes: pin-spacer/snap do ScrollTrigger),
+ * rolo do nascimento (sticky + contain próprio em lapidacao.css) ou
+ * #galeria (IO interno de dots com root=rail). Ids são contrato E25.
+ *
+ * INTRINSIC-SIZE MEDIDA (offsetHeight real, :3000 @1628987, 2 temas
+ * idênticos, pré==pós-scroll — evidencias/perf/intrinsic-sizes.json):
+ *   #prova   1004px @390×844 · 591px @768×1024 · 528px @1440×900
+ *   #postura 2053px @390×844 · 1293px @768×1024 · 1078px @1440×900
+ * PEGADINHA MEDIDA NA RAIA: contain-intrinsic-size dimensiona a caixa
+ * de CONTEÚDO — o py-14 das seções (2×56px = 112px) soma POR FORA no
+ * estado skipped (provado: box 2165/1405/1190 com estimativa "cheia").
+ * Os valores abaixo são o offsetHeight real MENOS 112px de padding.
+ * Os 3 viewports divergem ~2× (valor único não casa ±10% com o real):
+ * medida FLUIDA justificada (§7-D1) — reta por (390, h390)–(768, h768)
+ * com clamp nos extremos medidos. Conferência (BOX = clamp + 112px)
+ * nos 3 viewports do gate:
+ *   #prova   box → 1004 / 592,9 / 528  (Δ ≤ +1,9px = 0,32%)
+ *   #postura box → 2053 / 1293,3 / 1078 (Δ ≤ +0,4px)
+ * `auto` na frente: o tamanho ÚLTIMO-RENDERIZADO substitui a estimativa
+ * após a 1ª renderização (re-entrada sem shift por construção).
+ *
+ * INTERAÇÕES AUDITADAS: CenaScrub mede o trigger por gBCR na criação
+ * (intrinsic ≈ real ⇒ start/end corretos; re-prova por screenshot do
+ * ato vs obase); FioDaFonte mede offsetLeft/Top no mount — consulta de
+ * geometria em conteúdo skipped FORÇA o layout da subárvore (spec c-v):
+ * a medida sai correta, provado no gate do scrub. TermoTooltips dentro
+ * das seções: paint containment clipa tinta na borda da SEÇÃO — popups
+ * abrem a ≥180px da borda (provado por sonda 1.4.13 na raia P.4).
+ * Gate D1 (CLS): carga 0 absoluto + cls_scroll_bench 3 viewports com
+ * atribuição — zero shift de #prova/#postura, zero fonte nova vs obase.
+ */
+#prova,
+#postura {
+  content-visibility: auto;
+}
+#prova {
+  contain-intrinsic-size: auto clamp(416px, 1318px - 109vw, 892px);
+}
+#postura {
+  contain-intrinsic-size: auto clamp(966px, 2725px - 201vw, 1941px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Sob reduce o gsap.matchMedia NÃO cria trigger nenhum e nenhum estado
      inicial é escrito — conteúdo 100% visível desde o SSR (se reduce está
