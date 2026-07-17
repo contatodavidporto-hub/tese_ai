@@ -294,7 +294,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
           item 20; ela cobre a caixa inteira via `inset:0`, então continua
           válida no card agora full-bleed. Missão APOTEOSE (crit. 10):
           `.masthead-apoteose` (cinema/tese-apoteose.css) imprime a keyline
-          ameixa no topo 1x no mount — entrada mais rica sem tocar no
+          tinta (--moldura-tinta) no topo 1x no mount — entrada mais rica sem tocar no
           writer do <Reveal> (o keyframe anima só o ::after próprio); a
           aurora segue com o alfa CALIBRADO do globals (reuso, nunca boost
           local). Essa keyline + o `border-b-4` abaixo são as "réguas

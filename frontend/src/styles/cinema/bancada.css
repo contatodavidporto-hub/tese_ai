@@ -46,7 +46,7 @@
  * (assimetria — ocupa metade do palco + a medida inteira de um lado) e
  * `.b-medida-esq/-dir` (a medida ancorada numa borda do palco, sem sangrar
  * até a beirada física). Aninhável: um `.bancada` dentro de um `.b-sangria`
- * recria as colunas dentro de um palco (ex.: veludo da vitrine) — zero CSS
+ * recria as colunas dentro de um palco (ex.: câmara da vitrine) — zero CSS
  * extra, é a mecânica normal de grid aninhado. RTL-safe (grid-column por
  * nome de linha, não por índice físico); CLS-safe (first-paint puro, zero
  * medição JS).
@@ -112,8 +112,8 @@
  * mecanismo de animação novo, a página aplica as duas classes juntas
  * (`className="fio-travessa reveal-regua"`) num `<hr>`/`<div>` aria-hidden.
  * Ritmo de capítulos da landing (D6, documentação — não é CSS):
- * papel-claro (capa) -> papel (prova) -> papel (nascimento) -> veludo
- * (vitrine) -> veludo escurecendo (salão) -> papel (contrato).
+ * papel-claro (capa) -> papel (prova) -> papel (nascimento) -> câmara
+ * (vitrine) -> câmara escurecendo (salão) -> papel (contrato).
  * ------------------------------------------------------------ */
 .fio-travessa {
   grid-column: sangria-inicio / sangria-fim; /* range explícito — ver §1 */

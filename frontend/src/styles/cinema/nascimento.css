@@ -137,7 +137,7 @@
 
 @media (prefers-color-scheme: dark) {
   /* No escuro a vinheta aprofunda (anel neutro 0.35 + 8% de penumbra
-     safira — alfas na família do --veludo-vinheta-alfa 0.45). */
+     safira — alfas na família do --camara-vinheta-alfa 0.45). */
   .nascimento-cena::before {
     background:
       radial-gradient(ellipse at 50% 46%, transparent 50%, rgb(0 0 0 / 0.35) 100%),

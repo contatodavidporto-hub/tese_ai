@@ -81,14 +81,14 @@
  * ============================================================ */
 
 /* ------------------------------------------------------------
- * 1. O VELUDO QUE ESCURECE (D25/7a) — pórtico + salão
+ * 1. A CÂMARA QUE ESCURECE (D25/7a) — pórtico + salão
  * ------------------------------------------------------------
- * "O veludo da vitrine NÃO termina: escurece." O pórtico (cabeçalho +
+ * "A câmara da vitrine NÃO termina: escurece." O pórtico (cabeçalho +
  * parágrafo, markup do integrador via `children`) e o salão são IRMÃOS
  * diretos do <main> (E1: zero ancestral flex acima do pinado — o bug
  * histórico do pinSpacing) e compartilham a MESMA superfície.
  *
- * `.veludo-escopo` (definida em cinema/vitrine.css, raia 1B — mecanismo
+ * `.camara-escopo` (definida em cinema/vitrine.css, raia 1B — mecanismo
  * REUSÁVEL, D20/E5/E6) é aplicada nos DOIS pelo TSX: é ela que re-declara
  * os PARES COMPLETOS de tokens semânticos e força o ramo de elevação por
  * CLASSE. Esta folha NÃO redeclara nenhum token do escopo — só consome.
@@ -97,26 +97,26 @@
 .salao-fundo {
   /* Câmara aprofundando (OURIVESARIA C8): mesma tinta-de-safira da câmara
      (~221°, croma contido — fora das DUAS janelas banidas: verde 70–200 e
-     violeta 250–345), 22% mais funda. O token base (--veludo-fundo, valor
+     violeta 250–345), 22% mais funda. O token base (--camara-fundo, valor
      congelado na Onda 0.5; rename --camara-* é da 1B) JÁ é a câmara — o
      color-mix local permanece o ponto único de recomposição do salão.
      Escurecer só AUMENTA o contraste da tinta (AA anda a favor). */
-  --salao-veludo: color-mix(in srgb, var(--veludo-fundo) 78%, black);
-  background: var(--salao-veludo);
-  color: var(--veludo-tinta);
+  --salao-camara: color-mix(in srgb, var(--camara-fundo) 78%, black);
+  background: var(--salao-camara);
+  color: var(--camara-tinta);
 }
 
 .salao-portico {
   padding-block: 3.5rem 2rem;
   /* M2 — "Degrau de profundidade" (conceito B §2.3): a fronteira vitrine →
      pórtico deixa de ser corte seco — a câmara não termina, APROFUNDA numa
-     rampa de 5rem, da superfície da vitrine (--veludo-fundo) ao fundo do
-     salão (--salao-veludo). background é propriedade desta folha (um
+     rampa de 5rem, da superfície da vitrine (--camara-fundo) ao fundo do
+     salão (--salao-camara). background é propriedade desta folha (um
      escritor ✓); após 5rem o gradiente segura a cor final até o fim. */
   background: linear-gradient(
     to bottom,
-    var(--veludo-fundo),
-    var(--salao-veludo) 5rem
+    var(--camara-fundo),
+    var(--salao-camara) 5rem
   );
 }
 
@@ -202,18 +202,18 @@
   background: radial-gradient(
     ellipse at center,
     transparent 42%,
-    rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
+    rgb(0 0 0 / var(--camara-vinheta-alfa)) 100%
   );
 }
 
-/* Anel de foco DENTRO do veludo (E15): o `--accent-text` global cai a
-   ~2,39:1 sobre o veludo (reprova 2.4.7). A lista abaixo é só de elementos
-   cujo anel desenha SOBRE o veludo — o miolo da bolha é `bg-elevated`
-   ESCURO (escopo-veludo), então links internos também ficam nela. */
-.veludo-escopo .salao-trilho:focus-visible,
-.veludo-escopo .salao-talha:focus-visible,
-.veludo-escopo .bolha-bancada a:focus-visible {
-  outline-color: var(--veludo-anel);
+/* Anel de foco DENTRO da câmara (E15): o `--accent-text` global cai a
+   ~2,39:1 sobre a câmara (reprova 2.4.7). A lista abaixo é só de elementos
+   cujo anel desenha SOBRE a câmara — o miolo da bolha é `bg-elevated`
+   ESCURO (escopo-câmara), então links internos também ficam nela. */
+.camara-escopo .salao-trilho:focus-visible,
+.camara-escopo .salao-talha:focus-visible,
+.camara-escopo .bolha-bancada a:focus-visible {
+  outline-color: var(--camara-anel);
 }
 
 /* ------------------------------------------------------------
@@ -316,7 +316,7 @@
      desceriam até ~104px e sobrepunham conteúdo em toda tela touch). */
 }
 
-/* Sombra elíptica projetada no CHÃO do veludo — é ela que dá o peso 3D
+/* Sombra elíptica projetada no CHÃO da câmara — é ela que dá o peso 3D
    (o disco não é um adesivo: ele PAIRA sobre a mesa). Decorativa; z-index
    -1 dentro do stacking context da seção (acima da vinheta, abaixo do
    miolo). A distância varia com o plano de profundidade (nth abaixo). */
@@ -354,7 +354,7 @@
       transparent 72%
     ),
     var(--bg-elevated);
-  /* Keyline-engaste ouro 1px + sombra curta de peso (o veludo é escuro nos
+  /* Keyline-engaste ouro 1px + sombra curta de peso (a câmara é escura nos
      DOIS temas: a elevação aqui é keyline + sombra, doutrina S5). O dial
      `--bolha-keyline` (default 55%) é o que a ênfase da vez sobe a 80% —
      UMA declaração de box-shadow, um escritor (dieta E-C2). */
@@ -379,7 +379,7 @@
   font-size: var(--text-h3);
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--veludo-tinta);
+  color: var(--camara-tinta);
 }
 .bolha-texto {
   max-inline-size: 38ch; /* §7-A5 — medida 36–40ch (NUNCA 42ch: não cabe em
@@ -387,7 +387,7 @@
   font-size: var(--text-body-lg); /* 17px — token de uso EXCLUSIVO
      bolha/letreiro (§7-E10, congelado na Onda 0.5) */
   line-height: 1.6;
-  color: var(--veludo-tinta); /* tinta da câmara (§3-C4: par re-provado por
+  color: var(--camara-tinta); /* tinta da câmara (§3-C4: par re-provado por
      pixel no gate G2 da raia — sobre o miolo bg-elevated do escopo) */
 }
 /* Selo da fonte — a MESMA gramática dos selos da cena do nascimento
@@ -404,7 +404,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: 0.04em;
-  color: var(--veludo-tinta-2);
+  color: var(--camara-tinta-2);
 }
 .bolha-selo__marca {
   font-weight: 600;
@@ -703,7 +703,7 @@
   display: block;
   inline-size: 2px;
   block-size: 12px;
-  background: var(--veludo-tinta-2);
+  background: var(--camara-tinta-2);
   opacity: 0.55; /* OURIVESARIA 1D (achado do pré-cheque 0.4): 0.5 deixava a
      talha inativa marginal sobre a câmara — 0.55 é o piso da casa (E-A3) */
   transition:
@@ -729,7 +729,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: 0.08em;
-  color: var(--veludo-tinta-2);
+  color: var(--camara-tinta-2);
 }
 .salao-contador--dica {
   color: var(--accent-valor);

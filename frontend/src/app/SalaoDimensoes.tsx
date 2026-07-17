@@ -26,7 +26,7 @@
 //       CENTRO a CENTRO e cruzava os painéis por dentro. Aqui ele nasce na
 //       BORDA (círculo publicado) de uma bolha e morre na BORDA da seguinte,
 //       por FORA, com garantia geométrica (§ "O FIO", abaixo).
-//   (c) "grande espaço vazio" → o vazio virou o palco: veludo com vinheta,
+//   (c) "grande espaço vazio" → o vazio virou o palco: câmara com vinheta,
 //       poeira de luz em paralaxe (0.55×), bolhas em 3 planos de
 //       profundidade com sombra projetada no chão, e a catenária ocupando o
 //       corredor entre elas.
@@ -871,10 +871,10 @@ export function SalaoDimensoes({
 
   return (
     <>
-      {/* PÓRTICO — a chegada (D25/7a): o veludo da vitrine não termina,
+      {/* PÓRTICO — a chegada (D25/7a): a câmara da vitrine não termina,
           escurece. Cabeçalho + parágrafo vêm do integrador (children), sobre
           a MESMA superfície. Irmão direto do <main>, como a seção. */}
-      <div className="salao-portico veludo-escopo">{children}</div>
+      <div className="salao-portico camara-escopo">{children}</div>
 
       {/* A SEÇÃO É O PALCO: filha direta do <main>, sem container, sem
           ancestral flex (E1/E3) — é ela que o ScrollTrigger pina. */}
@@ -882,7 +882,7 @@ export function SalaoDimensoes({
         ref={secaoRef}
         id="dimensoes"
         aria-labelledby={rotuladoPor}
-        className="salao-fundo veludo-escopo"
+        className="salao-fundo camara-escopo"
       >
         <div ref={poeiraRef} aria-hidden className="salao-poeira" />
 

@@ -9,7 +9,7 @@ import { usePonteiro } from "@/components/motion/usePonteiro";
  * Onda 1A): TRÊS camadas-sprite `aria-hidden` puramente decorativas,
  * irmãs dentro do container `.tem-foco`, estilizadas em `cinema/luz.css`:
  *
- *   `.foco-luz-penumbra` — anel EXTERNO ameixa (~310°), o corpo mais lento;
+ *   `.foco-luz-penumbra` — anel EXTERNO safira (~221°), o corpo mais lento;
  *   `.foco-luz`          — o BLOOM (90vmax, stop 45%, ~700ms --ease-cena);
  *   `.foco-luz-nucleo`   — o NÚCLEO rápido (36vmax, chega em ~180ms).
  *

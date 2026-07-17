@@ -415,7 +415,7 @@ export default function ComoFuncionaPage() {
                           {c.narrada ? (
                             // HORIZONTE (direção §9): a cláusula narrada ganha
                             // moldura de pull-quote em `--moldura-tinta`
-                            // (nome antigo *ameixa* aposentado — rename atômico
+                            // (nome antigo aposentado — rename atômico
                             // da Onda 0.5 OURIVESARIA, achado 39; DESIGN-TOKENS.md,
                             // "keyline 1px de molduras editoriais... pull-
                             // quotes"), reusando o mesmo Tailwind estático de

@@ -222,7 +222,7 @@ export default function Sobre() {
             </section>
 
             {/* Coluna secundária: ficha técnica sobre câmara estreita
-                (S5/D19-D20 — reusa `.veludo-escopo` de cinema/vitrine.css:
+                (S5/D19-D20 — reusa `.camara-escopo` de cinema/vitrine.css:
                 redeclara os semânticos consumidos por `text-ink`/`text-ink-2`/
                 `text-ink-3`/`border-line`/`text-brasa-texto` abaixo — nenhum
                 fork de token novo, o mesmo mecanismo da Vitrine/Salão).
@@ -232,7 +232,7 @@ export default function Sobre() {
                 lê pelo par de superfícies). */}
             <aside
               aria-labelledby="metodo-titulo"
-              className="veludo-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_calc(var(--labio-alfa)*100%),transparent)] bg-[var(--veludo-fundo)] px-6 py-8 sm:px-8"
+              className="camara-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_calc(var(--labio-alfa)*100%),transparent)] bg-[var(--camara-fundo)] px-6 py-8 sm:px-8"
             >
               <div className="flex flex-col gap-4">
                 <h2

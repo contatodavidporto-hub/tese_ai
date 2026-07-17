@@ -4,24 +4,24 @@
  * .maestro/plano-horizonte.md §3 (C4) + §5 (E5/E6/E7/E8/E15/E16/E17/E18/
  * E21/E24) + .maestro/direcao-horizonte.md §6 (D19-D24) + §12 (tokens).
  * ============================================================
- * CONTEÚDO desta folha ("veludo/pedestais/deriva/controle", D7):
- *   1. `.vitrine-veludo` — a faixa de veludo full-bleed (~72svh), vinheta
+ * CONTEÚDO desta folha ("câmara/pedestais/deriva/controle", D7):
+ *   1. `.vitrine-camara` — a faixa de câmara full-bleed (~72svh), vinheta
  *      radial, keylines ouro-alfa no dark (D19).
- *   2. `.veludo-escopo` — mecanismo REUSÁVEL (D20, corrigido por E5/E6):
- *      aplique em QUALQUER superfície opaca de veludo — `.vitrine-veludo`
+ *   2. `.camara-escopo` — mecanismo REUSÁVEL (D20, corrigido por E5/E6):
+ *      aplique em QUALQUER superfície opaca de câmara — `.vitrine-camara`
  *      aqui; `.salao-fundo` no Salão (raia 1C) e o aside de método do
  *      /sobre (raia 3D) REUSAM esta mesma classe, definida aqui uma vez.
  *   3. Pedestais (`.vitrine-pedestal`, D19).
  *   4. Estilos do controle da deriva (`.vitrine-controle`, D22/E16-E18).
  *
  * CONSUMO (GaleriaBanca.tsx, page.tsx — integrador da Onda 2):
- *   <section id="galeria" className="vitrine-veludo veludo-escopo b-sangria">
- *     ...título/lede em --veludo-tinta, GaleriaBanca...
+ *   <section id="galeria" className="vitrine-camara camara-escopo b-sangria">
+ *     ...título/lede em --camara-tinta, GaleriaBanca...
  *   </section>
  * ============================================================ */
 
 /* ------------------------------------------------------------
- * 1. `.vitrine-veludo` — a faixa (D19)
+ * 1. `.vitrine-camara` — a faixa (D19)
  * ------------------------------------------------------------
  * `min-block-size` (nunca `height`): o conteúdo pode crescer além de 72svh
  * sem clipar (D19 é um alvo visual, não um teto rígido). `isolation:isolate`
@@ -31,10 +31,10 @@
  * chega pela coluna `.b-sangria` da Bancada (cinema/bancada.css) aplicada
  * no MESMO elemento pelo integrador — E3: nunca `vw` aqui.
  * ------------------------------------------------------------ */
-.vitrine-veludo {
+.vitrine-camara {
   position: relative;
   isolation: isolate;
-  background: var(--veludo-fundo);
+  background: var(--camara-fundo);
   min-block-size: 72svh;
   display: flex;
   flex-direction: column;
@@ -60,7 +60,7 @@
   box-shadow: inset 0 18px 32px -24px rgb(0 0 0 / 0.5);
 }
 @media (max-width: 639px) {
-  .vitrine-veludo {
+  .vitrine-camara {
     min-block-size: auto;
     padding-block: 2rem;
   }
@@ -70,7 +70,7 @@
    o conteúdo vive no centro vertical da faixa por construção do flex
    acima). Decorativa, `pointer-events:none`, sem reduced-motion (estática,
    não é movimento — isenta por definição, não por nome). */
-.vitrine-veludo::before {
+.vitrine-camara::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -79,15 +79,15 @@
   background: radial-gradient(
     ellipse at center,
     transparent 45%,
-    rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
+    rgb(0 0 0 / var(--camara-vinheta-alfa)) 100%
   );
 }
 
 /* ------------------------------------------------------------
- * 2. ESCOPO-VELUDO (D20, corrigido por E5/E6) — MECANISMO REUSÁVEL
+ * 2. ESCOPO-CÂMARA (D20, corrigido por E5/E6) — MECANISMO REUSÁVEL
  * ------------------------------------------------------------
- * Aplique `.veludo-escopo` em QUALQUER superfície opaca de veludo desta
- * missão (`.vitrine-veludo` aqui · `.salao-fundo` do Salão, raia 1C · o
+ * Aplique `.camara-escopo` em QUALQUER superfície opaca de câmara desta
+ * missão (`.vitrine-camara` aqui · `.salao-fundo` do Salão, raia 1C · o
  * aside de método do /sobre, raia 3D) — todas reusam esta MESMA definição;
  * nenhuma outra folha redeclara os tokens abaixo (uma fonte, D7).
  *
@@ -95,11 +95,11 @@
  * nunca meio-par (E5): um `--bg-card` claro herdando `--ink-primary` do
  * tema errado é quase-branco sobre branco; um CTA `bg-brasa` sem
  * `--accent-on-action` re-declarado cairia a ~2,5:1. Os valores são SEMPRE
- * os do tema ESCURO do site (o veludo é escuro nos dois temas) — por
+ * os do tema ESCURO do site (a câmara é escura nos dois temas) — por
  * CLASSE, nunca por `@media (prefers-color-scheme)` (E6): no tema CLARO
  * do site, sem isto, os herdados (palco.css/banca.css) pegariam o ramo
  * "sombra fria"/claro dos seus PRÓPRIOS `@media` internos — invisível
- * sobre o veludo escuro.
+ * sobre a câmara escura.
  *
  * Sub-superfícies opacas internas (cartões, bolhas) HERDAM este conjunto
  * por cascata normal de custom property (`--bg-card`/etc. são herdáveis)
@@ -112,7 +112,7 @@
  * de volta a si mesmos) porque este bloco PRECISA vencer independente do
  * tema do site.
  * ------------------------------------------------------------ */
-.veludo-escopo {
+.camara-escopo {
   --bg-card: #16181d;
   --bg-elevated: #1d2027;
   --ink-primary: #ebe9e4;
@@ -128,28 +128,28 @@
 }
 
 /* E6 — força por CLASSE o ramo "keyline dark" dos herdados do palco
-   (cinema/palco.css) dentro do veludo: sem isto, no tema CLARO do site o
+   (cinema/palco.css) dentro da câmara: sem isto, no tema CLARO do site o
    palco aplicaria a sombra fria (condicionada só a
    `@media(prefers-color-scheme:dark)` naquela folha), invisível sobre o
-   veludo escuro. Repete EXATAMENTE a regra dark de palco.css, por classe
+   câmara escuro. Repete EXATAMENTE a regra dark de palco.css, por classe
    (especificidade + ordem de @import — vitrine.css entra DEPOIS de
    palco.css — garantem a vitória sem !important). */
-.veludo-escopo .banca-rail .cartao-ticker:hover,
-.veludo-escopo .banca-rail .cartao-ticker:focus-visible {
+.camara-escopo .banca-rail .cartao-ticker:hover,
+.camara-escopo .banca-rail .cartao-ticker:focus-visible {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--valor-brilho) 30%, transparent);
 }
 
 /* E15 — anel de foco escopado: SÓ para elementos cujo `:focus-visible`
-   desenha diretamente SOBRE o veludo (cartão, controle, dot, seta) — o
+   desenha diretamente SOBRE a câmara (cartão, controle, dot, seta) — o
    `--accent-text` global cai a ~2,39:1 ali (reprova 2.4.7). Elementos
    sobre uma sub-superfície CLARA interna (nenhuma existe hoje dentro da
    vitrine) manteriam o anel padrão por simplesmente NÃO entrar nesta
    lista — registro do padrão para o Salão/aside reusarem. */
-.veludo-escopo .cartao-ticker:focus-visible,
-.veludo-escopo .vitrine-controle:focus-visible,
-.veludo-escopo .banca-dot:focus-visible,
-.veludo-escopo .seta-filmstrip:focus-visible {
-  outline-color: var(--veludo-anel);
+.camara-escopo .cartao-ticker:focus-visible,
+.camara-escopo .vitrine-controle:focus-visible,
+.camara-escopo .banca-dot:focus-visible,
+.camara-escopo .seta-filmstrip:focus-visible {
+  outline-color: var(--camara-anel);
 }
 
 /* ------------------------------------------------------------
@@ -194,7 +194,7 @@
   padding-inline: 0.875rem;
   border: 1px solid var(--border-field);
   background: transparent;
-  color: var(--veludo-tinta-2);
+  color: var(--camara-tinta-2);
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   transition:
@@ -202,8 +202,8 @@
     color var(--dur-tick) var(--ease-ink);
 }
 .vitrine-controle:hover {
-  border-color: var(--veludo-tinta-2);
-  color: var(--veludo-tinta);
+  border-color: var(--camara-tinta-2);
+  color: var(--camara-tinta);
 }
 .vitrine-controle__icone {
   font-size: 1rem;

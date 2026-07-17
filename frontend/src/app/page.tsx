@@ -587,11 +587,11 @@ export default function Home() {
         </div>
 
         {/* ============================================================
-            4. A VITRINE (crit. 4) — a faixa de veludo full-bleed. O `.b-sangria`
+            4. A VITRINE (crit. 4) — a faixa de câmara full-bleed. O `.b-sangria`
             no <section> é inerte aqui (o <main> não é grade — e não pode ser:
             um ancestral flex/grid desliga o pinSpacing do Salão logo abaixo);
             fica registrado porque a faixa JÁ é borda-a-borda por ser um bloco
-            de nível de <main>. `.veludo-escopo` re-declara os PARES COMPLETOS
+            de nível de <main>. `.camara-escopo` re-declara os PARES COMPLETOS
             de tokens semânticos (E5/E6) — por isso `text-ink`/`text-ink-2` aqui
             dentro já saem claros nos DOIS temas, sem fork de componente.
             E18: o <div> que envolve <GaleriaBanca> NÃO leva [data-cena-el] — o
@@ -604,7 +604,7 @@ export default function Home() {
             id="galeria"
             data-cena="galeria"
             aria-labelledby="galeria-titulo"
-            className="capitulo vitrine-veludo veludo-escopo b-sangria"
+            className="capitulo vitrine-camara camara-escopo b-sangria"
           >
             <div className="bancada gap-y-6">
               <div data-cena-el="" className="b-medida-esq flex flex-col gap-3">
@@ -661,7 +661,7 @@ export default function Home() {
 
         {/* ============================================================
             5. O SALÃO DE LAPIDAÇÃO (crit. 5) — o travelling de página inteira.
-            O componente renderiza, num fragmento, o PÓRTICO (o veludo que
+            O componente renderiza, num fragmento, o PÓRTICO (a câmara que
             escurece; recebe este cabeçalho como children) e a própria
             <section id="dimensoes">: os dois viram FILHOS DIRETOS de <main>.
             NENHUM wrapper aqui — um ancestral flex/grid desliga o pinSpacing,

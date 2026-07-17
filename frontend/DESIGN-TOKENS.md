@@ -447,7 +447,7 @@ mas a ordem é reforço deliberado do plano, não uma dependência única.
   (tabela de tokens abaixo) e **recuo BINÁRIO**: reprovou AA por pixel →
   keyline sem specular, nunca itera às cegas. Doutrina dark intacta:
   elevação-base continua = borda/keyline (nunca glow puro no escuro).
-- **S5 — o veludo como superfície de palco**: a ameixa (~285°, fora do hue
+- **S5 — a superfície opaca de palco** *(era HORIZONTE — "veludo" ameixa ~285°; re-materializada como família `--camara-*` tinta-de-safira ~221° e renomeada na OURIVESARIA, raia 1B)*: a ameixa (~285°, fora do hue
   banido 70–200°) deixa de ser keyline decorativa e vira **superfície
   OPACA** (`--veludo-fundo`), exclusiva de DUAS faixas da landing (vitrine
   + salão) e do aside de método do `/sobre`. NÃO é acento: nenhum
@@ -561,7 +561,7 @@ bloco de redução existente).
 | `--altura-header` | `4.5rem` (≥768px) / `5.5rem` (<768px) | idem | contrato de altura do Header (E1) — **estimativa Onda 0** | mesmo gate E4 |
 | `--sangria` | `1rem` (≥640px: `1.5rem`) | idem | respiro mínimo de borda da Bancada | fixo (geometria) |
 | `--medida` / `--palco-max` | `68ch` / `96rem` | idem | colunas da Bancada | ≤68ch é lei (D3) |
-| `--veludo-fundo` | `#241e2b` | `#16121c` | superfície do salão/vitrine (S5, hue ~285°) | superfície opaca, nunca wash; recuo S5: re-skin `--bg-page` |
+| `--veludo-fundo` *(era HORIZONTE — família renomeada `--camara-*` e re-materializada na OURIVESARIA; ver emenda abaixo)* | `#241e2b` | `#16121c` | superfície do salão/vitrine (S5, hue ~285°) | superfície opaca, nunca wash; recuo S5: re-skin `--bg-page` |
 | `--veludo-tinta` | `#efe9e4` | `#e9e5df` | tinta primária sobre veludo | ≥12:1 (verificado ~13,5:1) |
 | `--veludo-tinta-2` | `#beb3c6` | `#b3a9bc` | metadados/legendas/controles sobre veludo | ≥4.5:1 texto / ≥3:1 UI no pico real; recuo: clarear lightness |
 | `--veludo-anel` | `var(--valor-brilho)` | idem | `:focus-visible` DENTRO do escopo veludo (E15) — `--accent-text` global dá ~2,39:1 ali | ≥3:1 (estimado ~11:1) |
@@ -574,14 +574,14 @@ bloco de redução existente).
 | `--bolha-specular-alfa` | `0.10` | `0.10` | calota specular da bolha-bancada (S4) | teto de partida 0.10 (0.12 só com pixel-prova); recuo binário → keyline |
 | `--deriva-vel` | `12` (px/s; mobile <640px: `8`) | idem | cruzeiro da vitrine (lido 1× por `getComputedStyle`) | ≤16; recuo perf: update 30fps; reduce = nem monta |
 
-Mecanismo **escopo-veludo** (D20/E5/E6 — não é token, é contrato, para as
-raias 1B/1C aplicarem): `.vitrine-veludo`/`.salao-fundo` re-declaram
+Mecanismo **escopo-câmara** (D20/E5/E6 — não é token, é contrato; nome da
+era HORIZONTE: *escopo-veludo*): `.vitrine-camara`/`.salao-fundo` re-declaram
 localmente **PARES COMPLETOS** de semânticos (superfície+tinta+on-accent:
 `--bg-card`/`--bg-elevated`, `--ink-primary/-2/-3`, `--text-sobre-brasa`,
 `--border-line/-strong`, anel) — nunca meio-par (E5: um `bg-card` claro
 herdando `ink-primary` do tema errado é quase-branco sobre branco). O ramo
 de elevação (sombra fria claro / keyline dark) é forçado por **CLASSE**
-(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)` (E6). Todos
+(`.camara-escopo`), nunca por `@media (prefers-color-scheme)` (E6). Todos
 os pares entram na re-enumeração AA por pixel (Onda 4). Zero hex de
 conteúdo/tinta/brasa existente muda; zero hue novo em 70–200°.
 
@@ -677,7 +677,8 @@ antes do 1º rAF da deriva) em `useLayoutEffect` — nunca durante o 1º render
 servidor do cliente e quebra a hidratação; a leitura correta acontece
 depois do render inicial, sempre servidor-primeiro).
 
-**O escopo-veludo (`.veludo-escopo`)** — re-declaração de **pares
+**O escopo-câmara (`.camara-escopo`; nome da era HORIZONTE:
+`.veludo-escopo`)** — re-declaração de **pares
 completos** (superfície+tinta+on-accent: `--bg-card`/`--bg-elevated`,
 `--ink-primary/-2/-3`, `--text-sobre-brasa`, `--border-line/-strong`, anel),
 nunca meio-par. Por quê: re-declarar só a tinta (sem a superfície-par) deixa
@@ -685,7 +686,7 @@ a cascata descer até sub-superfícies opacas internas com o tema ERRADO —
 ex.: um `bg-card` claro herdando `--ink-primary` do tema escuro vira
 quase-branco sobre branco (texto invisível). O ramo de elevação (sombra fria
 no claro / keyline ouro no escuro) é forçado **por CLASSE**
-(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
+(`.camara-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
 pergunta "qual é o tema do SISTEMA operacional", não "este elemento está
 sobre veludo" — no tema CLARO sobre um veludo (superfície opaca ~285°,
 sempre escura) o ramo por media query aplicaria o tratamento de elevação do
@@ -762,7 +763,7 @@ vez do `@import` global único que hoje entra em toda rota via
 | `--grafico-5` | `#46628c` | `#a3b5cc` | aço-safira ~216° — faixa de Bollinger / 5ª série | Recuo 222° (`#5a7bab`/`#b9c6d9`) **NÃO acionado**; prova de franja contra a janela do verde ok (drift medido para baixo) |
 | `--luz-penumbra` | `26 38 66` · α `0.03` | `104 122 156` · α `0.04` | anel externo da luminária COLAPSADO na safira ~221° (um só eixo de temperatura) | Alfas/geometria/tempos INTOCADOS; recuo pré-aprovado do passo 0.7 (escada −8 de L no triplet escuro) reservado à varredura verde `capa_escuro` |
 | `--moldura-tinta` | `#2d3f66` | `#8ea3c7` | keyline 1px de molduras editoriais (pull-quotes, borda do masthead) — decorativo, nunca texto/estado; ~221° | Rename ATÔMICO feito nesta 0.5 (achado 39): `@theme` + `como-funciona/page.tsx` + `tese-apoteose.css` no mesmo passe; grep-zero pelo nome antigo em `src/` |
-| família **câmara** (hoje `--veludo-*`; rename → `--camara-*` é da raia 1B, §7-E1 fase serial) | fundo `#1b2334` · tinta `#efe9e4` · tinta-2 `#aebacf` · anel `var(--valor-brilho)` · vinheta-α `0.35` | fundo `#131a26` · tinta `#e9e5df` · tinta-2 `#a9b6cb` · anel idem · vinheta-α `0.45` | superfície de palco tinta-de-safira (câmara = pedra: S≤33/L≤15,5; nunca confundir com `--accent-confianca` = voz) | VALORES congelados (protótipo 0.3: recuo "escurecer câmara" **NÃO acionado** — nenhum hex novo); recuo S5 herdado (re-skin `--bg-page`) segue registrado |
+| família **câmara** — `--camara-fundo` / `--camara-tinta` / `--camara-tinta-2` / `--camara-anel` / `--camara-vinheta-alfa` (rename atômico **FEITO** pela raia 1B, 2026-07-17, §7-E1 fase serial; classes `.camara-escopo` / `.vitrine-camara`) | fundo `#1b2334` · tinta `#efe9e4` · tinta-2 `#aebacf` · anel `var(--valor-brilho)` · vinheta-α `0.35` | fundo `#131a26` · tinta `#e9e5df` · tinta-2 `#a9b6cb` · anel idem · vinheta-α `0.45` | superfície de palco tinta-de-safira (câmara = pedra: S≤33/L≤15,5; nunca confundir com `--accent-confianca` = voz) | VALORES congelados (protótipo 0.3: recuo "escurecer câmara" **NÃO acionado** — nenhum hex novo); recuo S5 herdado (re-skin `--bg-page`) segue registrado |
 | `--gema-quilha` (claro) | `rgb(42 54 84 / 0.28)` | `rgb(0 0 0 / 0.45)` (intocado) | aresta de sombra do bisel — família sombra-fria | teto ≤0.30; recuo: keyline simples |
 | `--labio-alfa` | `0.5` | `0.5` | dial do lábio de ouro — CONTRATO da fronteira REAL de material no dark (§7-C3) | **0.50 = primeiro degrau da escada pré-aprovada 0.35→0.50→0.60 que fecha ≥3:1 POR PIXEL nos dois lados, nas 2 bordas** ("fronteira dark lê com lábio 0.50"). Teto 0.60 (headroom medido 4,04/4,09 — disponível se a raia 1B quiser margem); recuo binário 1px sólido `var(--accent-valor)` medido 9,08/9,18 — registrado, **NÃO acionado**. Tema claro: lábio DECORATIVO (sem exigência 3:1) — fronteira assinada pelo par papel×câmara 15,27:1 (§7-C3a) |
 | `--ritmo-assento` / `--ritmo-bloco` / `--ritmo-respiro` / `--ritmo-capitulo` / `--ritmo-pos-fio` | `1.5rem` / `3rem` / `6rem` / `3.5rem` / `1.5rem` | idem | escala única de ritmo (C2): título→conteúdo · blocos irmãos · seções de mesmo fundo (substitui hairline) · padding por lado da fronteira de material · vão único pós-fio | `gate_ritmo.py`: vão ∈ {0.75, 1.5, 3, 6}rem ±1px OU exceção da lista FECHADA (`ritmo-excecoes.json`) |
@@ -785,8 +786,10 @@ nunca alegado para superfície). **PROIBIDO** citar Mehta & Zhu 2009
 (excluído pelo brief por falha de replicação). Mapa do rename: 
 `--moldura-ameixa` → `--moldura-tinta` (FEITO nesta 0.5, atômico);
 `--veludo-*` → `--camara-*` e `.veludo-escopo` → `.camara-escopo` /
-`.vitrine-veludo` → `.vitrine-camara` (raia 1B, commit único + grep-zero +
-sincronização do harness §7-C9).
+`.vitrine-veludo` → `.vitrine-camara` (**FEITO pela raia 1B, 2026-07-17**:
+commit único + grep-zero funcional e nominal em `src/` e
+`.maestro/ferramentas/` + harness sincronizado §7-C9 — gate1_virada,
+fps_deriva, gate_ritmo, prova_tokens, medir_aa, prototipo_04).
 
 #### Nota C6 — os 12 hexes do escopo dark são BYTE-IDÊNTICOS
 

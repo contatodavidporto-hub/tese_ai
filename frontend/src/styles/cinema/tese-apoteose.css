@@ -28,7 +28,7 @@
  *     remove a box do pseudo-elemento (content:none) quando a chegada veio
  *     do morph — decisão de classList (TeseClient.tsx lê-e-limpa a flag
  *     `tese-ai:morph-chegada` e aplica `.morph-chegada` ANTES do paint).
- *   - `transform` do ::after do masthead (keyline ameixa) — só o keyframe
+ *   - `transform` do ::after do masthead (keyline tinta) — só o keyframe
  *     `masthead-keyline` daqui.
  *   - `opacity` do container do EsqueletoTese — só o keyframe
  *     `esqueleto-respira` daqui (as réguas internas seguem com o writer
@@ -64,7 +64,7 @@ html body .virada-edicao.morph-chegada::after {
 }
 
 /* ---------- Crit. 10 — MASTHEAD INTENSIFICADO ----------
-   Keyline tinta-de-safira (--moldura-tinta, nome antigo *ameixa* aposentado
+   Keyline tinta-de-safira (--moldura-tinta, nome antigo aposentado
    — rename atômico Onda 0.5 OURIVESARIA, achado 39: "borda do masthead" é
    uso canônico do token — decorativo, nunca texto/estado, hue ~221° fora da
    faixa banida)

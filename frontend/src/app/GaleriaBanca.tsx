@@ -43,7 +43,7 @@
 // coalescência dos dots durante a deriva é nova (E24, ver `aoMudarEstado`).
 //
 // INTEGRAÇÃO (Onda 2, page.tsx): o wrapper `<section id="galeria">` ganha
-// `className="vitrine-veludo veludo-escopo b-sangria"`; o `<div data-cena-el>`
+// `className="vitrine-camara camara-escopo b-sangria"`; o `<div data-cena-el>`
 // que hoje envolve `<GaleriaBanca>` deve DEIXAR de ter `data-cena-el` (E18 —
 // ver relatório da raia 1B: o controle não pode desbotar a 0.55 na saída do
 // CenaScrub).
@@ -348,7 +348,7 @@ export default function GaleriaBanca({ tickers, cartoes }: GaleriaBancaProps) {
                   (≥3.15:1 até no pico da luz), ativo `bg-brasa-texto`
                   (mesmo papel de "tab ativa" do design system).
                   `.banca-dot` (HORIZONTE): âncora do anel escopado ao
-                  veludo (`.veludo-escopo .banca-dot:focus-visible`,
+                  câmara (`.camara-escopo .banca-dot:focus-visible`,
                   cinema/vitrine.css, E15). */}
               <button
                 type="button"

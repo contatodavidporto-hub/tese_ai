@@ -208,7 +208,7 @@
      screenshot no pico composto (cláusula de recuo: pico combinado da
      luminária recua p/ 0.12/0.14 e aurora p/ 0.06/0.06 se o AA não fechar —
      DESIGN-TOKENS.md §1). Luminária DUPLA: núcleo rápido (~180ms) + bloom
-     com inércia (700ms) + anel de penumbra ameixa. Implementação: Onda 1A
+     com inércia (700ms) + anel de penumbra safira. Implementação: Onda 1A
      (cinema/luz.css + FocoLuz.tsx com 3 sprites). */
   --luz-nucleo-alfa: 0.043; /* pico do núcleo rápido (36vmax, lag ~180ms) */
   --luz-bloom-alfa: 0.1; /* PROVISÓRIO — valor FINAL sai do calibra_tokens.py
@@ -236,7 +236,7 @@
     por background-position; keyline ≤4px; varredura única na palavra
     "fonte" do hero) — nunca texto sozinho */
   --moldura-tinta: #2d3f66; /* OURIVESARIA CONGELADO 0.5 (rename atômico do
-    nome antigo *ameixa*, achado 39/§7-E10; consumidores atualizados no
+    nome antigo aposentado, achado 39/§7-E10; consumidores atualizados no
     mesmo passe: @theme abaixo, como-funciona/page.tsx,
     tese-apoteose.css) — keyline 1px de molduras editoriais (pull-quotes,
     aberturas de capítulo, borda do masthead) — decorativo, nunca
@@ -350,18 +350,18 @@
   --medida: 68ch; /* prosa — lei tipográfica (D3), nunca ultrapassada por default */
   --palco-max: 96rem; /* teto do palco editorial (~1536px) */
 
-  /* Veludo — S5: a ameixa promovida a superfície OPACA de palco (vitrine +
-     salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
+  /* Câmara — S5: tinta-de-safira promovida a superfície OPACA de palco
+     (vitrine + salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
      binário registrado: se o dono vetar no wow-gate, re-skin sobre
      --bg-page com vinheta fria (nenhuma onda acopla lógica a este valor). */
-  --veludo-fundo: #1b2334; /* OURIVESARIA CONGELADO 0.5: tinta-de-safira (câmara).
-    Rename --veludo-* → --camara-* é da raia 1B (§7-E1 fase serial); VALOR final. */
-  --veludo-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --veludo-fundo */
-  --veludo-tinta-2: #aebacf; /* OURIVESARIA CONGELADO 0.5 — metadados/legendas/controles sobre veludo —
+  --camara-fundo: #1b2334; /* OURIVESARIA CONGELADO 0.5: tinta-de-safira (câmara).
+    Rename para --camara-* FEITO pela raia 1B (§7-E1 fase serial, commit atômico); VALOR final. */
+  --camara-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --camara-fundo */
+  --camara-tinta-2: #aebacf; /* OURIVESARIA CONGELADO 0.5 — metadados/legendas/controles sobre câmara —
     >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 3) */
-  --veludo-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
-    veludo (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
-  --veludo-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
+  --camara-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
+    câmara (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
+  --camara-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
 
   /* Gema-chip (crit.3, D14/S4/M3-b) — bisel 1px + sombra dupla (claro) /
      keyline (escuro, S2). Arestas (--gema-aresta/--gema-quilha) ficam FORA
@@ -546,11 +546,11 @@
     /* HORIZONTE (Onda 0) — únicos tokens novos desta missão que trocam de
        valor por tema (os demais são geometria fixa ou aliases que já
        trocam sozinhos via --valor-brilho/--accent-valor acima). */
-    --veludo-fundo: #131a26; /* OURIVESARIA CONGELADO 0.5: câmara escura —
+    --camara-fundo: #131a26; /* OURIVESARIA CONGELADO 0.5: câmara escura —
       mantido pelo protótipo 0.3 (recuo "escurecer câmara" NÃO acionado) */
-    --veludo-tinta: #e9e5df;
-    --veludo-tinta-2: #a9b6cb; /* OURIVESARIA CONGELADO 0.5 */
-    --veludo-vinheta-alfa: 0.45;
+    --camara-tinta: #e9e5df;
+    --camara-tinta-2: #a9b6cb; /* OURIVESARIA CONGELADO 0.5 */
+    --camara-vinheta-alfa: 0.45;
     --gema-quilha: rgb(0 0 0 / 0.45);
     --gema-elevacao: none; /* dark: elevação = borda/keyline (S2), nunca sombra */
   }

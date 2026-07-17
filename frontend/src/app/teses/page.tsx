@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 
 // ---------------------------------------------------------------------------
 // HORIZONTE (2026-07-14, Onda 3 · raia 3B) — "O MOSTRUÁRIO".
-// Direção §9: masthead sobre faixa de VELUDO full-bleed (`.vitrine-veludo` +
-// `.veludo-escopo`, folha da raia 1B — REUSO; jamais redeclarar os tokens) e
+// Direção §9: masthead sobre faixa de CÂMARA full-bleed (`.vitrine-camara` +
+// `.camara-escopo`, folha da raia 1B — REUSO; jamais redeclarar os tokens) e
 // a grade de cartões sobre PEDESTAIS (`.vitrine-pedestal`: elipse de sombra
 // no chão + keyline ouro no aro).
 // ELEMENTO NOVO (principal): PALCO 3D S1 na grade — `.grade-teses` (emenda de
@@ -68,11 +68,11 @@ export default function TesesPage() {
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Masthead sobre veludo full-bleed (D19/D20): o escopo-veludo da raia
+        {/* Masthead sobre câmara full-bleed (D19/D20): o escopo-câmara da raia
             1B re-declara os semânticos em PARES COMPLETOS (E5/E6) — nada de
             token é redeclarado aqui. */}
         <section aria-labelledby="teses-titulo" className="bancada">
-          <div className="b-sangria vitrine-veludo veludo-escopo">
+          <div className="b-sangria vitrine-camara camara-escopo">
             <div className="bancada w-full">
               {/* E30 (correção-mãe, wt-horizonte 2026-07-14): este wrapper
                   vivia em `.b-medida-esq` (medida + só MEIA trilha de palco)
