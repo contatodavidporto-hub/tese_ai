@@ -444,11 +444,15 @@ export default function Home() {
             `.gema-chip__corpo` (nó que o GSAP nunca toca).
             ============================================================ */}
         <CenaScrub>
+          {/* RITMO (OURIVESARIA 1A, §3-C2): pt-14 = lado da dobra (contrato
+              E1 do hero); pb-12 = metade do respiro papel↔papel com o
+              cabeçalho do nascimento (3rem + 3rem = 6rem, --ritmo-respiro);
+              gap-y-6 = assento/pós-fio único de 1.5rem (--ritmo-pos-fio). */}
           <section
             id="prova"
             data-cena="prova"
             aria-labelledby="prova-titulo"
-            className="capitulo bancada relative gap-y-8 py-14"
+            className="capitulo bancada relative gap-y-6 pt-14 pb-12"
           >
             {/* `relative` na SEÇÃO: containing block + offsetParent do
                 <FioDaFonte/> (SVG absolute, PRIMEIRO filho — pinta sob as
@@ -459,9 +463,11 @@ export default function Home() {
                 path — medido em coordenadas da SEÇÃO — sairia deslocado). */}
             <FioDaFonte className="b-sangria" />
 
-            {/* Assinatura de abertura de capítulo (D6): hairline full-bleed que
-                se imprime como uma régua ("clac"). */}
-            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+            {/* Assinatura de abertura de capítulo (OURIVESARIA C1): a talha
+                de ouro (2.5rem × 2px, bancada.css §4) se imprime pelo MESMO
+                `.reveal-regua` — morre o fio cinza full-bleed de mesma
+                superfície (papel→papel não desenha fronteira). */}
+            <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
               {null}
             </Reveal>
 
@@ -550,8 +556,16 @@ export default function Home() {
             <ol>, fonte única); `.nascimento-poeira` é camada decorativa da
             atmosfera --nasc-lume (aria-hidden, cinema/nascimento.css).
             ============================================================ */}
-        <div className="bancada gap-y-3 pt-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+        {/* RITMO/COSTURA (OURIVESARIA 1A): id `nascimento-cabecalho` é o
+            identificador que o gate_ritmo usa para casar a exceção declarada
+            "encostos-rolo" (o vão até o rolo é 0 por contrato do rig — o
+            pin-spacer do NascimentoScrub vive num wrapper display:contents).
+            pt-12 = metade do respiro papel↔papel com #prova (3+3 = 6rem);
+            gap-y-6 = pós-fio único 1.5rem (era 0.75rem, o menor do site);
+            fio cinza → talha de ouro. pb permanece 0 (encosto do rolo,
+            exceção declarada §3-C2). */}
+        <div id="nascimento-cabecalho" className="bancada gap-y-6 pt-12">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
             {null}
           </Reveal>
           <div className="b-medida-esq flex flex-col gap-3">
@@ -580,7 +594,11 @@ export default function Home() {
             </div>
           </section>
         </NascimentoScrub>
-        <div className="bancada gap-y-3 pb-14">
+        {/* Colofão: pt permanece 0 (encosto do rolo — exceção declarada);
+            pb-14 = 3.5rem, lado papel da fronteira REAL de material M1
+            (papel→câmara, --ritmo-capitulo). id p/ a exceção do gate_ritmo
+            (mesmo racional do cabeçalho acima). */}
+        <div id="nascimento-colofao" className="bancada gap-y-6 pb-14">
           <p className="b-medida-esq text-ui leading-relaxed text-ink-3">
             Assim nasce cada número da tese: com fonte e data — ou não entra.
           </p>
@@ -750,7 +768,12 @@ export default function Home() {
             aria-labelledby="postura-titulo"
             className="capitulo bancada gap-y-6 py-14"
           >
-            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+            {/* OURIVESARIA C1: morre o fio-travessa redundante que ficava
+                4.5rem DEPOIS da fronteira real M3 (câmara-funda→papel, já
+                desenhada pela 1D com lábio de ouro no fim do salão) — quem
+                abre o capítulo agora é a talha. py-14 = 3.5rem por lado da
+                fronteira de material (--ritmo-capitulo). */}
+            <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
               {null}
             </Reveal>
             <h2

@@ -151,7 +151,10 @@ export function HistoricoClient() {
     // extrapola a largura da coluna). Sem um ancestral que clipe, o
     // `scrollWidth` do documento estoura em mobile (mesmo padrão de
     // `.salao-pinado`: clip, nunca hidden — não é ancestral da régua/Tarja).
-    <div ref={raizRef} className="flex flex-col gap-8 [overflow-x:clip]">
+    // RITMO (OURIVESARIA 1A): gap-12 = 3rem entre grupos de dia
+    // (--ritmo-bloco; era 2rem, fora da escala — gate_ritmo mede estes
+    // vãos como pares de <section> irmãs).
+    <div ref={raizRef} className="flex flex-col gap-12 [overflow-x:clip]">
       {itens.length === 0 ? (
         <div className="flex flex-col items-start gap-3 border border-line bg-card px-6 py-8">
           {/* Copy HORIZONTE (copy-horizonte-spec.md §8, verbatim). */}

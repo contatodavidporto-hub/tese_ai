@@ -245,15 +245,21 @@ export default function ComoFuncionaPage() {
             funciona como item DIRETO do grid `.bancada` (grid-column
             depende do container pai) — por isso vive dentro dele, não como
             irmão solto. */}
-        <div className="bancada py-10 sm:py-14">
+        {/* RITMO (OURIVESARIA 1A, §3-C2): pt-14 = 3.5rem contra o Header
+            (--ritmo-capitulo; morrem os paddings 2.5/3.5rem fora do padrão
+            de masthead). O
+            fio-travessa full-bleed morreu — eram TRÊS linhas no 1º viewport
+            (dupla régua do Header + este fio, R1 §2.5); a talha de ouro abre
+            o capítulo sem repetir fronteira. mt-6 = pós-fio único 1.5rem. */}
+        <div className="bancada pt-14">
           <Reveal
             variant="reveal-regua"
-            className="fio-travessa origin-left bg-line-strong"
+            className="talha-capitulo b-medida-esq"
             aria-hidden="true"
           >
             {null}
           </Reveal>
-          <Reveal className="b-medida-esq mt-8 flex flex-col gap-3">
+          <Reveal className="b-medida-esq mt-6 flex flex-col gap-3">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
               Como o motor monta uma tese
             </h1>
@@ -291,7 +297,10 @@ export default function ComoFuncionaPage() {
           </div>
         </div>
 
-        <div className="bancada py-10">
+        {/* Corpo: mt-24 = respiro REAL 6rem (--ritmo-respiro) após o
+            masthead (papel↔papel — o vão é gap de caixa, não padding);
+            pb-14 = 3.5rem contra o Footer. */}
+        <div className="bancada mt-24 pb-14">
           <div className="b-palco grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
             {/* Sumário: fixo na lateral no desktop, dobrável no mobile — mesmo
                 padrão do sumário da tese (TeseView.tsx). */}
@@ -312,10 +321,15 @@ export default function ComoFuncionaPage() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-16">
+            {/* RITMO 1A: o gap de 4rem (fora da escala — era o maior vão
+                inter-seção do site, R1 §3b) morre; o respiro de 6rem entra
+                como mt-24 nas seções seguintes (mesma utility do resto do
+                site — vão medível caixa a caixa). Réguas h-px de coluna →
+                talha de ouro (gap-6 interno = pós-fio único 1.5rem). */}
+            <div className="flex min-w-0 flex-col">
               {/* O pipeline */}
               <section id="pipeline" aria-labelledby="pipeline-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-6">
                   <h2 id="pipeline-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     O pipeline
@@ -370,8 +384,8 @@ export default function ComoFuncionaPage() {
               </section>
 
               {/* As cinco dimensões */}
-              <section id="dimensoes" aria-labelledby="dimensoes-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+              <section id="dimensoes" aria-labelledby="dimensoes-titulo" className="mt-24 flex flex-col gap-6">
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-2">
                   <h2 id="dimensoes-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     As cinco dimensões
@@ -448,8 +462,8 @@ export default function ComoFuncionaPage() {
               </section>
 
               {/* O que entrega / não entrega — faixa de postura CVM */}
-              <section id="entrega" aria-labelledby="entrega-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+              <section id="entrega" aria-labelledby="entrega-titulo" className="mt-24 flex flex-col gap-6">
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-2">
                   <h2 id="entrega-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     O que a tese entrega — e o que não entrega

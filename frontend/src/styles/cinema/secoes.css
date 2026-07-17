@@ -207,20 +207,20 @@
  * rolo do nascimento (sticky + contain próprio em lapidacao.css) ou
  * #galeria (IO interno de dots com root=rail). Ids são contrato E25.
  *
- * INTRINSIC-SIZE MEDIDA (offsetHeight real, :3000 @1628987, 2 temas
- * idênticos, pré==pós-scroll — evidencias/perf/intrinsic-sizes.json):
- *   #prova   1004px @390×844 · 591px @768×1024 · 528px @1440×900
- *   #postura 2053px @390×844 · 1293px @768×1024 · 1078px @1440×900
- * PEGADINHA MEDIDA NA RAIA: contain-intrinsic-size dimensiona a caixa
- * de CONTEÚDO — o py-14 das seções (2×56px = 112px) soma POR FORA no
- * estado skipped (provado: box 2165/1405/1190 com estimativa "cheia").
- * Os valores abaixo são o offsetHeight real MENOS 112px de padding.
- * Os 3 viewports divergem ~2× (valor único não casa ±10% com o real):
- * medida FLUIDA justificada (§7-D1) — reta por (390, h390)–(768, h768)
- * com clamp nos extremos medidos. Conferência (BOX = clamp + 112px)
- * nos 3 viewports do gate:
- *   #prova   box → 1004 / 592,9 / 528  (Δ ≤ +1,9px = 0,32%)
- *   #postura box → 2053 / 1293,3 / 1078 (Δ ≤ +0,4px)
+ * INTRINSIC-SIZE MEDIDA (offsetHeight real; RE-DERIVADA pela raia 1A em
+ * 2026-07-17 após o ritmo novo mudar as alturas — §7-D3 previa a
+ * re-derivação pós-1A; método idêntico ao da P.4):
+ *   #prova   973px @390×844 · 560px @768×1024 · 497px @1440×900
+ *   #postura 2054px @390×844 · 1294px @768×1024 · 1079px @1440×900
+ * PEGADINHA MEDIDA NA RAIA P.4: contain-intrinsic-size dimensiona a caixa
+ * de CONTEÚDO — o padding da seção soma POR FORA no estado skipped.
+ * Padding pós-1A: #prova pt-14+pb-12 = 104px (ritmo: pb 3rem = metade do
+ * respiro papel↔papel); #postura py-14 = 112px (fronteira M3, intacto).
+ * Os valores abaixo são o offsetHeight real MENOS o padding respectivo.
+ * Medida FLUIDA (§7-D1) — reta por (390, h390)–(768, h768) com clamp nos
+ * extremos medidos. Conferência (BOX = clamp + padding) nos 3 viewports:
+ *   #prova   box → 973 / 560,9 / 497  (Δ ≤ +0,9px)
+ *   #postura box → 2054,1 / 1294,3 / 1079 (Δ ≤ +0,3px)
  * `auto` na frente: o tamanho ÚLTIMO-RENDERIZADO substitui a estimativa
  * após a 1ª renderização (re-entrada sem shift por construção).
  *
@@ -239,10 +239,10 @@
   content-visibility: auto;
 }
 #prova {
-  contain-intrinsic-size: auto clamp(416px, 1318px - 109vw, 892px);
+  contain-intrinsic-size: auto clamp(393px, 1294px - 109vw, 869px);
 }
 #postura {
-  contain-intrinsic-size: auto clamp(966px, 2725px - 201vw, 1941px);
+  contain-intrinsic-size: auto clamp(967px, 2726px - 201vw, 1942px);
 }
 
 @media (prefers-reduced-motion: reduce) {

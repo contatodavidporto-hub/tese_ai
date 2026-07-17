@@ -159,11 +159,21 @@ export default function Cobertura() {
             perdia 25px ali, porque só herda MEIA trilha de palco). Os dois
             parágrafos de prosa real continuam em `.b-medida-esq` (≤68ch,
             lei intacta). */}
-        <section className="bancada gap-y-4 py-14 sm:py-20">
+        {/* RITMO (OURIVESARIA 1A, §3-C2 — mastheads padronizados): pt-14 =
+            3.5rem contra a fronteira de contexto do Header (--ritmo-capitulo,
+            morre o padding sm de 5rem fora da escala — e o scanner do
+            Tailwind lê comentários, então a utility morta não é nomeada
+            aqui, lição da 1E); gap-y-6 = assento/pós-fio único
+            de 1.5rem; a talha de ouro sob o eyebrow é a assinatura de
+            abertura (este era o masthead mais seco do site — R1 §5.3). */}
+        <section className="bancada gap-y-6 pt-14">
           <Reveal className="b-palco i-1">
             <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
               Cobertura
             </p>
+          </Reveal>
+          <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
+            {null}
           </Reveal>
           <Reveal className="b-palco i-2">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
@@ -190,8 +200,11 @@ export default function Cobertura() {
         {/* O TRÍPTICO — 3 painéis-vitrine (ações dominante 1.6fr), cada um com
             pedestal + selo de fontes. Palco largo (E30: até 96rem, contra o
             antigo max-w-5xl). */}
-        <section aria-labelledby="classes-titulo" className="bancada gap-y-8 pb-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+        <section aria-labelledby="classes-titulo" className="bancada mt-24 gap-y-6">
+          {/* mt-24 = respiro REAL 6rem (--ritmo-respiro) — o vão vira gap de
+              caixa (gate_ritmo), morre o padrão pb-só que dava 3.5rem aqui
+              contra 7rem na landing (R1 §3d). Fio cinza → talha. */}
+          <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden>
             {null}
           </Reveal>
           <h2
@@ -265,9 +278,10 @@ export default function Cobertura() {
           </ul>
         </section>
 
-        {/* Tipos de tese */}
-        <section aria-labelledby="tipos-titulo" className="bancada gap-y-8 pb-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+        {/* Tipos de tese — mt-24 respiro 6rem; pb-14 = 3.5rem contra o
+            Footer (fronteira de contexto). */}
+        <section aria-labelledby="tipos-titulo" className="bancada mt-24 gap-y-6 pb-14">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden>
             {null}
           </Reveal>
           <h2

@@ -132,9 +132,13 @@ export default function TesesPage() {
         </section>
 
         {/* A grade sobre pedestais, no palco largo (E30: `.b-palco` chega a
-            96rem — mais largo que o `max-w-6xl`/72rem que existia aqui). */}
-        <section aria-labelledby="grade-titulo" className="bancada gap-y-8 py-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            96rem — mais largo que o `max-w-6xl`/72rem que existia aqui).
+            RITMO (OURIVESARIA 1A, §3-C2): mt-24 = respiro REAL de 6rem
+            (--ritmo-respiro) após a fronteira do masthead-câmara — o vão é
+            gap de verdade (gate_ritmo mede caixa a caixa), não padding;
+            gap-y-6 = pós-fio único 1.5rem; fio cinza → talha de ouro. */}
+        <section aria-labelledby="grade-titulo" className="bancada mt-24 gap-y-6">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
             {null}
           </Reveal>
           <h2 id="grade-titulo" className="sr-only">
@@ -168,9 +172,11 @@ export default function TesesPage() {
           />
         </section>
 
-        {/* Bloco "gerar nova tese" */}
-        <section aria-labelledby="gerar-titulo" className="bancada gap-y-8 py-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+        {/* Bloco "gerar nova tese" — mt-24 = respiro 6rem papel↔papel;
+            pb-14 = 3.5rem contra a fronteira de contexto do Footer
+            (--ritmo-capitulo). */}
+        <section aria-labelledby="gerar-titulo" className="bancada mt-24 gap-y-6 pb-14">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
             {null}
           </Reveal>
           <div className="b-palco flex flex-col gap-4 border border-line bg-card px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">

@@ -39,8 +39,15 @@ export default function HistoricoPage() {
   return (
     <>
       <Header />
+      {/* RITMO (OURIVESARIA 1A): py-14 = 3.5rem contra Header/Footer
+          (--ritmo-capitulo) e gap-y-12 = 3rem entre blocos (--ritmo-bloco)
+          — já estavam na escala; o masthead ganha a talha de ouro
+          (mastheads padronizados) e gap-6 = assento/pós-fio 1.5rem. */}
       <main id="conteudo" className="bancada flex-1 gap-y-12 py-14">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-6">
+          <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
+            {null}
+          </Reveal>
           <Reveal>
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
               Seu extrato de auditoria
@@ -81,10 +88,16 @@ export default function HistoricoPage() {
           <HistoricoClient />
         </section>
 
+        {/* COSTURA 1A: morre o border-t (única rota que abria seção com
+            border-t simples, R1 §2.8) — substitui a talha de ouro + o
+            respiro do gap-y-12 do main; gap-6 = pós-fio único 1.5rem. */}
         <section
           aria-labelledby="exemplos-titulo"
-          className="b-palco flex flex-col gap-3 border-t border-line pt-8"
+          className="b-palco flex flex-col gap-6"
         >
+          <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
+            {null}
+          </Reveal>
           <Reveal className="i-1">
             <h2
               id="exemplos-titulo"
