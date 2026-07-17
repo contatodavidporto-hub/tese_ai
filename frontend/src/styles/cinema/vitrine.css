@@ -41,6 +41,23 @@
   justify-content: center;
   gap: 1.5rem;
   padding-block: 2.5rem;
+  /* M1 — "Lábio da câmara" (§3-C1/C8 + §7-C3; conceito B §2.3): a keyline
+     ouro, antes dark-only a 35%, é PROMOVIDA a regra dos DOIS temas — é a
+     transição desenhada da fronteira real de material papel↔câmara (o
+     masthead de /teses, que reusa esta classe, ganha o mesmo lábio).
+     Dial --labio-alfa CONGELADO 0.5 na Onda 0.5 (protótipo 0.3 + re-prova
+     aplicada da raia 1B: ≥3:1 POR PIXEL sobre os dois lados no ESCURO).
+     Tema claro: lábio DECORATIVO — a fronteira lê pelo par superfície
+     papel×câmara (≥15:1, §7-C3a). Recuo binário registrado (NÃO acionado):
+     1px sólido var(--accent-valor). */
+  border-block: 1px solid
+    color-mix(in srgb, var(--accent-valor) calc(var(--labio-alfa) * 100%), transparent);
+  /* M1 (parte 2) — banda de profundidade interna no topo: a sombra de
+     entrada + a beirada de ouro dizem "aqui a bancada afunda" (conceito B
+     §2.3). Decorativa, estática, fora de qualquer campo de texto (o
+     conteúdo vive no centro vertical do flex). Único escritor de
+     box-shadow neste seletor. */
+  box-shadow: inset 0 18px 32px -24px rgb(0 0 0 / 0.5);
 }
 @media (max-width: 639px) {
   .vitrine-veludo {
@@ -64,17 +81,6 @@
     transparent 45%,
     rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
   );
-}
-
-/* Dark: o veludo (#16121c) e a página escura (#101216) ficam próximos
-   demais em luminância para a faixa se anunciar sozinha — keylines
-   ouro-alfa delimitam borda a borda (D19). Isto reage ao TEMA DO SITE
-   (não é o mesmo mecanismo do escopo-veludo/E6, que reage à CLASSE); é
-   legítimo aqui porque é a fronteira faixa↔página, não um herdado interno. */
-@media (prefers-color-scheme: dark) {
-  .vitrine-veludo {
-    border-block: 1px solid color-mix(in srgb, var(--accent-valor) 35%, transparent);
-  }
 }
 
 /* ------------------------------------------------------------
