@@ -20,10 +20,11 @@
    Stubs com dono no cabeçalho (implementação real entra nas ondas de tela);
    ticker-luz.css e tooltip.css são conteúdo COMPLETO desta própria Onda 0
    (primitivas compartilhadas). ORDEM MANDATÓRIA (plano-apoteose.md §4):
-   `tese-apoteose.css` importado por ÚLTIMO — depois de `rotas.css` E de
-   todas as folhas novas — porque a regra de supressão do véu de chegada do
-   morph (`.virada-edicao.morph-chegada::after`) precisa vencer a cascata
-   contra a regra irmã do corpo deste arquivo em especificidade comparável.
+   `tese-apoteose.css` carrega por ÚLTIMO — hoje via chunk CSS da PRÓPRIA
+   rota /tese (OURIVESARIA P.3; entra DEPOIS do globals.css no HTML), porque
+   a regra de supressão do véu de chegada do morph
+   (`.virada-edicao.morph-chegada::after`) precisa vencer a cascata contra a
+   regra irmã do corpo deste arquivo em especificidade comparável.
    Ninguém edita `tese-apoteose.css` além da onda TESE; ninguém edita este
    bloco de @import além da Onda 0. */
 @import "../styles/cinema/marca.css";
@@ -31,12 +32,16 @@
 @import "../styles/cinema/virada.css";
 @import "../styles/cinema/ticker-luz.css";
 @import "../styles/cinema/tooltip.css";
-@import "../styles/cinema/glossario.css";
+/* glossario.css SAIU deste bloco (OURIVESARIA Onda P.3, §7-D4/E3 — válvula
+   pré-aprovada): folha EXCLUSIVA de /glossario (único consumidor de
+   `.verbete-glossario:target`/`engaste-acende`), importada direto por
+   `app/glossario/page.tsx` (precedente salao.css/como-funciona.css) — só a
+   rota a paga, sai do render-blocking das outras 8. */
 /* ---------- Folhas da missão "FRONTEND HORIZONTE" (2026-07-14, Onda 0 —
    Fundação). Ordem MANDATÓRIA (plano-horizonte.md §4/D7,
    direcao-horizonte.md §12): depois de TODAS as folhas Apoteose acima,
-   ANTES de `tese-apoteose.css` (que segue por último — ver comentário
-   original acima, ainda válido: a supressão do véu de chegada do morph
+   ANTES de `tese-apoteose.css` (que segue por último — hoje no chunk da
+   rota /tese, ver comentário acima: a supressão do véu de chegada do morph
    precisa vencer a cascata). `bancada.css` é conteúdo COMPLETO desta Onda 0
    (grid/fios/capa); `gema.css`/`vitrine.css`/`salao.css`/`lapidacao.css` são
    ESQUELETOS vazios (só cabeçalho com a dona) nesta Onda — cada raia da
@@ -59,7 +64,15 @@
    então só a landing a paga. `lapidacao.css` FICA global: 3 rotas a usam
    (landing, /como-funciona reusa CenaNascimento, 404 a pedra bruta). */
 @import "../styles/cinema/lapidacao.css";
-@import "../styles/cinema/tese-apoteose.css";
+/* tese-apoteose.css SAIU deste bloco (OURIVESARIA Onda P.3, §7-D4/E3 —
+   válvula pré-aprovada): folha EXCLUSIVA de /tese (consumidores:
+   TeseClient/TeseView; a regra `.vt-morph-destino` mora em virada.css, que
+   segue global), importada direto por `app/tese/page.tsx`. O contrato de
+   cascata "por último" SEGUE cumprido: o chunk CSS da rota entra DEPOIS do
+   globals.css no HTML servido (ordem layout→page do App Router) e a
+   supressão do véu (`html body .virada-edicao.morph-chegada::after`) vence
+   também por especificidade — provado por gate1_virada 7/7 + screenshot do
+   véu na chegada (ledger P.3). */
 
 /*
  * ============================================================
@@ -179,11 +192,11 @@
     2026-07-12; era 0.05 com teto 0.06) — modulada por body[data-secao] entre
     0.05–0.08 na landing (Onda 1A) e com decaimento por profundidade de
     scroll; recalibração AA correspondente em --ink-tertiary/--border-field */
-  --luz-foco-alfa: 0.09; /* MORTO (sprite único do PR #31): a Onda 1A já
-    trocou o .foco-luz pela dupla núcleo+bloom (cinema/luz.css vence por
-    especificidade); único consumidor é a regra .foco-luz legada deste
-    arquivo, sempre vencida. Remover token+regra num follow-up de limpeza
-    pós-merge (não nesta missão — cirurgia de CSS fora do escopo do QA). */
+  /* --luz-foco-alfa REMOVIDO (OURIVESARIA P.3, §7-D4 crédito por deleção):
+     era MORTO desde o sprite único do PR #31 — o único consumidor era o
+     `background` legado de `.foco-luz` deste arquivo, sempre vencido por
+     `.tem-foco .foco-luz` (cinema/luz.css). Deleção casada com as
+     declarações sombreadas da regra (ver §13). */
   --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) — intocado */
   --mx: 0px; /* ponteiro — X; default neutro */
   --my: 0px; /* ponteiro — Y; default neutro */
@@ -505,7 +518,7 @@
     --luz-aurora-alfa: 0.08; /* NOVO teto autorizado (missão imersiva
       2026-07-12; era 0.055 com teto 0.06) — mesma modulação por data-secao
       e decaimento do claro */
-    --luz-foco-alfa: 0.1; /* LEGADO (ver nota do claro) */
+    /* --luz-foco-alfa (escuro) REMOVIDO com o par claro (OURIVESARIA P.3) */
     --grao-alfa: 0.04; /* teto 0.04 */
 
     /* Luz — MATÉRIA VIVA (novos tetos autorizados; mesmos papéis do claro) */
@@ -1311,32 +1324,27 @@ body::after {
   isolation: isolate;
 }
 
-/* Camada-sprite do hero (componente `FocoLuz.tsx`) — sprite radial
-   PRÉ-PINTADO movido só por `transform: translate3d(...)` (compositor-only,
-   C2 do red-team); o `calc(... - 60vmax)` é só a centralização estática do
-   sprite de 120vmax dentro do container, somada ao deslocamento dinâmico de
-   `--mx`/`--my` — nenhuma outra propriedade anima por frame.
-   `will-change: transform` fica só nesta camada-folha (nunca ancestral de
-   `.regua-leitura`). Invisível por padrão: só aparece com ponteiro fino +
-   hover (M7); some de novo em `prefers-reduced-motion` (bloco de redução no
-   fim do arquivo). */
+/* Camada-sprite do hero (componente `FocoLuz.tsx`) — BASE do BLOOM da
+   luminária dupla. Esta regra NÃO é morta (dieta OURIVESARIA P.3, provado
+   por grep): `cinema/luz.css` declara em `.tem-foco .foco-luz` SÓ
+   width/height/background/transform/transition ("o bloom herda a sua base
+   do globals.css") — a ancoragem absoluta, o z-index, o raio, o
+   pointer-events, a opacidade base e o `will-change` moram AQUI, e o
+   `opacity: 1` do media hover abaixo é o único escritor do hover. O que a
+   P.3 DELETOU foram as 5 declarações legadas sempre sombreadas pela
+   especificidade maior de luz.css (geometria 120vmax + gradiente com
+   --luz-foco-alfa + transform/transition do sprite único do PR #31) e o
+   token `--luz-foco-alfa` (claro+escuro), cujo único consumidor era o
+   gradiente sombreado. `will-change: transform` fica só nesta camada-folha
+   (nunca ancestral de `.regua-leitura`). Invisível por padrão: só aparece
+   com ponteiro fino + hover (M7); some de novo em `prefers-reduced-motion`
+   (bloco de redução no fim do arquivo). */
 .foco-luz {
   position: absolute;
   top: 50%;
   left: 50%;
   z-index: -1;
-  width: 120vmax;
-  height: 120vmax;
   border-radius: 9999px;
-  background: radial-gradient(
-    circle at center,
-    rgb(var(--luz-tinta) / var(--luz-foco-alfa)) 0%,
-    transparent 60%
-  );
-  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
-  transition:
-    transform var(--dur-set) var(--ease-cena),
-    opacity var(--dur-set) var(--ease-ink);
   pointer-events: none;
   opacity: 0;
   will-change: transform;

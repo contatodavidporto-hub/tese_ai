@@ -8,6 +8,12 @@ import { Header } from "@/components/site/Header";
 import { gruposAlfabeticos, verbetePorSlug } from "@/lib/glossario";
 import { IndiceLetras } from "./IndiceLetras";
 
+// glossario.css é EXCLUSIVA de /glossario (dieta OURIVESARIA P.3, §7-D4/E3 —
+// válvula pré-aprovada; precedente salao.css na landing): só o realce de
+// chegada por âncora (`.verbete-glossario:target` + keyframe engaste-acende)
+// mora nela — importada AQUI, sai do render-blocking das outras 8 rotas.
+import "@/styles/cinema/glossario.css";
+
 // Rota NOVA · DONA: onda COPY (APOTEOSE, crit. 11). Renderização dinâmica:
 // necessária para o CSP com nonce por requisição (src/proxy.ts) ser aplicado
 // em cada resposta — regra de TODA página nova.

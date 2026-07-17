@@ -5,6 +5,15 @@ import { newsreaderItalico } from "@/lib/fontes";
 import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
+// tese-apoteose.css é EXCLUSIVA de /tese (dieta OURIVESARIA P.3, §7-D4/E3 —
+// válvula pré-aprovada; precedente salao.css na landing): importada AQUI para
+// sair do CSS render-blocking das outras 8 rotas. O contrato de cascata
+// "por último" segue de pé: o chunk CSS da rota entra DEPOIS do globals.css
+// no HTML servido, e a supressão do véu do morph
+// (`html body .virada-edicao.morph-chegada::after`) vence também por
+// especificidade (prova: gate1_virada 7/7 + screenshot do véu, ledger P.3).
+import "@/styles/cinema/tese-apoteose.css";
+
 // Renderização dinâmica: o CSP com nonce por requisição (src/proxy.ts) precisa que
 // cada resposta HTML seja gerada por requisição para o nonce ser injetado.
 export const dynamic = "force-dynamic";

@@ -4,15 +4,19 @@
  * espera digna), 7 (specular de /tese), 10 (masthead intensificado) e 11
  * (tooltips — lógica/folha do tooltip são da Onda 0; aqui nada a estilizar).
  *
- * IMPORTANTE — ORDEM DE IMPORT (garantida pela Onda 0, `globals.css`):
- * esta folha é a ÚLTIMA importada, depois de TODAS as outras (inclusive
- * `rotas.css`) — necessário para a regra de supressão do véu de chegada
- * abaixo vencer a cascata contra a regra irmã do CORPO do globals.css em
- * especificidade comparável (`html body .virada-edicao.morph-chegada::after`
- * vs `.virada-edicao::after` do corpo — a primeira já vence por
- * especificidade sozinha, mas a ordem é reforço deliberado do plano,
- * NUNCA reduzir para depender só da especificidade). `rotas.css`/CHROME
- * NÃO É TOCADO por esta regra.
+ * IMPORTANTE — ORDEM DE CARGA (desde a OURIVESARIA P.3, §7-D4/E3: folha
+ * ESCOPADA À ROTA /tese — importada por `app/tese/page.tsx`, fora do
+ * render-blocking das outras 8 rotas): esta folha segue sendo a ÚLTIMA a
+ * carregar, depois de TODAS as outras (inclusive `rotas.css`) — o chunk CSS
+ * da rota entra DEPOIS do globals.css no HTML servido (ordem layout→page do
+ * App Router; conferida no HTML vivo, ledger P.3) — necessário para a regra
+ * de supressão do véu de chegada abaixo vencer a cascata contra a regra
+ * irmã do CORPO do globals.css em especificidade comparável
+ * (`html body .virada-edicao.morph-chegada::after` vs
+ * `.virada-edicao::after` do corpo — a primeira já vence por especificidade
+ * sozinha, mas a ordem é reforço deliberado do plano, NUNCA reduzir para
+ * depender só da especificidade; prova viva: gate1_virada 7/7 + screenshot
+ * do véu na chegada). `rotas.css`/CHROME NÃO É TOCADO por esta regra.
  *
  * Quem escreve o quê (um-escritor-por-propriedade):
  *   - `view-transition-name: cartao-tese` — DESTINO: classe estática
