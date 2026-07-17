@@ -10,87 +10,74 @@ import { HistoricoClient } from "./HistoricoClient";
 // Dinâmica pelo CSP com nonce por requisição (src/proxy.ts).
 export const dynamic = "force-dynamic";
 
+// Copy CONGELADA (missão OURIVESARIA, .maestro/copy-ourivesaria.md §3 —
+// transcrição byte-fiel, §7-E5): o `title` é o do anexo; a description
+// REUSA a linha-fina do masthead (zero redação nova — a string é a mesma
+// do anexo, nenhuma palavra fora dele).
 export const metadata = {
-  title: "Histórico",
+  title: "Seu registro de teses",
   description:
-    "Seu extrato de auditoria: as teses geradas neste navegador, guardadas só localmente — nunca sobem para o servidor.",
+    "As teses que você gerou ou abriu neste navegador — ficam só aqui, no seu aparelho. Nada sobe para servidor.",
 };
 
-// Migração HORIZONTE (D3/D5/E30 — "A Bancada", cinema/bancada.css): o
-// container `mx-auto max-w-4xl` (recon historico:33, 896px) vira `.bancada`.
-// Mini-gate de largura: masthead fica em `medida` (prosa, lei D3 — não
-// regride: já era ~max-w-2xl/672px por dentro); a Hemeroteca e os exemplos
-// usam `.b-medida-esq` (medida + 1 vão do palco, ~1000px+) — MAIS largo que
-// os 896px anteriores, nunca mais estreito (prova: screenshot vs :3010).
-//
-// Copy HORIZONTE (copy-horizonte-spec.md §8, verbatim). ELEMENTO NOVO desta
-// rota: as "lombadas" verticais dos cabeçalhos de dia (HistoricoClient.tsx)
-// — a Hemeroteca; localStorage/HistoricoClient.tsx INTOCADOS na lógica.
-//
-// Missão APOTEOSE (crit.7 + crit.10 — onda CHROME): tickers com luz
-// especular (.ticker-luz, primitiva da Onda 0 em cinema/ticker-luz.css) —
-// esta página só APLICA a classe e garante --mx/--my por delegação
-// (GradeFoco/usePonteiro, padrão já estabelecido: UM listener passivo para
-// a lista inteira, zero mecanismo novo). Reduce/touch: a primitiva e o
-// hook já são inertes por construção.
+// MISSÃO OURIVESARIA — raia 2D (crit. 9 · §3-C9 · §7-E9/F6 · conceito B §8):
+// a Hemeroteca vira "REGISTRO DE BANCADA" — página reconstruída do zero
+// (as lombadas verticais da Horizonte morreram em HistoricoClient.tsx).
+// Este arquivo é só o masthead + moldura da rota:
+//   - masthead autoexplicativo em 5s: eyebrow mono "Registro de bancada" +
+//     talha de ouro (mastheads padronizados da 1A) + H1 + linha-fina que
+//     DIZ a função ("ficam só aqui, no seu aparelho");
+//   - a lista inteira (fichas por dia, ações, vazio, limpeza em 2 tempos)
+//     vive em HistoricoClient.tsx (client — localStorage);
+//   - seção "Teses de exemplo": BYTE-IDÊNTICA à da 1A (fora do redesenho;
+//     é o destino do link "Ver os exemplos prontos" do estado vazio, via
+//     âncora #exemplos-titulo — [id]{scroll-margin-top} global cobre o
+//     salto sob a Tarja).
+// RITMO (escala congelada 0.5): py-14 = 3.5rem contra Header/Footer
+// (--ritmo-capitulo), gap-y-12 = 3rem entre blocos (--ritmo-bloco),
+// gap-6 = assento/pós-fio único 1.5rem no masthead. ZERO folha CSS nova
+// nesta raia — Tailwind + primitivas existentes (talha-capitulo,
+// gema-chip, ticker-luz, reveal-ticker, pedra-404).
 export default function HistoricoPage() {
   const exemplos = exemplosProntos();
 
   return (
     <>
       <Header />
-      {/* RITMO (OURIVESARIA 1A): py-14 = 3.5rem contra Header/Footer
-          (--ritmo-capitulo) e gap-y-12 = 3rem entre blocos (--ritmo-bloco)
-          — já estavam na escala; o masthead ganha a talha de ouro
-          (mastheads padronizados) e gap-6 = assento/pós-fio 1.5rem. */}
       <main id="conteudo" className="bancada flex-1 gap-y-12 py-14">
         <div className="flex flex-col gap-6">
+          <Reveal>
+            <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
+              Registro de bancada
+            </p>
+          </Reveal>
           <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
             {null}
           </Reveal>
-          <Reveal>
-            <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
-              Seu extrato de auditoria
-            </h1>
-          </Reveal>
           <Reveal className="i-1">
-            <p className="font-sans text-ui leading-relaxed text-ink-2">
-              As teses que você gerou neste navegador, na ordem em que saíram.
-              Reabrir não gera nada de novo: a tese é lida do registro
-              original, com as mesmas citações e fontes.
-            </p>
+            <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
+              Seu registro de teses
+            </h1>
           </Reveal>
           <Reveal className="i-2">
             <p className="font-sans text-ui leading-relaxed text-ink-2">
-              O registro fica só neste dispositivo — não sobe para servidor
-              nenhum. Se você limpar, ele some daqui; as teses prontas da
-              galeria continuam abertas para consulta.
+              As teses que você gerou ou abriu neste navegador — ficam só
+              aqui, no seu aparelho. Nada sobe para servidor.
             </p>
           </Reveal>
         </div>
 
-        {/* E30 (correção-mãe, wt-horizonte 2026-07-14): as duas seções abaixo
-            viviam em `.b-medida-esq` — o extrato é uma LISTA/tabela (dias +
-            registros), não prosa (medida ≤68ch é lei só para prosa, §0.9);
-            no formato antigo (`max-w-4xl`) ela já usava a largura cheia do
-            container, e `.b-medida-esq` sozinho (só meia trilha de palco)
-            fechava a rota ~48-50px mais estreita que a produção em
-            768-1024px. `.b-palco` (as duas trilhas) devolve a paridade; o
-            único parágrafo de prosa real (abaixo) já tinha `max-w-2xl`
-            próprio — a lei tipográfica não muda para ele. */}
-        <section
-          aria-labelledby="extrato-titulo"
-          className="b-palco flex flex-col gap-4"
-        >
-          <h2 id="extrato-titulo" className="sr-only">
-            Extrato de auditoria
-          </h2>
+        {/* E30 (correção-mãe): o registro é LISTA (fichas por dia), não
+            prosa — `.b-palco` (as duas trilhas) mantém a paridade de
+            largura com a produção (nunca mais estreito). O H1 acima já
+            nomeia a região; os cabeçalhos de dia (h2 nas fichas) fazem a
+            hierarquia — a seção não precisa de heading próprio. */}
+        <section className="b-palco">
           <HistoricoClient />
         </section>
 
-        {/* COSTURA 1A: morre o border-t (única rota que abria seção com
-            border-t simples, R1 §2.8) — substitui a talha de ouro + o
-            respiro do gap-y-12 do main; gap-6 = pós-fio único 1.5rem. */}
+        {/* COSTURA 1A (intocada pela 2D): talha de ouro + respiro no lugar
+            do border-t; gap-6 = pós-fio único 1.5rem. */}
         <section
           aria-labelledby="exemplos-titulo"
           className="b-palco flex flex-col gap-6"
