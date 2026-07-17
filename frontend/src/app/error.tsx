@@ -48,6 +48,15 @@ export default function ErroGlobal({ reset }: { error: Error; reset: () => void 
         <Marca variante="carimbo" />
         <span className="font-display text-h3 font-semibold">Tese AI</span>
       </span>
+      {/* OURIVESARIA 2C — ELEMENTO NOVO "Aresta acesa" (conceito B §7): a
+          MESMA keyframe `.pedra-404` do not-found (dona: lapidacao.css —
+          a 2C só CONSOME a classe global já paga), aplicada à pedra do
+          boundary: CSS INCONDICIONAL — roda mesmo com o JS quebrado
+          (padrão `.entrada-hero`); zero hook/observer/import novo (D9 —
+          o arquivo segue autossuficiente). Um-escritor ✓: a keyframe
+          escreve stroke-dashoffset no <path>; `.entrada-hero` anima o
+          <svg> pai — nós distintos. Reduce = contorno completo estático
+          (bloco nominal da folha dona). */}
       <svg
         viewBox="405 135 110 85"
         className="entrada-hero i-1 h-16 w-auto"
@@ -56,7 +65,7 @@ export default function ErroGlobal({ reset }: { error: Error; reset: () => void 
       >
         <path
           d="M 420 150 L 470 143 L 508 168 L 497 208 L 438 212 L 413 183 Z"
-          className="nascimento-pedra-bruta"
+          className="nascimento-pedra-bruta pedra-404"
         />
       </svg>
       <span className="entrada-hero i-2 border border-erro-borda bg-erro-fundo px-2 py-1 font-sans text-label font-semibold uppercase tracking-[0.16em] text-erro-texto">

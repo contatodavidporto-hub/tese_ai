@@ -1,0 +1,96 @@
+/* ============================================================
+ * cinema/sobre.css — folha NOVA, EXCLUSIVA da rota /sobre
+ * (raia 2C, missão OURIVESARIA, 2026-07-17 — crit. 7, conceito B §7).
+ * Importada DIRETO por `src/app/sobre/page.tsx` (precedente
+ * mostruario.css/glossario.css/como-funciona.css): fica FORA do CSS
+ * render-blocking das outras 8 rotas — obrigatório porque o gate §7-D4 +
+ * ruling 6.9 exigem `por_rota["/"] Δ ≤ 0` (a landing não paga um byte por
+ * isto) e gema.css/vitrine.css são @import globais com dono (2A/1B) que a
+ * 2C NÃO edita. Classes namespaced `sobre-*` (zero colisão).
+ *
+ * CONTEÚDO — o elemento novo NOMEADO de /sobre: "CÂMARA DE MÉTODO"
+ * (conceito B §7): o aside re-materializado pela 1B (câmara §1 — a
+ * declaração de MATERIAL dele fica INTOCADA: `.camara-escopo` +
+ * bg/borda-lábio seguem 100% da 1B/vitrine.css) deixa de ser estático:
+ *   1. poeira fria de canto — camada ESTÁTICA de pontos safira+ouro na
+ *      gramática do pó da casa (mostruario.css/salão: radial-gradients
+ *      de 2px, color-mix 3–4%, tiles dessincronizados) — aqui SEM scrub
+ *      (o aside é estreito e alto; poeira parada não é movimento);
+ *   2. linhas do Método D1–D5 entram por `reveal-ticker` + stagger
+ *      (motor Reveal global, JSX) — one-shot;
+ *   3. o numeral mono D1–D5 ACENDE `--valor-brilho` no hover da linha
+ *      (color é propriedade livre — precedente da cravação da placa/2A).
+ *
+ * ONDE MORA NO DOM (sobre/page.tsx): `.sobre-camara` é classe ADITIVA no
+ * próprio aside (position+isolation apenas — nunca re-declara material);
+ * `<div aria-hidden class="sobre-po">` é o 1º filho. Com `z-index:-1` e
+ * `isolation:isolate` no pai, a poeira pinta ACIMA do background do aside
+ * e ABAIXO de todo o conteúdo (M3 ✓: pó é fundo, jamais banha texto por
+ * cima — AA do texto sobre o pior pixel do pó provado no gate 2C).
+ *
+ * UM-ESCRITOR: `.sobre-po` é nó novo decorativo sem nenhum outro dono;
+ * `color` do numeral tem um único escritor dinâmico (o hover daqui — o
+ * utilitário `text-brasa-texto` é o estado nominal estático da cascata).
+ * §7-F5 ✓: nenhum overflow/clip novo (os TermoTooltips da rota vivem nas
+ * placas da coluna 1, fora deste aside).
+ * ============================================================ */
+
+.sobre-camara {
+  position: relative;
+  isolation: isolate;
+}
+
+.sobre-po {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      circle at 22% 14%,
+      color-mix(in srgb, var(--accent-confianca) 4%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 74% 68%,
+      color-mix(in srgb, var(--valor-brilho) 3%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 46% 38%,
+      color-mix(in srgb, var(--accent-confianca) 3%, transparent) 0 2px,
+      transparent 3px
+    );
+  background-size:
+    132px 148px,
+    188px 170px,
+    224px 204px;
+}
+
+/* O numeral acende ouro-brilho quando o leitor percorre a linha —
+   one-shot por mudança de estado (2.2.2 ✓); troca de COLOR pura (zero
+   layout, zero CLS). AA: par `--valor-brilho` sobre `--camara-fundo`
+   medido por pixel no gate 2C (os dois temas — a câmara é escura nos
+   dois; nominal `text-brasa-texto` re-provado pela 1B). */
+.sobre-metodo-num {
+  transition: color var(--dur-tick) var(--ease-ink);
+}
+
+.sobre-metodo-linha:hover .sobre-metodo-num {
+  color: var(--valor-brilho);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL (§7-F7, por efeito desta folha):
+     - poeira fria (`.sobre-po`): ESTÁTICA por construção — nenhuma
+       animação a desligar (poeira parada não é movimento; mesma
+       classificação da vinheta do nascimento/pó de /teses).
+     - numeral que acende: troca de color vira INSTANTÂNEA (transition
+       none) — informação preservada, movimento zero (transições de
+       color são isentas mediante registro; registrado aqui).
+     - reveals das linhas D1–D5: cobertos pelo motor Reveal global
+       (reduce nem arma — conteúdo pleno por default). */
+  .sobre-metodo-num {
+    transition: none;
+  }
+}

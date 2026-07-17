@@ -9,9 +9,11 @@ import { gruposAlfabeticos, verbetePorSlug } from "@/lib/glossario";
 import { IndiceLetras } from "./IndiceLetras";
 
 // glossario.css é EXCLUSIVA de /glossario (dieta OURIVESARIA P.3, §7-D4/E3 —
-// válvula pré-aprovada; precedente salao.css na landing): só o realce de
+// válvula pré-aprovada; precedente salao.css na landing): o realce de
 // chegada por âncora (`.verbete-glossario:target` + keyframe engaste-acende)
-// mora nela — importada AQUI, sai do render-blocking das outras 8 rotas.
+// e, desde a raia 2C (OURIVESARIA), o micro-lift + chip do elemento novo
+// "Fólios em contra-ritmo" moram nela — importada AQUI, fica fora do
+// render-blocking das outras 8 rotas (landing Δ 0, ruling 6.9).
 import "@/styles/cinema/glossario.css";
 
 // Rota NOVA · DONA: onda COPY (APOTEOSE, crit. 11). Renderização dinâmica:
@@ -148,10 +150,19 @@ export default function GlossarioPage() {
                   <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
                     {null}
                   </Reveal>
+                  {/* OURIVESARIA 2C — "Fólios em contra-ritmo" (conceito B §7):
+                      a letra-folio ganha `.paralaxe-numero` (primitiva GLOBAL
+                      já usada nos folios de /cobertura e /como-funciona —
+                      zero regra nova, zero byte global): deriva ±8px
+                      scroll-driven (scrub por view(), 2.2.2 ✓) em ritmo
+                      distinto dos verbetes estáticos ao lado. Um-escritor:
+                      a paralaxe escreve transform NA PRÓPRIA `<p>`; o Reveal
+                      anima o wrapper pai — nós distintos. Reduce: bloco
+                      global do `.paralaxe-numero` (animation+transform none). */}
                   <Reveal className="atraso-regua">
                     <p
                       aria-hidden
-                      className="font-mono text-h2 font-semibold text-line-strong"
+                      className="paralaxe-numero font-mono text-h2 font-semibold text-line-strong"
                     >
                       {grupo.letra}
                     </p>
@@ -180,7 +191,11 @@ export default function GlossarioPage() {
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
                             {v.fonteDoConceito && (
-                              <span className="inline-flex w-fit items-center gap-1.5 border border-line-strong bg-card px-2 py-1 font-mono text-meta uppercase tracking-wide text-ink-3">
+                              /* 2C — o chip acende keyline OURO no hover/
+                                 focus-within do verbete (regra em
+                                 glossario.css, `.verbete-chip`); texto e
+                                 layout byte-idênticos. */
+                              <span className="verbete-chip inline-flex w-fit items-center gap-1.5 border border-line-strong bg-card px-2 py-1 font-mono text-meta uppercase tracking-wide text-ink-3">
                                 Conceito · {v.fonteDoConceito}
                               </span>
                             )}

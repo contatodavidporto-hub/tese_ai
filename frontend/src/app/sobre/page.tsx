@@ -8,6 +8,12 @@ import { Header } from "@/components/site/Header";
 import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 
+// sobre.css é EXCLUSIVA de /sobre (raia 2C — precedente mostruario.css/
+// glossario.css): carrega o elemento novo "Câmara de método" (poeira fria
+// + numeral que acende) SEM pagar um byte na landing (§7-D4/ruling 6.9) e
+// SEM tocar gema.css/vitrine.css (posse 2A/1B).
+import "@/styles/cinema/sobre.css";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
@@ -242,10 +248,20 @@ export default function Sobre() {
                 no dial --labio-alfa (0.5 congelado, §7-C3): no escuro é o
                 separador funcional ≥3:1; no claro, decorativo (a fronteira
                 lê pelo par de superfícies). */}
+            {/* OURIVESARIA 2C — ELEMENTO NOVO "Câmara de método" (conceito B
+                §7): o aside deixa de ser estático SEM re-declarar material
+                (a câmara da 1B — `.camara-escopo` + bg + lábio — fica
+                byte-idêntica): `.sobre-camara` só dá position+isolation
+                para a poeira fria (`.sobre-po`, aria-hidden, z-index:-1 —
+                pinta sobre o fundo, nunca sobre o texto); as linhas D1–D5
+                entram por `reveal-ticker` + stagger (motor Reveal, one-shot)
+                e o numeral mono acende `--valor-brilho` no hover da linha
+                (cinema/sobre.css, folha exclusiva da rota). */}
             <aside
               aria-labelledby="metodo-titulo"
-              className="camara-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_calc(var(--labio-alfa)*100%),transparent)] bg-[var(--camara-fundo)] px-6 py-8 sm:px-8"
+              className="sobre-camara camara-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_calc(var(--labio-alfa)*100%),transparent)] bg-[var(--camara-fundo)] px-6 py-8 sm:px-8"
             >
+              <div aria-hidden className="sobre-po" />
               <div className="flex flex-col gap-4">
                 <h2
                   id="metodo-titulo"
@@ -254,20 +270,28 @@ export default function Sobre() {
                   Método — até cinco dimensões
                 </h2>
                 <ol className="flex flex-col gap-3 border-t border-line">
-                  {METODO.map((dimensao) => (
+                  {METODO.map((dimensao, i) => (
                     <li
                       key={dimensao.id}
-                      className="flex items-baseline justify-between gap-3 border-b border-line py-2"
+                      className="sobre-metodo-linha border-b border-line py-2"
                     >
-                      <span className="flex items-baseline gap-2">
-                        <span className="font-mono text-meta font-semibold text-brasa-texto">
-                          {dimensao.id}
+                      {/* O <li> mantém borda/ritmo; o flex da linha vai no
+                          wrapper do Reveal (o Reveal renderiza um <div> —
+                          mesmas classes, mesmo layout renderizado). */}
+                      <Reveal
+                        variant="reveal-ticker"
+                        className={`stagger i-${i + 1} flex items-baseline justify-between gap-3`}
+                      >
+                        <span className="flex items-baseline gap-2">
+                          <span className="sobre-metodo-num font-mono text-meta font-semibold text-brasa-texto">
+                            {dimensao.id}
+                          </span>
+                          <span className="text-ui text-ink">{dimensao.titulo}</span>
                         </span>
-                        <span className="text-ui text-ink">{dimensao.titulo}</span>
-                      </span>
-                      <span className="font-mono text-meta text-ink-3">
-                        {dimensao.fonte}
-                      </span>
+                        <span className="font-mono text-meta text-ink-3">
+                          {dimensao.fonte}
+                        </span>
+                      </Reveal>
                     </li>
                   ))}
                 </ol>
