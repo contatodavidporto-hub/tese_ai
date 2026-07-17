@@ -5,6 +5,16 @@ import { newsreaderItalico } from "@/lib/fontes";
 import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
+// graficos.css é EXCLUSIVA de /tese (crédito OPCIONAL do ruling 6.9, Onda 3A —
+// mesmo rito P.3): TODAS as classes que declara (.grafico-scrub[--recuo],
+// .traco-grafico[-area|-barra|-ref]) são consumidas SÓ por app/tese/* (prova
+// por grep no registro-3a; mostruario.css só a cita em comentário). Importada
+// ANTES de tese-apoteose.css para preservar a ordem relativa herdada do
+// globals.css (graficos → tese-apoteose). Nenhum seletor colide com o corpo
+// do globals.css (utilities do Tailwind vivem em @layer e perdem para regra
+// sem camada independentemente da ordem).
+import "@/styles/cinema/graficos.css";
+
 // tese-apoteose.css é EXCLUSIVA de /tese (dieta OURIVESARIA P.3, §7-D4/E3 —
 // válvula pré-aprovada; precedente salao.css na landing): importada AQUI para
 // sair do CSS render-blocking das outras 8 rotas. O contrato de cascata

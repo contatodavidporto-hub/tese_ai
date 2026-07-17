@@ -12,7 +12,9 @@
 @import "../styles/cinema/hero.css";
 @import "../styles/cinema/luz.css";
 @import "../styles/cinema/secoes.css";
-@import "../styles/cinema/graficos.css";
+/* graficos.css saiu do global (OURIVESARIA Onda 3A, crédito 6.9, rito P.3):
+   exclusiva de /tese — importada por app/tese/page.tsx ANTES de
+   tese-apoteose.css (ordem relativa preservada). */
 @import "../styles/cinema/rotas.css";
 @import "../styles/cinema/magnetico.css";
 @import "../styles/cinema/banca.css";
