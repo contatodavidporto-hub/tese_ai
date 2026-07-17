@@ -166,7 +166,20 @@ export default function Cobertura() {
             aqui, lição da 1E); gap-y-6 = assento/pós-fio único
             de 1.5rem; a talha de ouro sob o eyebrow é a assinatura de
             abertura (este era o masthead mais seco do site — R1 §5.3). */}
-        <section className="bancada gap-y-6 pt-14">
+        {/* ELEMENTO NOVO OURIVESARIA 2B — "AURORA DE ABERTURA" (crit. 7,
+            conceito B §7): o masthead mais seco do site ganha a
+            `.aurora-masthead` (primitiva GLOBAL existente, globals.css —
+            pool de luz safira atrás do título, alfa CALIBRADO
+            `--luz-aurora-alfa`; reuso, nunca boost — decisão registrada em
+            tese-apoteose.css) + a linha mono de contagens ganha
+            `reveal-ticker` (abaixo, fim da página). CSS-only, zero JS
+            novo, zero string nova. §7-F5 ✓: esta seção não contém nenhum
+            TermoTooltip (o overflow:hidden da primitiva não é ancestral de
+            tooltip algum — conferido: os 5 tooltips da rota vivem nas
+            seções do tríptico/tipos). Reduce: aurora é ESTÁTICA (isenta
+            por definição); reveal coberto pelo bloco reduce do motor
+            Reveal (globals.css). */}
+        <section className="aurora-masthead bancada gap-y-6 pt-14">
           <Reveal className="b-palco i-1">
             <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
               Cobertura
@@ -313,17 +326,24 @@ export default function Cobertura() {
               </li>
             ))}
           </ul>
-          <p className="b-medida-esq font-mono text-meta leading-relaxed text-ink-3">
-            {exemplos.length} teses prontas · {acoes} ações · {fiis} FII · {rendaFixa}{" "}
-            Tesouro Direto · fonte dos pesos:{" "}
-            <TermoTooltip {...tooltipDe("carteira-teorica")}>
-              carteira teórica do Ibovespa
-            </TermoTooltip>{" "}
-            (B3) · {dataCarteira} ·{" "}
-            <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
-              ver a galeria completa
-            </Link>
-          </p>
+          {/* AURORA DE ABERTURA (parte 2, 2B): a linha mono de contagens —
+              antes estática — entra pela Fila do Ticker (`reveal-ticker`,
+              motor Reveal existente; one-shot). Texto BYTE-IDÊNTICO
+              (tabela §7-E5: a linha de contagens fica byte-idêntica — só o
+              wrapper de motion nasce). */}
+          <Reveal variant="reveal-ticker" className="b-medida-esq">
+            <p className="font-mono text-meta leading-relaxed text-ink-3">
+              {exemplos.length} teses prontas · {acoes} ações · {fiis} FII · {rendaFixa}{" "}
+              Tesouro Direto · fonte dos pesos:{" "}
+              <TermoTooltip {...tooltipDe("carteira-teorica")}>
+                carteira teórica do Ibovespa
+              </TermoTooltip>{" "}
+              (B3) · {dataCarteira} ·{" "}
+              <Link href="/teses" className="sublinhado-brasa text-brasa-texto">
+                ver a galeria completa
+              </Link>
+            </p>
+          </Reveal>
         </section>
       </main>
       <Footer

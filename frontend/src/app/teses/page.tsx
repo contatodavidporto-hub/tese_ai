@@ -12,6 +12,12 @@ import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
+// OURIVESARIA 2B (crit. 7): folha EXCLUSIVA de /teses — importada AQUI
+// (precedente tese-apoteose.css/glossario.css) para o "pó de ouro do
+// mostruário" não pagar um byte no CSS render-blocking da landing
+// (ruling 6.9: por_rota["/"] Δ ≤ 0) nem das demais rotas.
+import "@/styles/cinema/mostruario.css";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
@@ -73,6 +79,13 @@ export default function TesesPage() {
             token é redeclarado aqui. */}
         <section aria-labelledby="teses-titulo" className="bancada">
           <div className="b-sangria vitrine-camara camara-escopo">
+            {/* ELEMENTO NOVO OURIVESARIA 2B — "PÓ DE OURO DO MOSTRUÁRIO"
+                (conceito B §7): camada decorativa de poeira ouro+safira +
+                vinheta que aprofunda por view() ao cruzar o masthead.
+                CSS-only (cinema/mostruario.css, exclusiva da rota);
+                aria-hidden, zero string (tabela de proibição §7-E5);
+                z-index:-1 — fica atrás de todo o conteúdo da câmara. */}
+            <div aria-hidden className="mostruario-po" />
             <div className="bancada w-full">
               {/* E30 (correção-mãe, wt-horizonte 2026-07-14): este wrapper
                   vivia em `.b-medida-esq` (medida + só MEIA trilha de palco)

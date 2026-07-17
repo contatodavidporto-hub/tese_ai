@@ -55,6 +55,34 @@
   }
 }
 
+/* ------------------------------------------------------------
+ * OURIVESARIA 2B — "ENGASTE DA ENTREGA" (crit. 7, conceito B §7)
+ * ------------------------------------------------------------
+ * Os 2 cards de #entrega são `.gema-chip__corpo` (reuso "sem o filho" —
+ * bisel + lift + transition são POSSE de gema.css, nada redeclarado aqui).
+ * Esta folha só acrescenta o gesto próprio da rota: os marcadores "—" da
+ * lista "não entrega" ACENDEM (ink-3 → ink) quando o card é engastado
+ * (hover/focus-within), em sequência (delay escalonado por nth-child —
+ * 3 itens hoje; a regra por nth é estável se a lista crescer: itens além
+ * do 3º acendem juntos ao 3º). One-shot que assenta (2.2.2 ✓); `color` é
+ * propriedade LIVRE nos spans (nenhum outro escritor).
+ * ------------------------------------------------------------ */
+.oficina-marcador {
+  transition: color var(--dur-tick) var(--ease-ink);
+}
+.oficina-engaste:hover .oficina-marcador,
+.oficina-engaste:focus-within .oficina-marcador {
+  color: var(--ink-primary);
+}
+.oficina-engaste:hover li:nth-child(2) .oficina-marcador,
+.oficina-engaste:focus-within li:nth-child(2) .oficina-marcador {
+  transition-delay: 70ms;
+}
+.oficina-engaste:hover li:nth-child(n + 3) .oficina-marcador,
+.oficina-engaste:focus-within li:nth-child(n + 3) .oficina-marcador {
+  transition-delay: 140ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Registro NOMINAL (LEI §0): o avanço aqui reflete o scroll que o
      próprio leitor decidiu fazer (mesma doutrina de `.fio-de-prumo`/
@@ -65,5 +93,18 @@
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  /* ENGASTE DA ENTREGA (2B, §7-F7 nominal): o acender dos marcadores é
+     troca de estado — a RAMPA (transition + delays escalonados) desliga;
+     a troca de cor segue instantânea ("transições de color" isentas
+     registradas). Lift/bisel dos cards: reduce nominal na própria
+     gema.css (dona). Reveal `reveal-ticker`: coberto pelo bloco reduce do
+     motor Reveal em globals.css. */
+  .oficina-marcador {
+    transition: none;
+  }
+  .oficina-engaste:hover li .oficina-marcador,
+  .oficina-engaste:focus-within li .oficina-marcador {
+    transition-delay: 0ms;
   }
 }

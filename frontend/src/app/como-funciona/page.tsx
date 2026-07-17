@@ -475,37 +475,57 @@ export default function ComoFuncionaPage() {
                   </p>
                 </Reveal>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-3 border border-line bg-card p-6">
-                    <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
-                      Entrega
-                    </span>
-                    <ul className="flex flex-col gap-2">
-                      {ENTREGA.map((item) => (
-                        <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
-                          <span aria-hidden className="font-mono text-brasa-texto">
-                            →
-                          </span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="flex flex-col gap-3 border border-line bg-card p-6">
-                    <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
-                      Não entrega
-                    </span>
-                    <ul className="flex flex-col gap-2">
-                      {NAO_ENTREGA.map((item) => (
-                        <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
-                          <span aria-hidden className="font-mono text-ink-3">
-                            —
-                          </span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* ELEMENTO NOVO OURIVESARIA 2B — "ENGASTE DA ENTREGA"
+                    (crit. 7, conceito B §7): a área mais parada da rota
+                    (R6 §4) acende. Os 2 cards viram superfície de gema —
+                    `.gema-chip__corpo` DIRETO no nó do bg opaco (reuso
+                    "sem o filho", precedente documentado em gema.css:
+                    bisel + lift 2px no hover/focus-within, transition da
+                    própria gema.css, reduce nominal já registrado lá) — e
+                    entram pela Fila do Ticker escalonada (Reveal
+                    `reveal-ticker` i-1/i-2 + `.stagger`). Os marcadores
+                    "—" da lista "não entrega" ACENDEM em sequência no
+                    hover do card (ink-3 → ink, transição de color
+                    one-shot; regra em cinema/como-funciona.css). Zero JS
+                    novo, zero string nova (§7-E5). UM-ESCRITOR ✓: o
+                    Reveal anima o PRÓPRIO wrapper; bisel/lift vivem no
+                    filho (nós distintos); os cards não contêm
+                    TermoTooltip (§7-F5 ✓ — strings puras). */}
+                <div className="stagger grid gap-4 sm:grid-cols-2">
+                  <Reveal variant="reveal-ticker" className="i-1">
+                    <div className="oficina-engaste gema-chip__corpo flex h-full flex-col gap-3 border border-line bg-card p-6">
+                      <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
+                        Entrega
+                      </span>
+                      <ul className="flex flex-col gap-2">
+                        {ENTREGA.map((item) => (
+                          <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
+                            <span aria-hidden className="font-mono text-brasa-texto">
+                              →
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
+                  <Reveal variant="reveal-ticker" className="i-2">
+                    <div className="oficina-engaste gema-chip__corpo flex h-full flex-col gap-3 border border-line bg-card p-6">
+                      <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
+                        Não entrega
+                      </span>
+                      <ul className="flex flex-col gap-2">
+                        {NAO_ENTREGA.map((item) => (
+                          <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
+                            <span aria-hidden className="oficina-marcador font-mono text-ink-3">
+                              —
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
