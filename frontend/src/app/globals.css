@@ -147,8 +147,13 @@
   --grafico-1: #a03a06; /* reaproveita a brasa — série primária (preço/linha principal) */
   --grafico-2: #2d3f7a; /* índigo — série secundária (sinal MACD, média móvel) */
   --grafico-3: #8a6415; /* ouro — série terciária (2ª média móvel, histograma positivo) */
-  --grafico-4: #7a2340; /* vinho — série quaternária (histograma negativo) */
-  --grafico-5: #5b3f8a; /* violeta-aço — faixa de Bollinger / 5ª série */
+  --grafico-4: #8c1f27; /* OURIVESARIA CONGELADO 0.5 (E-A1, protótipo 0.2 PASSOU):
+    granada ~356° — série quaternária (histograma negativo). Recuo 358–2°
+    NÃO acionado (proibido sem passar na distância do erro-*, §7-C4). */
+  --grafico-5: #46628c; /* OURIVESARIA CONGELADO 0.5 (protótipo 0.2 PASSOU):
+    aço-safira ~216° — faixa de Bollinger / 5ª série. Recuo 222°
+    (#5a7bab/#b9c6d9) NÃO acionado. Distinguibilidade 5×2 e 5×6 no escuro
+    assegurada por REDUNDÂNCIA de marca (DESIGN-TOKENS, emenda OURIVESARIA). */
   --grafico-6: #565b66; /* grafite — linhas de referência tracejadas (RSI 30/70 etc.) */
 
   /* ---------- Motion — "a edição sendo impressa" ---------- */
@@ -196,8 +201,10 @@
   --luz-bloom-alfa: 0.1; /* PROVISÓRIO — valor FINAL sai do calibra_tokens.py
     da Onda 3 (com o termo real do shader via readPixels); bloom = 90vmax
     com stop 45% ("luminária, não névoa") */
-  --luz-penumbra: 70 44 78; /* anel externo ameixa ~310° (fora da faixa
-    proibida 70–200°) — TRIPLET RGB p/ rgb(var(...)/alfa), como --luz-tinta */
+  --luz-penumbra: 26 38 66; /* OURIVESARIA CONGELADO 0.5: anel externo colapsado
+    na safira ~221° (fora da faixa proibida 70–200°) — TRIPLET RGB p/
+    rgb(var(...)/alfa), como --luz-tinta; alfa INTOCADO. calibra_tokens.py
+    emendado (§7-C7) re-rodou com este triplet: ink-3/border-field mantidos. */
   --luz-penumbra-alfa: 0.03;
   --brasa-ember: 160 58 6; /* cor das brasas do shader do hero (lida via
     getComputedStyle — nunca hardcoded no frag); âmbar, nunca vermelho sobre
@@ -215,9 +222,12 @@
   --valor-brilho: #f0dfae; /* stop de highlight do gradiente especular (sheen
     por background-position; keyline ≤4px; varredura única na palavra
     "fonte" do hero) — nunca texto sozinho */
-  --moldura-ameixa: #5a3153; /* keyline 1px de molduras editoriais
-    (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo,
-    nunca texto/estado; hue ~318°, fora de 70–200° */
+  --moldura-tinta: #2d3f66; /* OURIVESARIA CONGELADO 0.5 (rename atômico do
+    nome antigo *ameixa*, achado 39/§7-E10; consumidores atualizados no
+    mesmo passe: @theme abaixo, como-funciona/page.tsx,
+    tese-apoteose.css) — keyline 1px de molduras editoriais (pull-quotes,
+    aberturas de capítulo, borda do masthead) — decorativo, nunca
+    texto/estado; hue ~221°, fora de 70–200° */
   --sombra-fria: rgb(42 54 84 / 0.16); /* sombra única do .sombra-elevada —
     quita o ink hardcoded rgb(22 24 29/.16) apontado no recon. Só existe no
     claro: no escuro elevação = borda (o .sombra-elevada vira none e o valor
@@ -331,10 +341,11 @@
      salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
      binário registrado: se o dono vetar no wow-gate, re-skin sobre
      --bg-page com vinheta fria (nenhuma onda acopla lógica a este valor). */
-  --veludo-fundo: #241e2b;
+  --veludo-fundo: #1b2334; /* OURIVESARIA CONGELADO 0.5: tinta-de-safira (câmara).
+    Rename --veludo-* → --camara-* é da raia 1B (§7-E1 fase serial); VALOR final. */
   --veludo-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --veludo-fundo */
-  --veludo-tinta-2: #beb3c6; /* metadados/legendas/controles sobre veludo —
-    >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 4) */
+  --veludo-tinta-2: #aebacf; /* OURIVESARIA CONGELADO 0.5 — metadados/legendas/controles sobre veludo —
+    >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 3) */
   --veludo-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
     veludo (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
   --veludo-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
@@ -343,7 +354,7 @@
      keyline (escuro, S2). Arestas (--gema-aresta/--gema-quilha) ficam FORA
      do campo interno de texto aferido por M3-b (provadas como decorativas). */
   --gema-aresta: var(--valor-brilho); /* alias — aresta de luz (topo/esquerda) */
-  --gema-quilha: rgb(90 49 83 / 0.28); /* aresta de sombra (baixo/direita); teto <=0.30 */
+  --gema-quilha: rgb(42 54 84 / 0.28); /* OURIVESARIA CONGELADO 0.5 (família sombra-fria) — aresta de sombra (baixo/direita); teto <=0.30; escuro INTOCADO */
   --gema-elevacao: 0 2px 6px rgb(42 54 84 / 0.16), 0 14px 32px rgb(42 54 84 / 0.1); /* dark: none (elevação=borda, S2) */
 
   /* Fio lapidário + faísca (crit.5, D29/S4) — aliases semânticos; reusado
@@ -360,7 +371,33 @@
   /* Deriva da vitrine (crit.4, D21/E7) — lida 1x por getComputedStyle pelo
      hook useVitrineDeriva.ts; teto <=16px/s. Mobile (<640px): 8, via @media
      logo abaixo. Reduce: nem monta (nenhum valor consumido). */
-  --deriva-vel: 12;
+  --deriva-vel: 14; /* OURIVESARIA CONGELADO 0.5 (C5, carve-out §7-E3): 12→14 desktop; teto ≤16; 1E só consome */
+
+  /* ---------- Missão "OURIVESARIA" (2026-07-16) — TOKENS NOVOS CONGELADOS
+     na Onda 0.5 (§7-E10 lista fechada; tabela teto/recuo em DESIGN-TOKENS.md,
+     emenda "OURIVESARIA 2026-07-16"). Escala de ritmo (C2, 4 degraus +
+     pós-fio) + assento do Salão (§7-A1) + corpo da bolha (§7-A5) + dial do
+     lábio de ouro (§7-C3). Ninguém toca globals.css depois da Onda 0
+     (lei herdada; carve-outs §7-E3). ---------- */
+  --ritmo-assento: 1.5rem; /* CONGELADO 0.5 — título→conteúdo */
+  --ritmo-bloco: 3rem; /* CONGELADO 0.5 — blocos irmãos */
+  --ritmo-respiro: 6rem; /* CONGELADO 0.5 — seções de mesmo fundo (substitui hairline) */
+  --ritmo-capitulo: 3.5rem; /* CONGELADO 0.5 — padding por lado da fronteira de material */
+  --ritmo-pos-fio: 1.5rem; /* CONGELADO 0.5 — vão único pós-fio (mata os 4 valores) */
+  --text-body-lg: 1.0625rem; /* CONGELADO 0.5 — 17px, uso EXCLUSIVO bolha/letreiro
+    (§7-E10/achado 41); deliberadamente FORA do @theme: não gera utilitário
+    Tailwind, consumo só via var() nas folhas donas — a exclusividade é
+    estrutural, não convenção */
+  --salao-repouso: 2rem; /* CONGELADO 0.5 — pouso da bolha da vez (§7-A1;
+    protótipo 0.6 PASSOU: snap implementável usa REPOUSO_PX=32 constante no
+    TSX — getComputedStyle devolve '2rem', nunca px; pegadinha 5) */
+  --labio-alfa: 0.5; /* CONGELADO 0.5 (protótipo 0.3 PASSOU): primeiro degrau
+    da escada pré-aprovada 0.35→0.50→0.60 que fecha ≥3:1 POR PIXEL nos dois
+    lados da fronteira dark, nas 2 bordas — "fronteira dark lê com lábio
+    0.50". Teto 0.60 (headroom medido 4,04/4,09); recuo binário registrado
+    NÃO acionado: 1px sólido var(--accent-valor) (medido 9,08/9,18). Tema
+    claro: lábio DECORATIVO (fronteira assinada pelo par papel×câmara
+    15,27:1, §7-C3a). */
 }
 
 /* ---------- Contratos estruturais responsivos (HORIZONTE, Onda 0) ----------
@@ -402,7 +439,7 @@
 }
 @media (max-width: 639px) {
   :root {
-    --deriva-vel: 8;
+    --deriva-vel: 10; /* OURIVESARIA CONGELADO 0.5 (C5): 8→10 mobile */
   }
 }
 
@@ -454,8 +491,13 @@
     --grafico-1: #e97b3c;
     --grafico-2: #93a6e6;
     --grafico-3: #d9b354;
-    --grafico-4: #e28aa8;
-    --grafico-5: #b6a0e6;
+    --grafico-4: #d97687; /* OURIVESARIA CONGELADO 0.5: granada ~349,7° — RECUO
+      §7-C4 ACIONADO no protótipo 0.2 (achado 24, eixo L/S pré-aprovado:
+      #f0949b dava ΔE76 9,0 vs --error-text #f2938a; #e78798 também reprovou;
+      #d97687 = 16,2/19,8 vs erro-* e CVD ≥12,4 em todos os pares; regra
+      "proibido 358–2° sem passar erro-*" respeitada) — re-provado por pixel */
+    --grafico-5: #a3b5cc; /* OURIVESARIA CONGELADO 0.5: aço-safira claro (~216°);
+      recuo 222°/#b9c6d9 NÃO acionado */
     --grafico-6: #9aa0ad;
 
     /* Luz — mesma identidade (§1), recalibrada para o papel escuro. */
@@ -469,7 +511,7 @@
     /* Luz — MATÉRIA VIVA (novos tetos autorizados; mesmos papéis do claro) */
     --luz-nucleo-alfa: 0.054;
     --luz-bloom-alfa: 0.11; /* PROVISÓRIO — final na Onda 3 (readPixels) */
-    --luz-penumbra: 176 146 186; /* ameixa clara ~310° */
+    --luz-penumbra: 104 122 156; /* OURIVESARIA CONGELADO 0.5: safira clara ~221°; alfa INTOCADO */
     --luz-penumbra-alfa: 0.04;
     --brasa-ember: 233 123 60;
 
@@ -478,7 +520,7 @@
     --accent-confianca: #9db4dd;
     --accent-valor: #d9b354;
     --valor-brilho: #f7ecc9;
-    --moldura-ameixa: #b391ac;
+    --moldura-tinta: #8ea3c7; /* OURIVESARIA CONGELADO 0.5 (rename atômico, achado 39) */
 
     /* APOTEOSE (Onda 0) — único token de §"tokens novos" que troca de valor
        por tema (os demais são geometria fixa ou já apontam para um
@@ -491,9 +533,10 @@
     /* HORIZONTE (Onda 0) — únicos tokens novos desta missão que trocam de
        valor por tema (os demais são geometria fixa ou aliases que já
        trocam sozinhos via --valor-brilho/--accent-valor acima). */
-    --veludo-fundo: #16121c;
+    --veludo-fundo: #131a26; /* OURIVESARIA CONGELADO 0.5: câmara escura —
+      mantido pelo protótipo 0.3 (recuo "escurecer câmara" NÃO acionado) */
     --veludo-tinta: #e9e5df;
-    --veludo-tinta-2: #b3a9bc;
+    --veludo-tinta-2: #a9b6cb; /* OURIVESARIA CONGELADO 0.5 */
     --veludo-vinheta-alfa: 0.45;
     --gema-quilha: rgb(0 0 0 / 0.45);
     --gema-elevacao: none; /* dark: elevação = borda/keyline (S2), nunca sombra */
@@ -542,7 +585,7 @@
 
   /* Detalhes-joia (missão imersiva 2026-07-12) — viram utilitários Tailwind
      estáticos (ex.: `text-confianca`, `border-confianca`, `bg-valor`,
-     `border-moldura-ameixa`, `text-valor-brilho`). Guard-rails: micro-área/
+     `border-moldura-tinta`, `text-valor-brilho`). Guard-rails: micro-área/
      keyline SEMPRE; nunca CTA, nunca wash, nunca segundo acento de ação —
      a brasa segue única. Os triplets de luz (--luz-penumbra, --brasa-ember)
      NÃO entram aqui: não são cores CSS completas (consumidos via
@@ -550,7 +593,7 @@
   --color-confianca: var(--accent-confianca);
   --color-valor: var(--accent-valor);
   --color-valor-brilho: var(--valor-brilho);
-  --color-moldura-ameixa: var(--moldura-ameixa);
+  --color-moldura-tinta: var(--moldura-tinta);
 
   /* Paleta de gráficos — habilita `stroke-grafico-1..6` / `fill-grafico-1..6`
      (+ opacidade, ex.: `fill-grafico-5/15`) como classes Tailwind ESTÁTICAS,

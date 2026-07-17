@@ -60,8 +60,10 @@ html body .virada-edicao.morph-chegada::after {
 }
 
 /* ---------- Crit. 10 — MASTHEAD INTENSIFICADO ----------
-   Keyline ameixa (--moldura-ameixa: "borda do masthead" é uso canônico do
-   token — decorativo, nunca texto/estado, hue ~318° fora da faixa banida)
+   Keyline tinta-de-safira (--moldura-tinta, nome antigo *ameixa* aposentado
+   — rename atômico Onda 0.5 OURIVESARIA, achado 39: "borda do masthead" é
+   uso canônico do token — decorativo, nunca texto/estado, hue ~221° fora da
+   faixa banida)
    que SE IMPRIME da esquerda para a direita 1x no mount — a "entrada mais
    rica" do masthead sem tocar no writer do <Reveal> (que anima o próprio
    elemento; aqui anima-se SÓ o transform do ::after, elemento distinto).
@@ -79,7 +81,7 @@ html body .virada-edicao.morph-chegada::after {
   position: absolute;
   inset: 0 0 auto 0;
   height: 2px;
-  background: var(--moldura-ameixa);
+  background: var(--moldura-tinta);
   transform-origin: left;
   animation: masthead-keyline var(--dur-edition) var(--ease-rule) both;
   pointer-events: none;

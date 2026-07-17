@@ -250,3 +250,51 @@
   stroke-width: 1.5;
   stroke-dashoffset: 0;
 }
+
+/* ------------------------------------------------------------
+ * 3. `.pedra-404` — "Aresta que se desenha" (404/estado vazio)
+ * ------------------------------------------------------------
+ * DONA NOMEADA: Onda 0.5 da missão OURIVESARIA (2026-07-16, §7-E9 e
+ * achado 40 do red-team). CONSUMIDORAS (nunca donas): raia 2C
+ * (not-found.tsx/error.tsx — aplica a classe ao <path> da pedra bruta,
+ * JUNTO com `.nascimento-pedra-bruta`, que segue dando fill/stroke) e
+ * raia 2D (estado vazio da Hemeroteca /historico). A licença da 2C de
+ * "substituir o elemento por equivalente melhor" NÃO cobre remover ou
+ * renomear esta classe compartilhada.
+ *
+ * POR QUE NESTA FOLHA (E-C3): lapidacao.css é GLOBAL por lei — o segmento
+ * do not-found raiz é EAGER no Next 16 e compartilha o grafo de toda rota
+ * (Pegadinha 3 da Apoteose): a pedra do 404/error depende de classe já
+ * paga no CSS global, ZERO import novo nos boundaries.
+ *
+ * MECÂNICA: keyframe one-shot de dash-draw do CONTORNO (900ms, roda 1×,
+ * `both`). 270 = perímetro do hexágono da pedra bruta (medido ≈268,6 no
+ * path `M 420 150 … Z` duplicado em not-found.tsx/error.tsx). Estado
+ * FINAL = contorno completo (dashoffset 0) — D16: nada termina oculto.
+ * ------------------------------------------------------------ */
+.pedra-404 {
+  stroke-dasharray: 270;
+  stroke-dashoffset: 0; /* estado final: contorno completo */
+  animation: pedra-404-desenho 900ms var(--ease-ink) 1 both;
+}
+
+@keyframes pedra-404-desenho {
+  from {
+    stroke-dashoffset: 270;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro reduce NOMINAL (tabela §7-F7): decorativa one-shot — sob
+     reduce a pedra nasce com o contorno COMPLETO estático (nenhum traço
+     se desenha; dasharray neutralizado para não deixar resíduo de
+     pontilhado em navegadores que arredondam o offset). */
+  .pedra-404 {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+}

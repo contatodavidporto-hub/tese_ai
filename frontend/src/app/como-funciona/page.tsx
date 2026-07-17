@@ -414,12 +414,13 @@ export default function ComoFuncionaPage() {
                           </h3>
                           {c.narrada ? (
                             // HORIZONTE (direção §9): a cláusula narrada ganha
-                            // moldura de pull-quote em `--moldura-ameixa`
-                            // (token já publicado — DESIGN-TOKENS.md §S5/E5,
+                            // moldura de pull-quote em `--moldura-tinta`
+                            // (nome antigo *ameixa* aposentado — rename atômico
+                            // da Onda 0.5 OURIVESARIA, achado 39; DESIGN-TOKENS.md,
                             // "keyline 1px de molduras editoriais... pull-
                             // quotes"), reusando o mesmo Tailwind estático de
-                            // /tese (`border-moldura-ameixa`) — zero CSS novo.
-                            <blockquote className="max-w-prose border-l-2 border-moldura-ameixa pl-5 font-display-italico text-lede italic font-medium leading-relaxed text-ink-2">
+                            // /tese (`border-moldura-tinta`) — zero CSS novo.
+                            <blockquote className="max-w-prose border-l-2 border-moldura-tinta pl-5 font-display-italico text-lede italic font-medium leading-relaxed text-ink-2">
                               {c.descricao}
                             </blockquote>
                           ) : (
