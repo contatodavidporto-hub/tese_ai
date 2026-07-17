@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { GradeFoco } from "@/components/motion/GradeFoco";
 import { Reveal } from "@/components/motion/Reveal";
+import { ViradaDelegada } from "@/components/motion/viradaDelegada";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { CartaoTese } from "@/components/teses/CartaoTese";
@@ -33,7 +34,10 @@ export const dynamic = "force-dynamic";
 // `.b-palco` (até 96rem: MAIS largo que o antigo max-w-6xl — mini-gate E30).
 // Copy: `.maestro/ondas/copy-horizonte-spec.md` §4, verbatim. Contagens
 // SEMPRE derivadas de exemplosProntos() — nunca literais.
-// INTOCADOS: CartaoTese, GradeFoco, morph (useViradaCartao / .vt-tese-N).
+// GradeFoco e morph intocados. OURIVESARIA ONDA P — H1 (2026-07-17):
+// CartaoTese virou Server Component; o clique da Virada chega pela ilha
+// <ViradaDelegada> (irmã da grade, listener delegado em `.grade-teses`,
+// useViradaCartao original reusado por ticker — ver viradaDelegada.tsx).
 // ---------------------------------------------------------------------------
 export const metadata: Metadata = {
   title: "Teses",
@@ -155,6 +159,13 @@ export default function TesesPage() {
               </li>
             ))}
           </GradeFoco>
+          {/* ONDA P H1 — ilha mínima do morph (zero DOM): descobre a grade
+              por seletor no mount e delega o clique dos cartões (CartaoTese
+              é Server Component; ver viradaDelegada.tsx). */}
+          <ViradaDelegada
+            tickers={exemplos.map((papel) => papel.ticker)}
+            seletorContainer=".grade-teses"
+          />
         </section>
 
         {/* Bloco "gerar nova tese" */}
