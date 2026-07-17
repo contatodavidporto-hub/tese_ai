@@ -4,6 +4,9 @@
  * esta folha (D7/§4 do plano). LEI: .maestro/plano-horizonte.md (§0 vetos,
  * §5 emendas E1-E30 PREVALECEM) + .maestro/direcao-horizonte.md (D3/D6/D9-
  * E1/D10, §2 e §12).
+ * EXCEÇÃO DE POSSE (missão OURIVESARIA, raia 1A, 2026-07-17 — §3-C1/§7-F7
+ * do plano-ourivesaria): a seção 4 (`.talha-capitulo`) é da RAIA 1A, dona
+ * declarada — ninguém mais a edita. O resto da folha segue da Onda 0.
  * ============================================================
  * CONTEÚDO desta folha (D7 — "grid/fios/capa"):
  *   1. A BANCADA — sistema full-bleed oficial (D3): grid de colunas
@@ -11,6 +14,8 @@
  *   2. `.fio-travessa` — assinatura de abertura de seção (D6).
  *   3. Vocabulário da CAPA (D10): orelhas, cartola, linha-fina em 2
  *      colunas com fio de goteira, vinco da dobra, fio de prumo scrubbed.
+ *   4. `.talha-capitulo` — traço de ouro que abre capítulo (OURIVESARIA
+ *      C1: substitui os fios cinza de mesma superfície).
  *
  * `--sangria`/`--medida`/`--palco-max` são tokens GLOBAIS declarados em
  * `globals.css` (:root) — decisão desta Onda 0: o bloco ilustrativo da
@@ -46,7 +51,7 @@
  * (assimetria — ocupa metade do palco + a medida inteira de um lado) e
  * `.b-medida-esq/-dir` (a medida ancorada numa borda do palco, sem sangrar
  * até a beirada física). Aninhável: um `.bancada` dentro de um `.b-sangria`
- * recria as colunas dentro de um palco (ex.: veludo da vitrine) — zero CSS
+ * recria as colunas dentro de um palco (ex.: câmara da vitrine) — zero CSS
  * extra, é a mecânica normal de grid aninhado. RTL-safe (grid-column por
  * nome de linha, não por índice físico); CLS-safe (first-paint puro, zero
  * medição JS).
@@ -112,8 +117,12 @@
  * mecanismo de animação novo, a página aplica as duas classes juntas
  * (`className="fio-travessa reveal-regua"`) num `<hr>`/`<div>` aria-hidden.
  * Ritmo de capítulos da landing (D6, documentação — não é CSS):
- * papel-claro (capa) -> papel (prova) -> papel (nascimento) -> veludo
- * (vitrine) -> veludo escurecendo (salão) -> papel (contrato).
+ * papel-claro (capa) -> papel (prova) -> papel (nascimento) -> câmara
+ * (vitrine) -> câmara escurecendo (salão) -> papel (contrato).
+ * OURIVESARIA (raia 1A, §3-C1/§7-F1): as ~23 hairlines de MESMA superfície
+ * morreram — o consumidor REMANESCENTE desta classe é exclusivamente a
+ * `.capa-linha--dobra` do hero (fio + vinco, exceção nomeada F1,
+ * byte-idêntica). Aberturas de capítulo agora usam `.talha-capitulo` (§4).
  * ------------------------------------------------------------ */
 .fio-travessa {
   grid-column: sangria-inicio / sangria-fim; /* range explícito — ver §1 */
@@ -228,4 +237,32 @@
   to {
     transform: scaleY(1);
   }
+}
+
+/* ------------------------------------------------------------
+ * 4. `.talha-capitulo` — traço de ouro que abre capítulo
+ *    DONA: raia 1A (missão OURIVESARIA, 2026-07-17 · §3-C1 do plano)
+ * ------------------------------------------------------------
+ * Evolução do gesto "régua imprime, título assenta": no lugar do fio cinza
+ * sangria-a-sangria (que desenhava fronteira onde o material NÃO muda), um
+ * traço curto de ouro (2.5rem × 2px, `--fio-lapidario`) sob o eyebrow/acima
+ * do título — rótulo com luz, não risco divisório. A ENTRADA é o MESMO
+ * mecanismo `.reveal-regua` (scaleX 0->1 one-shot, origem esquerda; a
+ * página aplica as duas classes juntas num nó aria-hidden). Assento
+ * pós-talha ÚNICO: 1.5rem (`--ritmo-pos-fio`) — via gap/margin da página.
+ * REDUCED-MOTION (§7-F7, registro NOMINAL): esta classe não declara
+ * animação própria — o one-shot pertence ao motor Reveal/`.reveal-regua`,
+ * cujo bloco reduce em globals.css já o neutraliza. Nada a desligar aqui.
+ * Largura fixa por `inline-size` (o item de grid/flex não estica — não
+ * depende de justify-self). Variante `--aviso` (âmbar): exclusiva da seção
+ * "Lacunas" da /tese (CabecalhoSecao), mesmo papel de alerta da régua
+ * `bg-aviso-borda` que substitui. */
+.talha-capitulo {
+  inline-size: 2.5rem;
+  block-size: 2px;
+  border-radius: 1px;
+  background: var(--fio-lapidario);
+}
+.talha-capitulo--aviso {
+  background: var(--warn-border);
 }

@@ -55,12 +55,20 @@
  *     WCAG 2.2.2 (a única contínua do site é a vitrine, COM controle).
  *     `infinite` é PROIBIDO por grep nesta folha.
  *
- * UM-ESCRITOR-POR-PROPRIEDADE (tabela §7b, nó a nó):
+ * UM-ESCRITOR-POR-PROPRIEDADE (tabela §7b, nó a nó — EMENDA NOMINAL 1D
+ * OURIVESARIA 2026-07-17, rito S3: `scale` do miolo, antes LIVRE, ganha dono):
  *   <ol.salao-trilho> + <svg.salao-fio> → `transform: x` do tween ÚNICO.
  *   <li.bolha-bancada>                  → `translate`/`scale` ESTÁTICOS
- *                                         desta folha (nunca animados).
- *   <div.bolha-miolo>                   → keyframe `bolha-assenta` (2.8s,
- *                                         1×, fill both) desta folha.
+ *                                         desta folha (nunca animados). O JS
+ *                                         só toca `classList` (.bolha-ativa —
+ *                                         canal homologado, nunca style).
+ *   <div.bolha-miolo>                   → `translate`: keyframe `bolha-assenta`
+ *                                         (2.8s, 1×, fill both) desta folha.
+ *                                         `scale`: TRANSITION desta folha via
+ *                                         `.bolha-ativa` (E-B1/ruling 6.1 —
+ *                                         one-shot por mudança de estado,
+ *                                         420ms var(--ease-assento); NÃO é
+ *                                         spring físico nem 3ª exceção F.74).
  *   .salao-camada                       → x/opacity por containerAnimation.
  *   .salao-poeira                       → `translate` via `--poeira-x`.
  * Nenhum nó tem dois donos. GSAP jamais toca box-shadow/translate do <li>.
@@ -73,29 +81,43 @@
  * ============================================================ */
 
 /* ------------------------------------------------------------
- * 1. O VELUDO QUE ESCURECE (D25/7a) — pórtico + salão
+ * 1. A CÂMARA QUE ESCURECE (D25/7a) — pórtico + salão
  * ------------------------------------------------------------
- * "O veludo da vitrine NÃO termina: escurece." O pórtico (cabeçalho +
+ * "A câmara da vitrine NÃO termina: escurece." O pórtico (cabeçalho +
  * parágrafo, markup do integrador via `children`) e o salão são IRMÃOS
  * diretos do <main> (E1: zero ancestral flex acima do pinado — o bug
  * histórico do pinSpacing) e compartilham a MESMA superfície.
  *
- * `.veludo-escopo` (definida em cinema/vitrine.css, raia 1B — mecanismo
+ * `.camara-escopo` (definida em cinema/vitrine.css, raia 1B — mecanismo
  * REUSÁVEL, D20/E5/E6) é aplicada nos DOIS pelo TSX: é ela que re-declara
  * os PARES COMPLETOS de tokens semânticos e força o ramo de elevação por
  * CLASSE. Esta folha NÃO redeclara nenhum token do escopo — só consome.
  * ------------------------------------------------------------ */
 .salao-portico,
 .salao-fundo {
-  /* Veludo escurecendo: mesma ameixa (~285°, fora do hue banido), 22% mais
-     funda. Escurecer só AUMENTA o contraste da tinta (AA anda a favor). */
-  --salao-veludo: color-mix(in srgb, var(--veludo-fundo) 78%, black);
-  background: var(--salao-veludo);
-  color: var(--veludo-tinta);
+  /* Câmara aprofundando (OURIVESARIA C8): mesma tinta-de-safira da câmara
+     (~221°, croma contido — fora das DUAS janelas banidas: verde 70–200 e
+     violeta 250–345), 22% mais funda. O token base (--camara-fundo, valor
+     congelado na Onda 0.5; rename --camara-* é da 1B) JÁ é a câmara — o
+     color-mix local permanece o ponto único de recomposição do salão.
+     Escurecer só AUMENTA o contraste da tinta (AA anda a favor). */
+  --salao-camara: color-mix(in srgb, var(--camara-fundo) 78%, black);
+  background: var(--salao-camara);
+  color: var(--camara-tinta);
 }
 
 .salao-portico {
   padding-block: 3.5rem 2rem;
+  /* M2 — "Degrau de profundidade" (conceito B §2.3): a fronteira vitrine →
+     pórtico deixa de ser corte seco — a câmara não termina, APROFUNDA numa
+     rampa de 5rem, da superfície da vitrine (--camara-fundo) ao fundo do
+     salão (--salao-camara). background é propriedade desta folha (um
+     escritor ✓); após 5rem o gradiente segura a cor final até o fim. */
+  background: linear-gradient(
+    to bottom,
+    var(--camara-fundo),
+    var(--salao-camara) 5rem
+  );
 }
 
 .salao-fundo {
@@ -113,21 +135,47 @@
   grid-template-columns: minmax(0, 1fr);
   padding-block-end: 1rem;
 
-  /* Geometria do salão (consumida pelo layout E pela geometria do fio). */
-  --bolha-largura: 22rem;
-  --salao-gap: 14rem;
-  --salao-recuo: 2rem;
+  /* M3 — "Saída da câmara" (conceito B §2.3): a fronteira REAL de material
+     salão → papel (#postura) é assinada pelo lábio de ouro nos DOIS temas.
+     Dial --labio-alfa CONGELADO 0.5 na Onda 0.5 (protótipo 0.3: ≥3:1 por
+     pixel sobre os dois lados no escuro; no claro o lábio é decorativo — a
+     fronteira lê pelo par papel×câmara 15,27:1). Recuo binário registrado:
+     1px sólido var(--accent-valor). */
+  border-block-end: 1px solid
+    color-mix(in srgb, var(--accent-valor) calc(var(--labio-alfa) * 100%), transparent);
+
+  /* Geometria do salão (consumida pelo layout E pela geometria do fio).
+     OURIVESARIA §7-A (protótipo 0.6 vinculante): bolha 22→26rem, gap
+     14→17rem ⇒ passo 688px. ENTRADA ≠ REPOUSO: `--salao-recuo` (E-A2, por
+     construção) posiciona a bolha 1 na chegada — só ela visível, à direita,
+     com a bolha 2 nascendo NA borda; o POUSO da bolha da vez é o token
+     global `--salao-repouso` (2rem — composição elogiada preservada). O JS
+     NÃO lê nenhuma das duas (pegadinha 5 não se aplica: o snap usa a
+     constante REPOUSO_PX no TSX). O recuo é aplicado como MARGEM da bolha 1
+     (não padding do trilho — ver §5): assim o % do recuo e o % do espaçador
+     resolvem contra a MESMA base e `distancia = 4·passo + (recuo − repouso)`
+     fecha EXATA (Δ=0 medido nos 4 viewports do protótipo 0.6). */
+  --bolha-largura: 26rem;
+  --salao-gap: 17rem;
+  --salao-recuo: calc(100% - var(--bolha-largura) - var(--salao-gap));
   --bolha-raio: 36px; /* D27 */
 
+  /* Ease do assento da ênfase da vez (E-B1/ruling 6.1) — bezier declarativo
+     one-shot com sobressinal único ~6% (y1 = 1.06): vocabulário de easing,
+     NÃO spring físico (F.74 segue com exatamente duas exceções). Token
+     LOCAL da folha dona (§7-E10). Recuo binário registrado: --ease-ink. */
+  --ease-assento: cubic-bezier(0.3, 1.06, 0.3, 1);
+
   /* E2 — FONTE ÚNICA dos offsets verticais (px puros; ver pegadinha no topo).
-     3 planos de profundidade, alturas alternadas (baixo-alto-centro-alto-
+     Constelação espalhada (§7-A, protótipo 0.6): magnitudes todas diferentes,
+     alternância de sinal ESTRITA entre vizinhas (baixo-alto-baixo-alto-
      baixo): é esta alternância que GARANTE, antes da curva existir, um
      corredor livre do lado do sag entre duas bolhas consecutivas. */
-  --bolha-dy-1: 64px;
-  --bolha-dy-2: -72px;
-  --bolha-dy-3: 0px;
-  --bolha-dy-4: -80px;
-  --bolha-dy-5: 56px;
+  --bolha-dy-1: 72px;
+  --bolha-dy-2: -88px;
+  --bolha-dy-3: 12px;
+  --bolha-dy-4: -64px;
+  --bolha-dy-5: 44px;
 
   /* Iluminação da costura (D25): 1 = cena acesa. Fora do pin fica em 1 —
      a seção nunca nasce apagada (SSR/no-JS/reduce). */
@@ -154,18 +202,18 @@
   background: radial-gradient(
     ellipse at center,
     transparent 42%,
-    rgb(0 0 0 / var(--veludo-vinheta-alfa)) 100%
+    rgb(0 0 0 / var(--camara-vinheta-alfa)) 100%
   );
 }
 
-/* Anel de foco DENTRO do veludo (E15): o `--accent-text` global cai a
-   ~2,39:1 sobre o veludo (reprova 2.4.7). A lista abaixo é só de elementos
-   cujo anel desenha SOBRE o veludo — o miolo da bolha é `bg-elevated`
-   ESCURO (escopo-veludo), então links internos também ficam nela. */
-.veludo-escopo .salao-trilho:focus-visible,
-.veludo-escopo .salao-talha:focus-visible,
-.veludo-escopo .bolha-bancada a:focus-visible {
-  outline-color: var(--veludo-anel);
+/* Anel de foco DENTRO da câmara (E15): o `--accent-text` global cai a
+   ~2,39:1 sobre a câmara (reprova 2.4.7). A lista abaixo é só de elementos
+   cujo anel desenha SOBRE a câmara — o miolo da bolha é `bg-elevated`
+   ESCURO (escopo-câmara), então links internos também ficam nela. */
+.camara-escopo .salao-trilho:focus-visible,
+.camara-escopo .salao-talha:focus-visible,
+.camara-escopo .bolha-bancada a:focus-visible {
+  outline-color: var(--camara-anel);
 }
 
 /* ------------------------------------------------------------
@@ -225,9 +273,10 @@
   display: flex;
   flex-direction: column;
   gap: 3.5rem; /* a BANDA LIVRE do colar: o fio vertical vive aqui (E19) */
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  /* margin/padding/list-style: 0/none JÁ vêm do preflight universal do
+     Tailwind v4 (`*{margin:0;padding:0}` + `ol,ul,menu{list-style:none}`,
+     conferido no chunk compilado) — declarações redundantes DELETADAS
+     (dieta E-C2 da 1D). ⚠ a geometria do espaçador DEPENDE de padding 0. */
   max-inline-size: 44rem;
   margin-inline: auto;
 }
@@ -261,13 +310,13 @@
 .bolha-bancada {
   position: relative;
   display: flex;
-  /* E20: `translate` só sob `.salao-pinado`. Aqui, no colar, é zero — a
-     regra do pinado é que o liga (senão as bolhas do colar desceriam até
-     ~104px e sobrepunham conteúdo em toda tela touch). */
-  translate: 0 0;
+  /* E20: `translate` só sob `.salao-pinado`. Aqui, no colar, fica no
+     INITIAL (`none` ≡ identidade — declarar `0 0` era redundante; dieta
+     E-C2 da 1D). A regra do pinado é que o liga (senão as bolhas do colar
+     desceriam até ~104px e sobrepunham conteúdo em toda tela touch). */
 }
 
-/* Sombra elíptica projetada no CHÃO do veludo — é ela que dá o peso 3D
+/* Sombra elíptica projetada no CHÃO da câmara — é ela que dá o peso 3D
    (o disco não é um adesivo: ele PAIRA sobre a mesa). Decorativa; z-index
    -1 dentro do stacking context da seção (acima da vinheta, abaixo do
    miolo). A distância varia com o plano de profundidade (nth abaixo). */
@@ -286,9 +335,9 @@
 .bolha-miolo {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.875rem;
   inline-size: 100%;
-  padding: 2rem;
+  padding: 2.25rem; /* §7-A5 — caixa útil 416 − 2×36 = 344px (38ch a 17px ✓) */
   border-radius: var(--bolha-raio);
   /* Volume: calota specular no quadrante superior-esquerdo (a luz da casa
      vem do alto-esquerda — mesma luminária das gemas) SOBRE a superfície
@@ -305,18 +354,19 @@
       transparent 72%
     ),
     var(--bg-elevated);
-  /* Keyline-engaste ouro 1px + sombra curta de peso (o veludo é escuro nos
-     DOIS temas: a elevação aqui é keyline + sombra, doutrina S5). */
+  /* Keyline-engaste ouro 1px + sombra curta de peso (a câmara é escura nos
+     DOIS temas: a elevação aqui é keyline + sombra, doutrina S5). O dial
+     `--bolha-keyline` (default 55%) é o que a ênfase da vez sobe a 80% —
+     UMA declaração de box-shadow, um escritor (dieta E-C2). */
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent-valor) 55%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent-valor) var(--bolha-keyline, 55%), transparent),
     0 18px 38px -22px rgb(0 0 0 / 0.75);
 }
 
 /* Estratos internos (alvos do containerAnimation no pinado — no colar
-   ficam estáticos e completos). */
-.salao-camada {
-  margin: 0;
-}
+   ficam estáticos e completos). `.salao-camada` segue sendo o SELETOR do
+   GSAP (contrato com o TSX) — a regra CSS `margin: 0` morreu por ser
+   redundante com o preflight universal (dieta E-C2 da 1D). */
 .bolha-numeral {
   font-family: var(--font-mono);
   font-size: var(--text-h1);
@@ -329,13 +379,16 @@
   font-size: var(--text-h3);
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--veludo-tinta);
+  color: var(--camara-tinta);
 }
 .bolha-texto {
-  max-inline-size: 34ch; /* D27 — medida interna */
-  font-size: var(--text-body);
+  max-inline-size: 38ch; /* §7-A5 — medida 36–40ch (NUNCA 42ch: não cabe em
+     26rem; achado 62). Cabe na caixa útil de 344px a 17px. */
+  font-size: var(--text-body-lg); /* 17px — token de uso EXCLUSIVO
+     bolha/letreiro (§7-E10, congelado na Onda 0.5) */
   line-height: 1.6;
-  color: var(--ink-secondary);
+  color: var(--camara-tinta); /* tinta da câmara (§3-C4: par re-provado por
+     pixel no gate G2 da raia — sobre o miolo bg-elevated do escopo) */
 }
 /* Selo da fonte — a MESMA gramática dos selos da cena do nascimento
    (`.nascimento-selo`, cinema/lapidacao.css): aro fino, mono, caixa alta.
@@ -351,7 +404,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: 0.04em;
-  color: var(--veludo-tinta-2);
+  color: var(--camara-tinta-2);
 }
 .bolha-selo__marca {
   font-weight: 600;
@@ -391,7 +444,14 @@
   block-size: 100%;
   max-inline-size: none;
   margin-inline: 0;
-  padding-inline-start: var(--salao-recuo);
+  /* ⚠ O recuo de entrada NÃO vive AQUI (§7-A1/protótipo 0.6, o coração do
+     achado 3): com o recuo no padding do trilho, o % do ESPAÇADOR resolveria
+     contra o content box JÁ DESCONTADO o recuo (base = bolha+gap = 688px
+     constante) e o calc degeneraria a −32px → piso 1px → a bolha 5 nunca
+     pousaria no repouso (pontos de snap até 1,57, fora de [0,1]). O recuo é
+     a MARGEM da bolha 1 (regra nth-child(1) abaixo): content box do trilho
+     fica a base cheia (o `.salao-trilho` base já tem `padding: 0`) e todos
+     os % resolvem contra a MESMA régua. */
   will-change: transform;
 }
 
@@ -400,9 +460,13 @@
    Sem ele, `distancia = scrollWidth - clientWidth` fica MENOR que o
    deslocamento entre a 1ª e a última bolha, os pontos de snap das últimas
    bolhas colapsam todos em 1 (duas bolhas no mesmo ponto = contador e
-   aria-current mentem) e a bolha 5 nunca pousa no palco. Com ele,
-   distancia == 4 × passo EXATAMENTE: os pontos viram [0, .25, .5, .75, 1] e
-   CADA bolha pousa na MESMA posição de palco em que a bolha 1 nasceu.
+   aria-current mentem) e a bolha 5 nunca pousa no palco. Com ele (geometria
+   entrada≠repouso, §7-A1/A2 + protótipo 0.6):
+   distancia == 4·passo + (recuo − repouso) EXATA (Δ=0 medido) ⇒
+   ponto_i = (offset_i − repouso)/distancia. 0 NÃO é mais ponto de snap
+   (p1 é viewport-dependente: ~0,15 a 1024px … ~0,36 a 1920px — o trecho
+   [0, p1) é o travelling de ENTRADA da composição E-A2); p5 = 1,0 EXATO e
+   CADA bolha pousa no MESMO x de palco (--salao-repouso = 2rem).
    ⚠ PEGADINHA (medida na raia, Chromium): um `::after` de flex container
    GERA caixa e ocupa espaço, mas NÃO entra no `scrollWidth` (layout
    overflow) — o espaçador tinha que ser um elemento REAL. Com ::after:
@@ -414,7 +478,13 @@
 .salao-pinado .salao-espaco {
   display: block;
   flex: 0 0 auto;
-  inline-size: calc(100% - var(--bolha-largura) - var(--salao-gap));
+  /* §7-A2: piso de 1px — sem o max(), o calc degenera a 0 quando a base do
+     % encolhe (retângulo de ÁREA ZERO sai da união do layout overflow e o
+     scrollWidth encolhe um gap inteiro — pegadinha irmã abaixo). O termo
+     −repouso é o que faz o ponto da bolha 5 fechar em 1,0 exato.
+     `recuo − repouso` ≡ `100% − largura − gap − repouso`: o token do recuo
+     resolve o % AQUI, contra o content box do trilho (mesma régua). */
+  inline-size: max(1px, calc(var(--salao-recuo) - var(--salao-repouso)));
   /* ⚠ PEGADINHA IRMÃ: um espaçador de ALTURA ZERO tem retângulo VAZIO e o
      Blink o ignora na união do layout overflow — `scrollWidth` continuava
      parando na última bolha (2688) mesmo com o <li> de 817px posicionado em
@@ -442,6 +512,11 @@
 .salao-pinado .salao-trilho > li:nth-child(1) {
   --bolha-dy: var(--bolha-dy-1);
   --bolha-sombra-dist: 30px;
+  /* ENTRADA (E-A2/§7-A1): o recuo da chegada vive AQUI, como margem da
+     bolha 1 (nunca padding do trilho — ver §5). Especificidade (0,3,1)
+     vence o reset `margin-inline: 0` de `.salao-pinado .bolha-bancada`
+     (0,2,0) — o mesmo padrão das regras --bolha-dy desta tabela. */
+  margin-inline-start: var(--salao-recuo);
 }
 .salao-pinado .salao-trilho > li:nth-child(2) {
   --bolha-dy: var(--bolha-dy-2);
@@ -462,19 +537,47 @@
   --bolha-sombra-dist: 30px;
 }
 
+/* ------------------------------------------------------------
+ * 5b. ÊNFASE DA VEZ (E-B1 + ruling 6.1) — o assento da bolha ativa
+ * ------------------------------------------------------------
+ * O MESMO onUpdate que publica o índice ativo aplica `.bolha-ativa` no <li>
+ * (classList coalescido — canal homologado; o slot server-rendered nunca
+ * re-renderiza). O visual é 100% desta folha: `scale` do miolo (dono
+ * emendado na tabela do topo, rito S3) cresce a 1.035 com transition
+ * one-shot 420ms var(--ease-assento) — sobressinal único ~6% que ASSENTA
+ * (2.2.2 ✓; não é elastic). `scale` no MIOLO não altera offsetWidth/Height
+ * do <li> → medirBolhas/fio/snap intactos; o círculo publicado cobre o
+ * crescimento pintado via INFLA 12 (§7-A4). Reforços sem disputa de
+ * escritor: keyline 55%→80% pelo dial `--bolha-keyline` (a declaração de
+ * box-shadow é UMA, na §4 — troca seca, sem transition) e numeral acende
+ * --valor-brilho (color é livre; transição de color = isenta, §7-F7).
+ * Colar/reduce: sem estado "ativa" (classe só nasce no modo pinado).
+ * ------------------------------------------------------------ */
+.salao-pinado .bolha-miolo {
+  transition: scale 420ms var(--ease-assento);
+}
+.salao-pinado .bolha-ativa .bolha-miolo {
+  scale: 1.035;
+  --bolha-keyline: 80%; /* keyline 55→80% pela MESMA declaração da §4 */
+}
+.salao-pinado .bolha-ativa .bolha-numeral {
+  color: var(--valor-brilho);
+}
+
 /* Viewports baixos (1366×768, 1280×720): os offsets encolhem para o fio
-   caber no palco sem raspar as bordas (recuo declarado da §7f). px puros —
-   o JS lê estas MESMAS vars (E2). */
+   caber no palco sem raspar as bordas (§7-A5/achado 65 — tabela do ramo
+   raso NORMATIVA: 50/−62/8/−44/30). px puros — o JS lê estas MESMAS vars
+   (E2). */
 @media (max-height: 800px) {
   .salao-fundo {
-    --bolha-dy-1: 44px;
-    --bolha-dy-2: -50px;
-    --bolha-dy-3: 0px;
-    --bolha-dy-4: -56px;
-    --bolha-dy-5: 40px;
+    --bolha-dy-1: 50px;
+    --bolha-dy-2: -62px;
+    --bolha-dy-3: 8px;
+    --bolha-dy-4: -44px;
+    --bolha-dy-5: 30px;
   }
   .salao-pinado .bolha-miolo {
-    padding: 1.5rem;
+    padding: 1.75rem;
     gap: 0.5rem;
   }
 }
@@ -495,6 +598,10 @@
   inset: 0;
   overflow: visible;
   pointer-events: none;
+  /* COLAR: o fio nasce DESENHADO (estado final = default — nunca uma tela
+     com fio pela metade se o @supports faltar); o scrub de view() abaixo é
+     progressivo por cima deste default. */
+  stroke-dashoffset: 0;
 }
 .salao-pinado .salao-fio {
   will-change: transform;
@@ -506,7 +613,8 @@
 .salao-fio-seg,
 .salao-fio-faisca {
   fill: none;
-  stroke-linecap: butt; /* redondo estacionaria um ponto espúrio na origem */
+  /* stroke-linecap fica no INITIAL (butt) — declará-lo era redundante;
+     `round` segue PROIBIDO (estacionaria um ponto espúrio na origem). */
   stroke-dasharray: 1;
 }
 .salao-fio-seg {
@@ -522,15 +630,12 @@
   stroke-dasharray: 0.02 1;
 }
 
-/* COLAR: o fio nasce DESENHADO (estado final = default — nunca uma tela com
-   fio pela metade se o @supports faltar). Sob @supports, o desenho é
-   scrubbed por `view()` NO PRÓPRIO <svg>: `stroke-dashoffset` é propriedade
-   SVG HERDADA, então animá-la no <svg> alimenta os <path> filhos — sem
-   depender de view-timeline em elemento SVG (que não gera caixa CSS em todo
-   engine). Progresso de scroll = isento de 2.2.2 (não é movimento autônomo). */
-.salao-fio {
-  stroke-dashoffset: 0;
-}
+/* COLAR: sob @supports, o desenho é scrubbed por `view()` NO PRÓPRIO <svg>:
+   `stroke-dashoffset` é propriedade SVG HERDADA, então animá-la no <svg>
+   alimenta os <path> filhos — sem depender de view-timeline em elemento SVG
+   (que não gera caixa CSS em todo engine). Progresso de scroll = isento de
+   2.2.2 (não é movimento autônomo). O default desenhado (dashoffset 0) vive
+   na regra base do `.salao-fio`, acima. */
 @supports (animation-timeline: view()) {
   .salao-fio {
     animation: salao-fio-desenha 1ms linear both;
@@ -581,9 +686,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  /* margin/padding/list-style: cobertos pelo preflight (ver .salao-trilho) */
 }
 .salao-talha {
   display: flex;
@@ -591,17 +694,18 @@
   justify-content: center;
   min-inline-size: 24px;
   min-block-size: 24px;
-  padding: 0;
-  background: none;
-  border: 0;
+  /* padding/border 0 + background transparente: preflight universal do
+     Tailwind v4 (`button{background-color:#0000}` conferido no chunk
+     compilado) — dieta E-C2 da 1D */
   cursor: pointer;
 }
 .salao-talha__traco {
   display: block;
   inline-size: 2px;
   block-size: 12px;
-  background: var(--veludo-tinta-2);
-  opacity: 0.5;
+  background: var(--camara-tinta-2);
+  opacity: 0.55; /* OURIVESARIA 1D (achado do pré-cheque 0.4): 0.5 deixava a
+     talha inativa marginal sobre a câmara — 0.55 é o piso da casa (E-A3) */
   transition:
     block-size var(--dur-tick) var(--ease-ink),
     opacity var(--dur-tick) var(--ease-ink),
@@ -620,11 +724,12 @@
    posição para leitores de tela). E29: na 1ª interação ele exibe a dica
    "← →" por um ciclo e ASSENTA (nunca pisca em loop). */
 .salao-contador {
+  display: none; /* só existe no travelling (regra do pinado abaixo) */
   margin-inline-start: auto;
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   letter-spacing: 0.08em;
-  color: var(--veludo-tinta-2);
+  color: var(--camara-tinta-2);
 }
 .salao-contador--dica {
   color: var(--accent-valor);
@@ -643,9 +748,6 @@
 }
 .salao-pinado .salao-progresso {
   display: block;
-}
-.salao-contador {
-  display: none;
 }
 .salao-pinado .salao-contador {
   display: inline;
@@ -709,6 +811,10 @@
  * cada efeito novo desta folha + cinto de segurança para um quadro de
  * corrida de toggle (o !important vence até o element.style do GSAP).
  *   · `bolha-assenta`   → DECORATIVO: none (a bolha já está no repouso).
+ *   · `.bolha-ativa`    → ÊNFASE (E-B1/§7-F7): sem scale — o modo pinado
+ *                         nunca nasce sob reduce (a classe nem é aplicada);
+ *                         o cinto `scale: none` cobre a corrida de toggle.
+ *                         (Transições de `color` são isentas — registrado.)
  *   · faísca            → DECORATIVA: display:none.
  *   · poeira            → DECORATIVA: estática (sem paralaxe).
  *   · fio (desenho)     → PROGRESSO: ISENTO (reflete o scroll que o leitor
@@ -720,6 +826,8 @@
 @media (prefers-reduced-motion: reduce) {
   .bolha-miolo {
     animation: none !important;
+    scale: none !important; /* cinto da ênfase (.bolha-ativa) — §7-F7 */
+    transition: none !important;
   }
   .salao-fio-faisca {
     display: none !important;

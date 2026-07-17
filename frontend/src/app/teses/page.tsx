@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { GradeFoco } from "@/components/motion/GradeFoco";
 import { Reveal } from "@/components/motion/Reveal";
+import { ViradaDelegada } from "@/components/motion/viradaDelegada";
 import { ChipSaude, ChipSaudeAoVivo, Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { CartaoTese } from "@/components/teses/CartaoTese";
@@ -11,14 +12,20 @@ import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 import { DATA_CARTEIRA_IBOV, exemplosProntos } from "@/lib/tickers";
 
+// OURIVESARIA 2B (crit. 7): folha EXCLUSIVA de /teses — importada AQUI
+// (precedente tese-apoteose.css/glossario.css) para o "pó de ouro do
+// mostruário" não pagar um byte no CSS render-blocking da landing
+// (ruling 6.9: por_rota["/"] Δ ≤ 0) nem das demais rotas.
+import "@/styles/cinema/mostruario.css";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
 
 // ---------------------------------------------------------------------------
 // HORIZONTE (2026-07-14, Onda 3 · raia 3B) — "O MOSTRUÁRIO".
-// Direção §9: masthead sobre faixa de VELUDO full-bleed (`.vitrine-veludo` +
-// `.veludo-escopo`, folha da raia 1B — REUSO; jamais redeclarar os tokens) e
+// Direção §9: masthead sobre faixa de CÂMARA full-bleed (`.vitrine-camara` +
+// `.camara-escopo`, folha da raia 1B — REUSO; jamais redeclarar os tokens) e
 // a grade de cartões sobre PEDESTAIS (`.vitrine-pedestal`: elipse de sombra
 // no chão + keyline ouro no aro).
 // ELEMENTO NOVO (principal): PALCO 3D S1 na grade — `.grade-teses` (emenda de
@@ -33,7 +40,10 @@ export const dynamic = "force-dynamic";
 // `.b-palco` (até 96rem: MAIS largo que o antigo max-w-6xl — mini-gate E30).
 // Copy: `.maestro/ondas/copy-horizonte-spec.md` §4, verbatim. Contagens
 // SEMPRE derivadas de exemplosProntos() — nunca literais.
-// INTOCADOS: CartaoTese, GradeFoco, morph (useViradaCartao / .vt-tese-N).
+// GradeFoco e morph intocados. OURIVESARIA ONDA P — H1 (2026-07-17):
+// CartaoTese virou Server Component; o clique da Virada chega pela ilha
+// <ViradaDelegada> (irmã da grade, listener delegado em `.grade-teses`,
+// useViradaCartao original reusado por ticker — ver viradaDelegada.tsx).
 // ---------------------------------------------------------------------------
 export const metadata: Metadata = {
   title: "Teses",
@@ -64,11 +74,18 @@ export default function TesesPage() {
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        {/* Masthead sobre veludo full-bleed (D19/D20): o escopo-veludo da raia
+        {/* Masthead sobre câmara full-bleed (D19/D20): o escopo-câmara da raia
             1B re-declara os semânticos em PARES COMPLETOS (E5/E6) — nada de
             token é redeclarado aqui. */}
         <section aria-labelledby="teses-titulo" className="bancada">
-          <div className="b-sangria vitrine-veludo veludo-escopo">
+          <div className="b-sangria vitrine-camara camara-escopo">
+            {/* ELEMENTO NOVO OURIVESARIA 2B — "PÓ DE OURO DO MOSTRUÁRIO"
+                (conceito B §7): camada decorativa de poeira ouro+safira +
+                vinheta que aprofunda por view() ao cruzar o masthead.
+                CSS-only (cinema/mostruario.css, exclusiva da rota);
+                aria-hidden, zero string (tabela de proibição §7-E5);
+                z-index:-1 — fica atrás de todo o conteúdo da câmara. */}
+            <div aria-hidden className="mostruario-po" />
             <div className="bancada w-full">
               {/* E30 (correção-mãe, wt-horizonte 2026-07-14): este wrapper
                   vivia em `.b-medida-esq` (medida + só MEIA trilha de palco)
@@ -128,9 +145,13 @@ export default function TesesPage() {
         </section>
 
         {/* A grade sobre pedestais, no palco largo (E30: `.b-palco` chega a
-            96rem — mais largo que o `max-w-6xl`/72rem que existia aqui). */}
-        <section aria-labelledby="grade-titulo" className="bancada gap-y-8 py-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+            96rem — mais largo que o `max-w-6xl`/72rem que existia aqui).
+            RITMO (OURIVESARIA 1A, §3-C2): mt-24 = respiro REAL de 6rem
+            (--ritmo-respiro) após a fronteira do masthead-câmara — o vão é
+            gap de verdade (gate_ritmo mede caixa a caixa), não padding;
+            gap-y-6 = pós-fio único 1.5rem; fio cinza → talha de ouro. */}
+        <section aria-labelledby="grade-titulo" className="bancada mt-24 gap-y-6">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
             {null}
           </Reveal>
           <h2 id="grade-titulo" className="sr-only">
@@ -155,11 +176,20 @@ export default function TesesPage() {
               </li>
             ))}
           </GradeFoco>
+          {/* ONDA P H1 — ilha mínima do morph (zero DOM): descobre a grade
+              por seletor no mount e delega o clique dos cartões (CartaoTese
+              é Server Component; ver viradaDelegada.tsx). */}
+          <ViradaDelegada
+            tickers={exemplos.map((papel) => papel.ticker)}
+            seletorContainer=".grade-teses"
+          />
         </section>
 
-        {/* Bloco "gerar nova tese" */}
-        <section aria-labelledby="gerar-titulo" className="bancada gap-y-8 py-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+        {/* Bloco "gerar nova tese" — mt-24 = respiro 6rem papel↔papel;
+            pb-14 = 3.5rem contra a fronteira de contexto do Footer
+            (--ritmo-capitulo). */}
+        <section aria-labelledby="gerar-titulo" className="bancada mt-24 gap-y-6 pb-14">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
             {null}
           </Reveal>
           <div className="b-palco flex flex-col gap-4 border border-line bg-card px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">

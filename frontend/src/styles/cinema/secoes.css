@@ -82,23 +82,25 @@
 
 /* Traço do fio: safira --accent-confianca (papel "trilha de auditoria" do
    DESIGN-TOKENS.md; hue ~215°, fora da faixa proibida 70–200°), keyline
-   1.5px = micro-área. pathLength=1 normaliza o comprimento, então
-   dasharray 1 = traço inteiro em uma unidade. */
+   1.5px = micro-área. pathLength=100 normaliza o comprimento, então
+   dasharray 100 = traço inteiro em cem unidades (OURIVESARIA 3A,
+   registro-2a d.2: era 1 — px inteiro tornava o desenho binário; valor
+   SINCRONIZADO com FioDaFonte.tsx e CenaScrub.tsx). */
 .fio-da-fonte [data-fio-path] {
   fill: none;
   stroke: var(--accent-confianca);
   stroke-width: 1.5;
   stroke-linecap: round;
-  stroke-dasharray: 1;
+  stroke-dasharray: 100;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Estado recolhido do fio ANTES do scrub (o GSAP escreve o progresso
-     1→0 na timeline da seção — único escritor dinâmico). Fica FORA do
+     100→0 na timeline da seção — único escritor dinâmico). Fica FORA do
      caminho reduce e não oculta conteúdo: sem JS o path não tem `d`
      (nada existe para esconder); é decorativo por construção. */
   .fio-da-fonte [data-fio-path] {
-    stroke-dashoffset: 1;
+    stroke-dashoffset: 100;
   }
 }
 
@@ -194,6 +196,104 @@
     background: linear-gradient(90deg, transparent, var(--valor-brilho) 50%, transparent);
     pointer-events: none;
   }
+}
+
+/* ============================================================
+ * SALA DO CONTRATO VIVA (missão OURIVESARIA, raia 2A · §3-C6)
+ * ============================================================
+ * FIO DO AVAL — o <FioDaFonte/> REUSADO em #postura (zero JS novo): o
+ * CenaScrub da seção encontra o [data-fio-path] e desenha o traço na
+ * janela 0.20–0.65 da timeline (mecanismo idêntico ao fio de #prova —
+ * scrub reversível por natureza). Material OURO --fio-lapidario 1px
+ * (conceito B §6.1): o fio de #prova segue safira (trilha de auditoria);
+ * o do aval é a luz da bancada costurando as 3 placas do contrato.
+ * Âncoras em page.tsx: numeral 01 → numerais 02/03 → base da fileira de
+ * placas — o traço TERMINA acima do box CVM por construção (honra/M3).
+ * Reduce: HERDADO de .fio-da-fonte (bloco no fim desta folha:
+ * dashoffset 0 !important = fio completo estático — registro nominal).
+ * D3c (fio × content-visibility): consulta de offsetLeft/Top em subárvore
+ * skipped FORÇA o layout (spec c-v; interação já auditada em #prova na
+ * P.4) — coexistência re-provada por sonda na raia 2A (gate do scrub).
+ * Especificidade: o id vence o stroke safira base de .fio-da-fonte. */
+#postura [data-fio-path] {
+  stroke: var(--fio-lapidario);
+  stroke-width: 1;
+}
+
+/* LUME DA SEÇÃO (2A) — camada irmã decorativa sob o conteúdo, montada
+ * como REUSO da primitiva `.aurora-masthead` (globals): o ::before dela
+ * pinta a poça safira `rgb(var(--luz-tinta)/var(--luz-aurora-alfa))` —
+ * e `--luz-aurora-alfa` já é modulada por body[data-secao="postura"]
+ * (luz.css): o lume respira com o ambiente da casa, zero gradiente novo
+ * (o desenho autoral de poça dupla ouro+safira foi CORTADO pelo teto de
+ * bytes 6.9 — o ouro da sala vem do fio do aval + keyline/cravação;
+ * decisão registrada). O overflow:hidden da primitiva clipa só o ::before
+ * DESTE div vazio — o div é IRMÃO (jamais ancestral) dos TermoTooltips:
+ * §7-F5 intacta. Esta regra só POSICIONA (o id vence o position:relative
+ * da primitiva — globals corpo ganharia o empate): topo da seção, 24rem —
+ * jamais sobre .exemplo-vivo/box CVM (M3 por geometria; placas bg-card
+ * opacas por cima); z:-1 sob o texto (#postura é stacking context por
+ * construção: content-visibility ⇒ contain paint — se o carve-out D3c um
+ * dia remover o c-v, re-adicionar `isolation:isolate` no MESMO commit).
+ * A OPACITY do div é da timeline do CenaScrub (é [data-cena-el] — dona
+ * única; zero escritor novo): 0→1 na entrada, piso 0.55 na saída;
+ * default no-JS/reduce = 1 (D16, sala acesa; o gradiente em si é
+ * estático — movimento = só a opacity do scrub, coberta pelo bloco
+ * reduce nominal desta folha). */
+#postura .lume-postura {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 24rem;
+  z-index: -1;
+}
+
+/* ============================================================
+ * PERF — content-visibility SELETIVO (§3-C10/H3 + §7-D1 · ruling 6.7)
+ * DONA: Onda P.4 (missão OURIVESARIA, 2026-07-17)
+ * ============================================================
+ * MOTIVO: pular render/layout/paint das duas seções scrubadas mais
+ * distantes da dobra na janela de load (a fração de menor risco do
+ * −153ms provado em bloco pela Horizonte). SÓ #prova e #postura —
+ * JAMAIS salão pinado (#dimensoes: pin-spacer/snap do ScrollTrigger),
+ * rolo do nascimento (sticky + contain próprio em lapidacao.css) ou
+ * #galeria (IO interno de dots com root=rail). Ids são contrato E25.
+ *
+ * INTRINSIC-SIZE MEDIDA (offsetHeight real; RE-DERIVADA pela raia 1A em
+ * 2026-07-17 após o ritmo novo mudar as alturas — §7-D3 previa a
+ * re-derivação pós-1A; método idêntico ao da P.4):
+ *   #prova   973px @390×844 · 560px @768×1024 · 497px @1440×900
+ *   #postura 2054px @390×844 · 1294px @768×1024 · 1079px @1440×900
+ * PEGADINHA MEDIDA NA RAIA P.4: contain-intrinsic-size dimensiona a caixa
+ * de CONTEÚDO — o padding da seção soma POR FORA no estado skipped.
+ * Padding pós-1A: #prova pt-14+pb-12 = 104px (ritmo: pb 3rem = metade do
+ * respiro papel↔papel); #postura py-14 = 112px (fronteira M3, intacto).
+ * Os valores abaixo são o offsetHeight real MENOS o padding respectivo.
+ * Medida FLUIDA (§7-D1) — reta por (390, h390)–(768, h768) com clamp nos
+ * extremos medidos. Conferência (BOX = clamp + padding) nos 3 viewports:
+ *   #prova   box → 973 / 560,9 / 497  (Δ ≤ +0,9px)
+ *   #postura box → 2054,1 / 1294,3 / 1079 (Δ ≤ +0,3px)
+ * `auto` na frente: o tamanho ÚLTIMO-RENDERIZADO substitui a estimativa
+ * após a 1ª renderização (re-entrada sem shift por construção).
+ *
+ * INTERAÇÕES AUDITADAS: CenaScrub mede o trigger por gBCR na criação
+ * (intrinsic ≈ real ⇒ start/end corretos; re-prova por screenshot do
+ * ato vs obase); FioDaFonte mede offsetLeft/Top no mount — consulta de
+ * geometria em conteúdo skipped FORÇA o layout da subárvore (spec c-v):
+ * a medida sai correta, provado no gate do scrub. TermoTooltips dentro
+ * das seções: paint containment clipa tinta na borda da SEÇÃO — popups
+ * abrem a ≥180px da borda (provado por sonda 1.4.13 na raia P.4).
+ * Gate D1 (CLS): carga 0 absoluto + cls_scroll_bench 3 viewports com
+ * atribuição — zero shift de #prova/#postura, zero fonte nova vs obase.
+ */
+#prova,
+#postura {
+  content-visibility: auto;
+}
+#prova {
+  contain-intrinsic-size: auto clamp(393px, 1294px - 109vw, 869px);
+}
+#postura {
+  contain-intrinsic-size: auto clamp(967px, 2726px - 201vw, 1942px);
 }
 
 @media (prefers-reduced-motion: reduce) {

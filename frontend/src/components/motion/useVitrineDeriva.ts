@@ -130,7 +130,14 @@ const SELETOR_RAIL = ".banca-rail";
 const CLASSE_DRAG = "banca-arrastando"; // dono: useRailDrag.ts — só LEITURA aqui
 const CLASSE_DERIVA = "banca-derivando"; // dono: este hook (banca.css consome)
 
-const RAMPA_PARTIDA_MS = 800;
+// OURIVESARIA C5 (raia 1E): 800→1100ms e a curva da partida/retomada virou
+// smoothstep (`suavizar`, abaixo) — derivada 0 em t=0 mata o arranque brusco
+// (o quadrático EASE-OUT anterior tinha aceleração MÁXIMA no 1º instante —
+// R4 §1.4.1; grafia em CAIXA ALTA de propósito: o scanner do Tailwind v4 lê
+// este arquivo e a grafia minúscula com hífen emitiria a utility no CSS).
+const RAMPA_PARTIDA_MS = 1100;
+// Freada por INTERAÇÃO (hover/foco/toque): 400ms + perfil quadrático,
+// INTOCADOS por ruling 6.3 (perfil elogiado; só partida/retomada e borda mudam).
 const RAMPA_PARADA_MS = 400;
 const RESPIRO_MS = 1200;
 const QUIESCENCIA_DEBOUNCE_MS = 150;
@@ -138,7 +145,10 @@ const JANELA_FRAMES_PERF = 90; // ~1,5s a 60fps
 const LIMIAR_P95_MS = 20; // p95 acima disto = jank sustentado (<~50fps)
 const VELOCIDADE_PADRAO = 12; // px/s — fallback se o token não resolver
 
-type Fase = "parado" | "acelerando" | "cruzeiro" | "freando" | "respirando";
+// OURIVESARIA C5/§7-F3: `freandoBorda` é ramo PRÓPRIO (achado 20) — o freio de
+// borda mira vel 0 no ponto EXATO da borda e termina SEMPRE em `respirando`
+// (nunca `parado`/`assentarNoPontoVizinho` no caminho da borda).
+type Fase = "parado" | "acelerando" | "cruzeiro" | "freando" | "freandoBorda" | "respirando";
 
 export type OpcoesVitrineDeriva = {
   /** true = pausado pelo controle on-page (o CHAMADOR já fez a leitura
@@ -154,10 +164,22 @@ export type OpcoesVitrineDeriva = {
 };
 
 /** Ease quadrático (mesma família de `ease-ink`: sai rápido, assenta —
- * aqui em forma fechada por ser aplicado dentro do próprio loop, não CSS). */
+ * aqui em forma fechada por ser aplicado dentro do próprio loop, não CSS).
+ * OURIVESARIA C5: usado HOJE só pela freada por interação (`freando`, 400ms —
+ * perfil congelado pelo ruling 6.3); partida/retomada/borda usam `suavizar`. */
 function facilitarQuadratico(t: number): number {
   const c = Math.min(Math.max(t, 0), 1);
   return 1 - (1 - c) * (1 - c);
+}
+
+/** Smoothstep 3t²−2t³ (OURIVESARIA C5, aplicada à VELOCIDADE): derivada 0 em
+ * t=0 (arranque imperceptível — o 1º pixel só chega quando o ritmo já é
+ * contínuo) E 0 em t=1 (entra no cruzeiro sem quina). Função de `ts` ABSOLUTO
+ * como todas as rampas deste hook — correta com o dt dobrado do modo30fps do
+ * Firefox por construção (recuo 0c7f6d3 intacto). */
+function suavizar(t: number): number {
+  const c = Math.min(Math.max(t, 0), 1);
+  return c * c * (3 - 2 * c);
 }
 
 export function useVitrineDeriva(
@@ -192,7 +214,37 @@ export function useVitrineDeriva(
     let pos = rail.scrollLeft; // acumulador FLOAT (E7) — nunca somado de volta ao DOM
     let tsInicioFase = 0;
     let velInicioFreio = 0;
-    let maxScroll = Math.max(0, rail.scrollWidth - rail.clientWidth);
+    // OURIVESARIA C5/§7-F3 — estado do freio de BORDA (fase `freandoBorda`):
+    let velInicioBorda = 0; // vel capturada no gatilho (rampa interrompível, como as demais)
+    let durFreioBordaMs = 0; // T re-derivado da distância real (ver `entrarFreioDeBorda`)
+
+    // OURIVESARIA C5/§7-F3 — maxScroll TRANSFORM-FREE (medido, não estimado):
+    // o carimbo de entrada dos cartões (banca.css, `view(inline)`) translada o
+    // último cartão em até 16px enquanto ele ainda não entrou no rail — o
+    // `scrollWidth` FLUTUA com a posição do scroll e o valor lido no mount fica
+    // ~16px ACIMA da borda realmente alcançável (o clamp seco antigo mascarava:
+    // o browser prendia o DOM na borda real enquanto `pos` estourava até a
+    // borda virtual — parada seca + plateau falso). `offsetLeft`/`offsetWidth`
+    // IGNORAM transform: a borda medida aqui é a do REPOUSO (carimbo
+    // assentado) — exatamente onde o freio de borda precisa zerar a
+    // velocidade. Erro residual ≤1px (arredondamento inteiro de offset*),
+    // coberto pelo clamp de segurança do `avancar`. Continua recalculado SÓ
+    // em eventos de layout (mount/ResizeObserver/fonts) — nunca por quadro.
+    const medirMaxScroll = (): number => {
+      let inicio = Infinity;
+      let fim = -Infinity;
+      for (const el of Array.from(rail.children)) {
+        const li = el as HTMLElement;
+        inicio = Math.min(inicio, li.offsetLeft);
+        fim = Math.max(fim, li.offsetLeft + li.offsetWidth);
+      }
+      if (!Number.isFinite(fim)) return Math.max(0, rail.scrollWidth - rail.clientWidth);
+      const cs = getComputedStyle(rail);
+      const pads =
+        (parseFloat(cs.paddingInlineStart) || 0) + (parseFloat(cs.paddingInlineEnd) || 0);
+      return Math.max(0, fim - inicio + pads - rail.clientWidth);
+    };
+    let maxScroll = medirMaxScroll();
     let derivandoAntes = false; // só dispara aoMudarEstado na transição
 
     // Velocidade-base lida 1x por getComputedStyle (token --deriva-vel já
@@ -310,9 +362,43 @@ export function useVitrineDeriva(
     let rafId = 0;
     let ultimoTs = 0;
 
+    // OURIVESARIA C5 / §7-F3 (achados 20+61) — FREIO DE BORDA. O pêndulo
+    // parava SECO na borda (`velAtual = 0` instantâneo no clamp de `avancar`);
+    // agora, chegando perto, entra numa rampa que mira vel 0 no ponto EXATO
+    // da borda. A curva é a MESMA smoothstep da partida (simetria do pêndulo).
+    //
+    // A CONTA (derivação, exigida pela emenda):
+    //   vel(t) = v0·(1 − suavizar(t/T)), t ∈ [0,T]
+    //   dist   = ∫₀ᵀ vel dt = v0·T·∫₀¹ (1 − (3u² − 2u³)) du
+    //          = v0·T·(1 − [u³ − u⁴/2]₀¹) = v0·T·(1 − ½) = v0·T/2
+    //   (a smoothstep é SIMÉTRICA em torno de u=½, logo a média de 1−s é ½.)
+    //
+    // GATILHO: distânciaRestante ≤ distância-de-frenagem da rampa de
+    // referência (T = RAMPA_PARTIDA_MS, simetria do pêndulo) = v0·rampa/2,
+    // + 1px de margem (modo30fps: o quadro processado avança com dt DOBRADO
+    // e não pode atravessar o horizonte entre duas checagens — achado 20).
+    // Ao engatar, T é RE-DERIVADO da distância real (dist = v0·T/2 ⇒
+    // T = 2·dist/v0): vel zera exatamente na borda, qualquer que seja a
+    // distância em que o gatilho pegou (rampas de partida interrompidas
+    // perto da borda incluídas). Terminal: `respirando` (1200ms mantidos) →
+    // inverte → `acelerando` — NUNCA `parado`/assento no caminho da borda.
+    const entrarFreioDeBorda = (ts: number): boolean => {
+      if (velAtual <= 0) return false;
+      const distRestante = Math.max(0, direcao === 1 ? maxScroll - pos : pos);
+      if (distRestante > velAtual * (RAMPA_PARTIDA_MS / 1000) * 0.5 + 1) return false;
+      fase = "freandoBorda";
+      tsInicioFase = ts;
+      velInicioBorda = velAtual;
+      durFreioBordaMs = Math.max(1, ((2 * distRestante) / velAtual) * 1000);
+      return true;
+    };
+
     const avancar = (ts: number, dtSeg: number) => {
       if (maxScroll <= 0) return;
       pos += direcao * velAtual * dtSeg;
+      // Clamp de segurança (dt espúrio/resize durante o freio): com o freio
+      // de borda engatado a chegada se dá com vel residual ≲ erro de
+      // integração por quadro (≪ 0,5px/quadro) — nunca mais a parada seca.
       if (pos >= maxScroll) {
         pos = maxScroll;
         fase = "respirando";
@@ -427,9 +513,15 @@ export function useVitrineDeriva(
             velInicioFreio = velAtual;
             break;
           }
+          // OURIVESARIA C5: smoothstep (derivada 0 em t=0 E t=1) — a rampa
+          // segue função de ts ABSOLUTO (correta com dt dobrado do modo30fps).
           const t = (ts - tsInicioFase) / RAMPA_PARTIDA_MS;
-          velAtual = velBase * facilitarQuadratico(t);
-          if (t >= 1) fase = "cruzeiro";
+          velAtual = velBase * suavizar(t);
+          // Retomada JÁ perto da borda: o freio engata no meio da rampa de
+          // partida (vel capturada da fase corrente — interruptível, como
+          // as demais rampas). suavizar(0)=0 ⇒ este quadro avança na vel
+          // corrente, idêntica ao 1º instante da curva do freio.
+          if (!entrarFreioDeBorda(ts) && t >= 1) fase = "cruzeiro";
           avancar(ts, dtSeg);
           break;
         }
@@ -442,7 +534,35 @@ export function useVitrineDeriva(
             break;
           }
           velAtual = velBase;
+          entrarFreioDeBorda(ts); // §7-F3 — checado por quadro, barato (aritmética pura)
           avancar(ts, dtSeg);
+          break;
+        }
+        case "freandoBorda": {
+          if (!podeContinuar()) {
+            // Interação vence a borda (protocolo de posse intacto): cai na
+            // freada por INTERAÇÃO de 400ms (ruling 6.3), capturando a vel
+            // corrente — mesma transição das outras fases móveis (DEFEITO 3).
+            pos = rail.scrollLeft;
+            fase = "freando";
+            tsInicioFase = ts;
+            velInicioFreio = velAtual;
+            break;
+          }
+          const t = (ts - tsInicioFase) / durFreioBordaMs;
+          if (t >= 1) {
+            // Integral fechada da rampa == distância do gatilho: o resíduo
+            // aqui é só o erro de integração por quadro (< 0,2px). Pousa no
+            // ponto EXATO da borda e respira (inversão fica com `respirando`).
+            pos = direcao === 1 ? maxScroll : 0;
+            velAtual = 0;
+            rail.scrollLeft = Math.round(pos); // E7 — escrita absoluta, mesma do `avancar`
+            fase = "respirando";
+            tsInicioFase = ts;
+            break;
+          }
+          velAtual = velInicioBorda * (1 - suavizar(t));
+          avancar(ts, dtSeg); // se cruzar a borda 1 quadro antes, o clamp já leva a `respirando`
           break;
         }
         case "freando": {
@@ -563,13 +683,14 @@ export function useVitrineDeriva(
 
     // maxScroll recalculado só em mudanças de layout reais (nunca por
     // quadro — evita reflow forçado a 60fps): resize do rail + fontes.
+    // Medição transform-free (ver `medirMaxScroll` acima).
     const ro = new ResizeObserver(() => {
-      maxScroll = Math.max(0, rail.scrollWidth - rail.clientWidth);
+      maxScroll = medirMaxScroll();
     });
     ro.observe(rail);
     document.fonts?.ready
       .then(() => {
-        maxScroll = Math.max(0, rail.scrollWidth - rail.clientWidth);
+        maxScroll = medirMaxScroll();
       })
       .catch(() => {});
 

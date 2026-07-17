@@ -8,6 +8,14 @@ import { Header } from "@/components/site/Header";
 import { gruposAlfabeticos, verbetePorSlug } from "@/lib/glossario";
 import { IndiceLetras } from "./IndiceLetras";
 
+// glossario.css é EXCLUSIVA de /glossario (dieta OURIVESARIA P.3, §7-D4/E3 —
+// válvula pré-aprovada; precedente salao.css na landing): o realce de
+// chegada por âncora (`.verbete-glossario:target` + keyframe engaste-acende)
+// e, desde a raia 2C (OURIVESARIA), o micro-lift + chip do elemento novo
+// "Fólios em contra-ritmo" moram nela — importada AQUI, fica fora do
+// render-blocking das outras 8 rotas (landing Δ 0, ruling 6.9).
+import "@/styles/cinema/glossario.css";
+
 // Rota NOVA · DONA: onda COPY (APOTEOSE, crit. 11). Renderização dinâmica:
 // necessária para o CSP com nonce por requisição (src/proxy.ts) ser aplicado
 // em cada resposta — regra de TODA página nova.
@@ -35,13 +43,23 @@ export default function GlossarioPage() {
             do texto (b-medida-esq) é IGUAL ou mais generosa que o max-w-2xl
             de antes; a largura MÁXIMA da rota (o corpo de verbetes abaixo,
             b-palco) fica bem mais larga que o max-w-6xl anterior. */}
-        <section aria-labelledby="glossario-titulo" className="border-b border-line">
-          <div className="bancada py-14 sm:py-20">
-            <div className="b-medida-esq flex flex-col gap-4">
+        {/* RITMO/COSTURA (OURIVESARIA 1A, §3-C2): morre o border-b do
+            masthead (hairline de mesma superfície — papel↔papel não desenha
+            fronteira; quem separa é o respiro de 6rem do corpo abaixo).
+            pt-14 = 3.5rem contra o Header (--ritmo-capitulo; morre o
+            padding sm de 5rem fora da escala); gap-6 = assento/pós-fio
+            1.5rem; talha
+            de ouro sob o eyebrow (mastheads padronizados). */}
+        <section aria-labelledby="glossario-titulo">
+          <div className="bancada pt-14">
+            <div className="b-medida-esq flex flex-col gap-6">
               <Reveal className="i-1">
                 <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
                   Glossário
                 </p>
+              </Reveal>
+              <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
+                {null}
               </Reveal>
               <Reveal className="i-2">
                 <h1
@@ -81,7 +99,9 @@ export default function GlossarioPage() {
           </div>
         </section>
 
-        <div className="bancada py-14">
+        {/* Corpo: mt-24 = respiro REAL 6rem (--ritmo-respiro) após o
+            masthead; pb-14 = 3.5rem contra o Footer. */}
+        <div className="bancada mt-24 pb-14">
           {/* E30/defeito 2 (gate de geometria, wt-horizonte 2026-07-14): a
               régua de talha ERA `fixed left-0` — cobria os ~40px iniciais de
               CADA linha do masthead acima (a régua não respeita nenhum
@@ -121,15 +141,28 @@ export default function GlossarioPage() {
                   key={grupo.letra}
                   id={`letra-${grupo.letra.toLowerCase()}`}
                   aria-label={`Termos com ${grupo.letra}`}
-                  className="mb-14 flex flex-col gap-6 break-inside-avoid last:mb-0"
+                  className="mb-12 flex flex-col gap-6 break-inside-avoid last:mb-0"
                 >
-                  <Reveal variant="reveal-regua" className="h-px w-full origin-left bg-line-strong" aria-hidden>
+                  {/* RITMO 1A: régua cinza por letra → talha de ouro
+                      (2.5rem×2px); mb-12 = 3rem entre grupos (--ritmo-bloco
+                      — grupos de índice são blocos irmãos, não capítulos);
+                      gap-6 = pós-fio único 1.5rem. */}
+                  <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden>
                     {null}
                   </Reveal>
+                  {/* OURIVESARIA 2C — "Fólios em contra-ritmo" (conceito B §7):
+                      a letra-folio ganha `.paralaxe-numero` (primitiva GLOBAL
+                      já usada nos folios de /cobertura e /como-funciona —
+                      zero regra nova, zero byte global): deriva ±8px
+                      scroll-driven (scrub por view(), 2.2.2 ✓) em ritmo
+                      distinto dos verbetes estáticos ao lado. Um-escritor:
+                      a paralaxe escreve transform NA PRÓPRIA `<p>`; o Reveal
+                      anima o wrapper pai — nós distintos. Reduce: bloco
+                      global do `.paralaxe-numero` (animation+transform none). */}
                   <Reveal className="atraso-regua">
                     <p
                       aria-hidden
-                      className="font-mono text-h2 font-semibold text-line-strong"
+                      className="paralaxe-numero font-mono text-h2 font-semibold text-line-strong"
                     >
                       {grupo.letra}
                     </p>
@@ -158,7 +191,11 @@ export default function GlossarioPage() {
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
                             {v.fonteDoConceito && (
-                              <span className="inline-flex w-fit items-center gap-1.5 border border-line-strong bg-card px-2 py-1 font-mono text-meta uppercase tracking-wide text-ink-3">
+                              /* 2C — o chip acende keyline OURO no hover/
+                                 focus-within do verbete (regra em
+                                 glossario.css, `.verbete-chip`); texto e
+                                 layout byte-idênticos. */
+                              <span className="verbete-chip inline-flex w-fit items-center gap-1.5 border border-line-strong bg-card px-2 py-1 font-mono text-meta uppercase tracking-wide text-ink-3">
                                 Conceito · {v.fonteDoConceito}
                               </span>
                             )}
@@ -184,8 +221,9 @@ export default function GlossarioPage() {
               ))}
             </div>
 
-            {/* Fecho — postura, e o caminho de volta para o produto. */}
-            <div className="mt-14 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
+            {/* Fecho — postura, e o caminho de volta para o produto.
+                mt-12 = 3rem (--ritmo-bloco; era 3.5rem fora da escala). */}
+            <div className="mt-12 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
               <p className="flex-1 text-ui text-ink-2">
                 Faltou um termo? Ele provavelmente é uma métrica dinâmica — nas teses, cada
                 indicador chega com a própria explicação e fonte, no lugar onde aparece.

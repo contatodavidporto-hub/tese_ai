@@ -1,66 +1,28 @@
 /* ============================================================
- * cinema/lapidacao.css — IMPLEMENTAÇÃO (Onda 1A, raia GEMA+CENA, missão
- * "FRONTEND HORIZONTE", 2026-07-14). DONA: raia 1A (única, para a missão
- * inteira). LEI: .maestro/plano-horizonte.md (§0 vetos R1/C2 · §3 C3 ·
- * §5 D15/D16/D18) + .maestro/direcao-horizonte.md (§5c).
+ * cinema/lapidacao.css — os estilos COMPARTILHADOS da cena do
+ * nascimento (missão FRONTEND HORIZONTE 2026-07-14; ESTENDIDA para 8
+ * planos pela missão OURIVESARIA, raia 1C, 2026-07-17 — §3-C3/§7-B5).
  * ============================================================
- * CONTEÚDO desta folha ("a cena do nascimento", D7):
- *   1. O RIG — `.nascimento-rolo` (240svh) + `.nascimento-cena` (sticky sob
- *      a Tarja) — CSS puro, NENHUM GSAP `pin:true` aqui (diferente do
- *      Salão): é `position: sticky` normal + uma timeline GSAP de SCRUB por
- *      cima (montada por `NascimentoScrub.tsx`), então nenhuma das
- *      armadilhas de pinSpacing/scrollbar do Salão (E1/E3) se aplica —
- *      sticky não cria pin-spacer nem depende de `vw`.
- *   2. Os 6 PLANOS do SVG — estilos de `CenaNascimento.tsx` (selos,
- *      pedra bruta, facetas, aro do gate, bandeja de lacuna, carimbo,
- *      mini-engaste). TODOS nascem no estado FINAL (D16): opacity 1,
- *      transform none — o SVG É o diagrama completo por default; a
- *      ilha `NascimentoScrub` escreve `fromTo` por cima, só no cliente.
+ * POR QUE ESTA FOLHA É GLOBAL (E-C3, racional em DESIGN-TOKENS): a
+ * pedra do 404/error.tsx (boundary EAGER no Next 16 — Pegadinha 3 da
+ * Apoteose) depende de classes daqui, e /como-funciona reusa o
+ * diagrama ESTÁTICO. Aqui vive só o que é compartilhado:
+ *   1. Os estilos do SVG dos 8 PLANOS de `CenaNascimento.tsx` (selos,
+ *      pedra bruta, facetas, aro da conferência, bandeja da
+ *      contraprova, carimbo, mini-engaste, trilha). TODOS nascem no
+ *      estado FINAL (D16): a folha não esconde nada — quem escreve
+ *      `fromTo` por cima é a ilha `NascimentoScrub`, só no cliente.
+ *   2. `.nascimento-figura`/`.nascimento-svg` (landing + /como-funciona).
+ *   3. `.pedra-404` (404/error/Hemeroteca).
+ * O RIG da landing (rolo 420svh + cena sticky + legendas visíveis +
+ * atmosfera --nasc-lume) MUDOU para `cinema/nascimento.css`, folha
+ * ESCOPADA à landing via import da ilha (E-C3: regra nova não
+ * compartilhada tenta folha escopada primeiro) — 1C, 2026-07-17.
  *
- * R1/C2 (LEI): esta seção fica FORA do CenaScrub (nenhum tween de
- * transform de OUTRA seção pode alcançar aqui) e nada aqui recebe
- * transform/filter/will-change/contain em ancestral de Tarja/régua — o
- * `.nascimento-cena` é filho comum de fluxo, sticky, sem side-effects em
- * `<main>`/`<body>`.
- *
- * REDUCED-MOTION: classificação nominal (D16 já cobre o conteúdo — o
- * diagrama COMPLETO é o default; o que esta folha desliga sob reduce é o
- * MECANISMO de scroll-jack em si, classificado "decorativo": sem GSAP
- * (matchMedia nem monta a timeline, ver NascimentoScrub.tsx) rolar 240svh
- * de nada seria um desperdício de scroll sem propósito — então sob reduce
- * o rolo vira um bloco de fluxo normal (altura automática, sem sticky), o
- * visitante vê o diagrama completo sem scroll-jacking algum (o resultado
- * MAIS acessível possível, não uma degradação).
+ * REDUCED-MOTION: o conteúdo daqui é D16 puro (diagrama completo por
+ * default) — nada a desligar nesta folha além da `.pedra-404` (bloco
+ * próprio abaixo); o mecanismo de scroll vive na folha da landing.
  * ============================================================ */
-
-/* ------------------------------------------------------------
- * 1. O RIG
- * ------------------------------------------------------------ */
-/* Wrapper de NascimentoScrub.tsx (mesmo padrão de .cena-escopo do
-   CenaScrub, cinema/secoes.css): display:contents — zero box, zero
-   stacking context (C2); a <section> do rolo segue filha direta de
-   <main> tanto para R1 (fora do CenaScrub) quanto para o cálculo do
-   sticky (nenhum ancestral com position/overflow diferente de static). */
-.nascimento-escopo {
-  display: contents;
-}
-
-.nascimento-rolo {
-  position: relative;
-  block-size: 240svh;
-}
-
-.nascimento-cena {
-  position: sticky;
-  top: var(--altura-tarja);
-  block-size: calc(100svh - var(--altura-tarja));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  contain: layout paint;
-  background: var(--bg-card);
-  border-block: 1px solid var(--line-subtle);
-}
 
 .nascimento-figura {
   margin: 0;
@@ -77,39 +39,22 @@
   height: auto;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* Decorativo: desliga o scroll-jack inteiro (nem GSAP monta — ver
-     NascimentoScrub.tsx). O diagrama completo (default desta folha, D16)
-     continua no fluxo normal da página, sem sticky e sem os 240svh de
-     rolagem dedicada. */
-  .nascimento-rolo {
-    block-size: auto;
-  }
-  .nascimento-cena {
-    position: static;
-    block-size: auto;
-    padding-block: 2rem;
-  }
-}
-
 /* ------------------------------------------------------------
- * 2. OS 6 PLANOS (estilos do SVG de CenaNascimento.tsx)
+ * OS 8 PLANOS (estilos do SVG de CenaNascimento.tsx)
  * ------------------------------------------------------------
- * Todo grupo `[data-plano]` nasce visível (D16) — a timeline de
- * NascimentoScrub aplica fromTo por cima, só no cliente.
+ * Todo grupo `[data-plano]` nasce visível — `opacity: 1` é o valor
+ * INICIAL de opacity (regra explícita seria redundante; deletada na
+ * dieta E-C2 da 1C). A timeline de NascimentoScrub aplica fromTo por
+ * cima, só no cliente (D16).
  * ------------------------------------------------------------ */
-.nascimento-plano {
-  opacity: 1;
-}
 
 /* Espinha central — sempre visível, conectivo decorativo. */
 .nascimento-esteira {
   stroke: var(--line-strong);
   stroke-width: 1.5;
-  fill: none;
 }
 
-/* --- Plano 1: a mina --- */
+/* --- Plano 1: as fontes --- */
 .nascimento-moldura {
   fill: none;
   stroke: var(--line-strong);
@@ -132,7 +77,7 @@
   letter-spacing: 0.04em;
   fill: var(--ink-tertiary);
 }
-/* E12: o 6º selo (B3) é a fonte REAL do dado desta cena — destaque em
+/* E12: o selo B3 é a fonte REAL do dado desta cena — destaque em
    ouro, coerente com o carimbo final "[1] B3 · ...". */
 .nascimento-selo--fonte circle {
   stroke: var(--accent-valor);
@@ -187,7 +132,7 @@
   fill: var(--ink-tertiary);
 }
 
-/* --- Plano 4: o gate --- */
+/* --- Plano 4: a conferência (fonte · data) --- */
 .nascimento-aro {
   fill: none;
   stroke: var(--accent-confianca);
@@ -198,6 +143,10 @@
   font-size: 11px;
   fill: var(--ink-secondary);
 }
+
+/* --- Plano 5: a contraprova (lacuna declarada) — split do antigo
+   plano 4 (§3-C3): o beat mais importante da postura regulatória
+   ganhou plano próprio. Par AVISO, nunca erro. --- */
 .nascimento-bandeja rect {
   fill: var(--warn-bg);
   stroke: var(--warn-border);
@@ -210,7 +159,7 @@
   stroke-dasharray: 2 3;
 }
 
-/* --- Plano 5: o carimbo --- */
+/* --- Plano 6: o carimbo --- */
 .nascimento-puncao {
   fill: var(--accent-valor);
 }
@@ -220,12 +169,9 @@
   fill: var(--ink-secondary);
 }
 
-/* --- Plano 6: o engaste (mini-gema-chip — rima visual com `.gema-chip`,
-   §3/C3: "engaste final = mini-gema-chip idêntica às gemas reais". SVG não
-   tem box-shadow por-lado; o bisel é desenhado com dois traços em "L"
-   (aresta clara topo+esquerda / quilha escura baixo+direita) sobre um
-   fundo `--quote-wash` (o MESMO hex de `bg-realce`) — mesma anatomia,
-   técnica nativa de SVG.) --- */
+/* --- Plano 7: o engaste (mini-gema-chip — rima visual com `.gema-chip`:
+   bisel desenhado com dois traços em "L" sobre fundo `--quote-wash`,
+   técnica nativa de SVG). --- */
 .nascimento-mini-chip-fundo {
   fill: var(--quote-wash);
 }
@@ -244,9 +190,82 @@
   stroke: var(--gema-aresta);
   stroke-width: 1;
 }
+
+/* --- Plano 8: a trilha (novo na 1C — §3-C3/§7-B5) ---
+   O caminho refazível de trás para frente: um traço pontilhado que
+   retorna da gema à fonte (gramática da linha de extração, mais
+   quieto: 1px, dash 2 5), três pontos de registro (mini-selos) e a
+   seta de retorno apontando ao selo B3. O fio de saída ganha
+   `stroke-dasharray: 1` (com `pathLength=1`): estático continua um
+   traço contínuo (byte-idêntico ao olho), mas o tween de
+   stroke-dashoffset — inerte na Horizonte — passa a DESENHAR de
+   verdade. Termina em y=686 (≥2px de margem do viewBox 690, §7-B5). */
+.nascimento-trilha {
+  fill: none;
+  stroke: var(--fio-lapidario);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+.nascimento-trilha-ponto {
+  fill: none;
+  stroke: var(--fio-lapidario);
+  stroke-width: 1;
+}
+.nascimento-trilha-seta {
+  fill: none;
+  stroke: var(--fio-lapidario);
+  stroke-width: 1.5;
+}
 .nascimento-fio-saida {
   fill: none;
   stroke: var(--fio-lapidario);
   stroke-width: 1.5;
-  stroke-dashoffset: 0;
+  stroke-dasharray: 1;
+}
+
+/* ------------------------------------------------------------
+ * `.pedra-404` — "Aresta que se desenha" (404/estado vazio)
+ * ------------------------------------------------------------
+ * DONA NOMEADA: Onda 0.5 da missão OURIVESARIA (2026-07-16, §7-E9 e
+ * achado 40 do red-team). CONSUMIDORAS (nunca donas): raia 2C
+ * (not-found.tsx/error.tsx — aplica a classe ao <path> da pedra bruta,
+ * JUNTO com `.nascimento-pedra-bruta`, que segue dando fill/stroke) e
+ * raia 2D (estado vazio da Hemeroteca /historico). A licença da 2C de
+ * "substituir o elemento por equivalente melhor" NÃO cobre remover ou
+ * renomear esta classe compartilhada.
+ *
+ * POR QUE NESTA FOLHA (E-C3): lapidacao.css é GLOBAL por lei — o segmento
+ * do not-found raiz é EAGER no Next 16 e compartilha o grafo de toda rota
+ * (Pegadinha 3 da Apoteose): a pedra do 404/error depende de classe já
+ * paga no CSS global, ZERO import novo nos boundaries.
+ *
+ * MECÂNICA: keyframe one-shot de dash-draw do CONTORNO (900ms, roda 1×,
+ * `both`). 270 = perímetro do hexágono da pedra bruta (medido ≈268,6 no
+ * path `M 420 150 … Z` duplicado em not-found.tsx/error.tsx). Estado
+ * FINAL = contorno completo (dashoffset 0 é o valor inicial da
+ * propriedade — D16: nada termina oculto).
+ * ------------------------------------------------------------ */
+.pedra-404 {
+  stroke-dasharray: 270;
+  animation: pedra-404-desenho 900ms var(--ease-ink) 1 both;
+}
+
+@keyframes pedra-404-desenho {
+  from {
+    stroke-dashoffset: 270;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro reduce NOMINAL (tabela §7-F7): decorativa one-shot — sob
+     reduce a pedra nasce com o contorno COMPLETO estático (nenhum traço
+     se desenha; dasharray neutralizado para não deixar resíduo de
+     pontilhado em navegadores que arredondam o offset). */
+  .pedra-404 {
+    animation: none;
+    stroke-dasharray: none;
+  }
 }

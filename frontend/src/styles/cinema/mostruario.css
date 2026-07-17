@@ -1,0 +1,96 @@
+/* ============================================================
+ * cinema/mostruario.css — folha NOVA, EXCLUSIVA da rota /teses
+ * (raia 2B, missão OURIVESARIA, 2026-07-17 — crit. 7, conceito B §7).
+ * Importada DIRETO por `src/app/teses/page.tsx` (precedente
+ * tese-apoteose.css/glossario.css/como-funciona.css): fica FORA do CSS
+ * render-blocking das outras 8 rotas — obrigatório porque o gate §7-D4 +
+ * ruling 6.9 exigem `por_rota["/"] Δ ≤ 0` (landing NÃO pode pagar um byte
+ * por isto) e palco.css/vitrine.css são @import globais. Classes
+ * namespaced `mostruario-*` (zero colisão).
+ *
+ * CONTEÚDO — o elemento novo NOMEADO de /teses: "PÓ DE OURO DO MOSTRUÁRIO"
+ * (conceito B §7): o masthead-câmara (`.vitrine-camara`, até hoje estático)
+ * ganha a poeira da casa — camada ESTÁTICA de pontos ouro+safira na
+ * gramática EXATA da `.salao-poeira` (salao.css:236-249: radial-gradients
+ * de 2px, color-mix 3–4%, tiles dessincronizados), SEM paralaxe — mais a
+ * vinheta que APROFUNDA por scroll-driven animation (`animation-timeline:
+ * view()`): a poeira assenta de 0.7 → 1 conforme o visitante cruza o
+ * masthead rumo à grade. CSS-only; zero JS; reversível por natureza
+ * (scrub); 2.2.2 ✓ (movimento só enquanto o próprio leitor rola — mesma
+ * doutrina do `cvm-flutua`/`.oficina-cena-scrub`).
+ *
+ * ONDE MORA NO DOM (teses/page.tsx): `<div aria-hidden
+ * class="mostruario-po">` como 1º filho do `.vitrine-camara` — que já tem
+ * `position:relative; isolation:isolate` (vitrine.css:34-36). Com
+ * `z-index:-1` a camada pinta ACIMA da vinheta `::before` do próprio
+ * `.vitrine-camara` (mesmo z, ordem de árvore) e ABAIXO de todo o
+ * conteúdo (M3 ✓: a poeira é fundo, nunca banha texto por cima — e o AA
+ * do texto sobre o pior ponto da poeira é provado por pixel no gate 2B).
+ *
+ * UM-ESCRITOR: nó novo, decorativo, sem nenhum outro dono — a `animation`
+ * daqui é a única escritora de opacity dele. `usePalco`/mola do palco S1
+ * vive na `.grade-teses` (outra seção, outros nós): zero colisão.
+ * ============================================================ */
+
+.mostruario-po {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Default (sem @supports / sem JS / reduce) = ESTADO FINAL (D16). */
+  opacity: 1;
+  background-image:
+    radial-gradient(
+      circle at 12% 22%,
+      color-mix(in srgb, var(--valor-brilho) 4%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 68% 74%,
+      color-mix(in srgb, var(--accent-confianca) 3%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 38% 52%,
+      color-mix(in srgb, var(--valor-brilho) 3%, transparent) 0 2px,
+      transparent 3px
+    );
+  background-size:
+    148px 132px,
+    196px 174px,
+    236px 208px;
+}
+
+/* A vinheta que aprofunda (scrub por view()): o masthead nasce no topo da
+   página (nunca "entra" — range `entry` seria inerte), então o trajeto
+   perceptível é o de SAÍDA: conforme o leitor rola para a grade, a poeira
+   aprofunda 0.7 → 1. `animation-duration: 1ms` + `fill-mode: both` são
+   obrigatórios em scroll-timeline (decisão registrada em graficos.css). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mostruario-po {
+      animation: mostruario-po-aprofunda 1ms linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 75%;
+    }
+    @keyframes mostruario-po-aprofunda {
+      from {
+        opacity: 0.7;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Registro NOMINAL (§7-F7): o scrub da poeira é DECORATIVO — sob reduce
+     não roda (o gate no-preference acima já o exclui; este bloco é o cinto
+     da casa) e a camada fica no estado final estático (poeira parada não é
+     movimento — mesma classificação da vinheta do nascimento). */
+  .mostruario-po {
+    animation: none;
+    opacity: 1;
+  }
+}

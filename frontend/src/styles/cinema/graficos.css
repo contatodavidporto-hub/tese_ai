@@ -123,7 +123,16 @@
    vive em @layer utilities — camada perde para regra sem camada; e a
    especificidade 0,2,0 vence 0,1,0 de qualquer forma). */
 .grafico-scrub {
-  transition: border-color var(--dur-set) var(--ease-ink);
+  /* OURIVESARIA 3A (escopo por rota, ruling 6.9): background-color
+     re-listado porque esta folha agora carrega DEPOIS do corpo do
+     globals.css (chunk da rota) e esta declaração passa a VENCER o
+     cross-fade de tema de `.bg-card` (globals:704) — sem a linha, o fundo
+     do <figure> trocaria de tema num corte seco (assinatura quebrada).
+     Timing idêntico ao do cross-fade da casa; computed provado byte-igual
+     ao estado pré-escopo (sonda_3a_graficos_visual, antes/depois). */
+  transition:
+    background-color var(--dur-set) var(--ease-ink),
+    border-color var(--dur-set) var(--ease-ink);
 }
 .grafico-scrub:hover,
 .grafico-scrub:focus-within {

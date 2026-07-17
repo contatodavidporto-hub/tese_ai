@@ -48,7 +48,7 @@
  *     escalonamento; sem data-cena-el nenhum conteúdo é tweenado);
  *   - faixa CVM: data-cvm no próprio elemento OU num ancestral do alvo;
  *   - fio da fonte: se a seção contém um <FioDaFonte/> (path
- *     [data-fio-path]), o desenho (strokeDashoffset 1→0) é integrado NESTA
+ *     [data-fio-path]), o desenho (strokeDashoffset 100→0) é integrado NESTA
  *     timeline, do meio da entrada ao fim do platô (decisão documentada em
  *     FioDaFonte.tsx: integração na timeline, não CSS var por quadro).
  *
@@ -284,9 +284,13 @@ export function CenaScrub({ excluir, children }: PropsCenaScrub) {
         // Fio da fonte: só progresso de desenho (rastreabilidade como
         // coreografia) — "números voando"/count-up seguem PROIBIDOS.
         if (fio) {
+          // 100→0 (OURIVESARIA 3A, registro-2a d.2): range sincronizado com
+          // pathLength={100} do FioDaFonte e dasharray 100 de secoes.css —
+          // no range [0,1] a serialização em px inteiros tornava o desenho
+          // binário (sem intermediários); com 100 o scrub tem ~100 degraus.
           tl.fromTo(
             fio,
-            { strokeDashoffset: 1 },
+            { strokeDashoffset: 100 },
             { strokeDashoffset: 0, duration: FIO_DURACAO },
             FIO_INICIO,
           );

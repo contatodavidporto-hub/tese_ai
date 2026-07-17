@@ -8,6 +8,12 @@ import { Header } from "@/components/site/Header";
 import { TermoTooltip } from "@/components/ui/TermoTooltip";
 import { tooltipDe } from "@/lib/glossario";
 
+// sobre.css é EXCLUSIVA de /sobre (raia 2C — precedente mostruario.css/
+// glossario.css): carrega o elemento novo "Câmara de método" (poeira fria
+// + numeral que acende) SEM pagar um byte na landing (§7-D4/ruling 6.9) e
+// SEM tocar gema.css/vitrine.css (posse 2A/1B).
+import "@/styles/cinema/sobre.css";
+
 // Renderização dinâmica: necessária para o CSP com nonce por requisição
 // (src/proxy.ts) ser aplicado em cada resposta.
 export const dynamic = "force-dynamic";
@@ -132,8 +138,13 @@ export default function Sobre() {
     <>
       <Header />
       <main id="conteudo" className="flex-1">
-        <section aria-labelledby="sobre-titulo" className="border-b border-line">
-          <div className="bancada gap-y-4 py-14 sm:py-20">
+        {/* RITMO/COSTURA (OURIVESARIA 1A, §3-C2): morre o border-b do
+            masthead (hairline papel↔papel); pt-14 = 3.5rem contra o Header
+            (morre o padding sm de 5rem fora da escala); gap-y-6 = assento
+            1.5rem;
+            talha de ouro sob o eyebrow (mastheads padronizados). */}
+        <section aria-labelledby="sobre-titulo">
+          <div className="bancada gap-y-6 pt-14">
             {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
                 aqui não há nenhuma. Stagger simples (.i-N).
                 E30 (correção-mãe, wt-horizonte 2026-07-14): este masthead
@@ -147,6 +158,9 @@ export default function Sobre() {
               <p className="font-mono text-meta uppercase tracking-[0.2em] text-ink-3">
                 Sobre
               </p>
+            </Reveal>
+            <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
+              {null}
             </Reveal>
             <Reveal className="b-palco i-2">
               <h1
@@ -174,7 +188,9 @@ export default function Sobre() {
           </div>
         </section>
 
-        <div className="bancada py-14">
+        {/* Corpo: mt-24 = respiro REAL 6rem após o masthead (papel↔papel —
+            o vão é gap de caixa, medível pelo gate_ritmo). */}
+        <div className="bancada mt-24">
           <div className="b-palco grid gap-12 md:grid-cols-[1.6fr_1fr]">
             {/* Manifesto — cláusulas numeradas viram placas gravadas
                 (cinema/gema.css `.placa-gravada`, D14/C6 — ELEMENTO NOVO
@@ -183,9 +199,11 @@ export default function Sobre() {
               <h2 id="clausulas-titulo" className="sr-only">
                 Princípios
               </h2>
+              {/* RITMO 1A: régua cinza de coluna → talha de ouro;
+                  mb-6 = pós-fio único 1.5rem (era 2rem). */}
               <Reveal
                 variant="reveal-regua"
-                className="mb-8 h-px w-full origin-left bg-line-strong"
+                className="talha-capitulo mb-6"
                 aria-hidden
               >
                 {null}
@@ -221,15 +239,29 @@ export default function Sobre() {
               ))}
             </section>
 
-            {/* Coluna secundária: ficha técnica sobre veludo estreito
-                (S5/D19-D20 — reusa `.veludo-escopo` de cinema/vitrine.css:
+            {/* Coluna secundária: ficha técnica sobre câmara estreita
+                (S5/D19-D20 — reusa `.camara-escopo` de cinema/vitrine.css:
                 redeclara os semânticos consumidos por `text-ink`/`text-ink-2`/
                 `text-ink-3`/`border-line`/`text-brasa-texto` abaixo — nenhum
-                fork de token novo, o mesmo mecanismo da Vitrine/Salão). */}
+                fork de token novo, o mesmo mecanismo da Vitrine/Salão).
+                Borda = lábio de ouro da fronteira papel↔câmara, padronizado
+                no dial --labio-alfa (0.5 congelado, §7-C3): no escuro é o
+                separador funcional ≥3:1; no claro, decorativo (a fronteira
+                lê pelo par de superfícies). */}
+            {/* OURIVESARIA 2C — ELEMENTO NOVO "Câmara de método" (conceito B
+                §7): o aside deixa de ser estático SEM re-declarar material
+                (a câmara da 1B — `.camara-escopo` + bg + lábio — fica
+                byte-idêntica): `.sobre-camara` só dá position+isolation
+                para a poeira fria (`.sobre-po`, aria-hidden, z-index:-1 —
+                pinta sobre o fundo, nunca sobre o texto); as linhas D1–D5
+                entram por `reveal-ticker` + stagger (motor Reveal, one-shot)
+                e o numeral mono acende `--valor-brilho` no hover da linha
+                (cinema/sobre.css, folha exclusiva da rota). */}
             <aside
               aria-labelledby="metodo-titulo"
-              className="veludo-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_35%,transparent)] bg-[var(--veludo-fundo)] px-6 py-8 sm:px-8"
+              className="sobre-camara camara-escopo flex flex-col gap-10 border border-[color-mix(in_srgb,var(--accent-valor)_calc(var(--labio-alfa)*100%),transparent)] bg-[var(--camara-fundo)] px-6 py-8 sm:px-8"
             >
+              <div aria-hidden className="sobre-po" />
               <div className="flex flex-col gap-4">
                 <h2
                   id="metodo-titulo"
@@ -238,20 +270,28 @@ export default function Sobre() {
                   Método — até cinco dimensões
                 </h2>
                 <ol className="flex flex-col gap-3 border-t border-line">
-                  {METODO.map((dimensao) => (
+                  {METODO.map((dimensao, i) => (
                     <li
                       key={dimensao.id}
-                      className="flex items-baseline justify-between gap-3 border-b border-line py-2"
+                      className="sobre-metodo-linha border-b border-line py-2"
                     >
-                      <span className="flex items-baseline gap-2">
-                        <span className="font-mono text-meta font-semibold text-brasa-texto">
-                          {dimensao.id}
+                      {/* O <li> mantém borda/ritmo; o flex da linha vai no
+                          wrapper do Reveal (o Reveal renderiza um <div> —
+                          mesmas classes, mesmo layout renderizado). */}
+                      <Reveal
+                        variant="reveal-ticker"
+                        className={`stagger i-${i + 1} flex items-baseline justify-between gap-3`}
+                      >
+                        <span className="flex items-baseline gap-2">
+                          <span className="sobre-metodo-num font-mono text-meta font-semibold text-brasa-texto">
+                            {dimensao.id}
+                          </span>
+                          <span className="text-ui text-ink">{dimensao.titulo}</span>
                         </span>
-                        <span className="text-ui text-ink">{dimensao.titulo}</span>
-                      </span>
-                      <span className="font-mono text-meta text-ink-3">
-                        {dimensao.fonte}
-                      </span>
+                        <span className="font-mono text-meta text-ink-3">
+                          {dimensao.fonte}
+                        </span>
+                      </Reveal>
                     </li>
                   ))}
                 </ol>
@@ -284,12 +324,17 @@ export default function Sobre() {
             principal, junto das placas), aberta pelo `.fio-travessa` que se
             IMPRIME via scaleX no scroll (E27 — elemento-novo RESERVA,
             independente de qualquer glow/specular: é geometria pura). */}
-        <section aria-labelledby="fecho-titulo" className="border-t border-line">
-          <div className="bancada py-10">
-            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden>
+        {/* COSTURA 1A: morre a DUPLICATA literal do fecho (border-t +
+            fio-travessa a 2.5rem um do outro — R1 §5.2, duas linhas
+            full-bleed sobre o MESMO papel). Quem abre o fecho é a talha;
+            quem separa é o respiro real de 6rem (mt-24). pb-14 = 3.5rem
+            contra o Footer; mt-6 = pós-fio único 1.5rem. */}
+        <section aria-labelledby="fecho-titulo">
+          <div className="bancada mt-24 pb-14">
+            <Reveal variant="reveal-regua" className="talha-capitulo b-palco" aria-hidden>
               {null}
             </Reveal>
-            <div className="b-palco mt-8 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
+            <div className="b-palco mt-6 flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">
               <p className="flex-1 text-ui text-ink-2">
                 <span id="fecho-titulo" className="font-semibold text-ink">
                   O contrato acima não é aspiração

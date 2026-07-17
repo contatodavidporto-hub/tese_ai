@@ -43,7 +43,7 @@
 // coalescência dos dots durante a deriva é nova (E24, ver `aoMudarEstado`).
 //
 // INTEGRAÇÃO (Onda 2, page.tsx): o wrapper `<section id="galeria">` ganha
-// `className="vitrine-veludo veludo-escopo b-sangria"`; o `<div data-cena-el>`
+// `className="vitrine-camara camara-escopo b-sangria"`; o `<div data-cena-el>`
 // que hoje envolve `<GaleriaBanca>` deve DEIXAR de ter `data-cena-el` (E18 —
 // ver relatório da raia 1B: o controle não pode desbotar a 0.55 na saída do
 // CenaScrub).
@@ -55,11 +55,14 @@
 // SLOT chega pronto no payload RSC. Por isso os 13 `<li>` (envelope
 // `.banca-carimbo .vitrine-pedestal` + CartaoTese) deixaram de ser mapeados
 // AQUI: page.tsx os monta e passa em `cartoes`.
-// ⚠ O que isto NÃO faz (honestidade de medida): CartaoTese continua sendo um
-// client component (D24 — o morph/`useViradaCartao` é dele), então a FUNÇÃO
-// dele ainda roda na hidratação. O que sai da tarefa de hidratação é a
-// criação do envelope (13 <li> + 13 wrappers) e os 13 callback-refs — o
-// recheio do cartão continua custando. Ganho medido no relatório da rodada.
+// OURIVESARIA ONDA P — H1 (2026-07-17, §3-C10/§7-D7): a ressalva de
+// honestidade da B2 ("CartaoTese continua client — a função dele ainda roda
+// na hidratação ×13") FECHOU. CartaoTese agora é Server Component: o recheio
+// dos 13 cartões saiu da tarefa de hidratação junto com o envelope. O clique
+// do morph é DELEGADO — <ViradaDelegada containerRef={envelopeRef}> abaixo
+// instala 1 listener de click no envelope e reusa o useViradaCartao original
+// (uma instância nula por ticker — canal vooAtivo/vooFinished intacto para a
+// deriva E21 e para o TeseClient C4).
 // A deriva/palco/drag/hairline/teclado/dots continuam idênticos (D24).
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -70,6 +73,7 @@ import { usePalco } from "@/components/motion/usePalco";
 import { usePrefereReduzido } from "@/components/motion/usePonteiro";
 import { useRailDrag } from "@/components/motion/useRailDrag";
 import { useVitrineDeriva } from "@/components/motion/useVitrineDeriva";
+import { ViradaDelegada } from "@/components/motion/viradaDelegada";
 
 export type GaleriaBancaProps = {
   /** Só os tickers: é o que a CASCA precisa (rótulo/aria-label dos dots).
@@ -326,6 +330,12 @@ export default function GaleriaBanca({ tickers, cartoes }: GaleriaBancaProps) {
     // Também é o ancestral comum de posse/gates do useVitrineDeriva
     // (pointerdown/focusin cobrem rail + dots + setas + controle).
     <div ref={envelopeRef} className="banca-envelope flex flex-col gap-4">
+      {/* ONDA P H1 — morph por delegação (zero DOM): 1 listener de click no
+          envelope + 13 registros nulos do useViradaCartao original. A
+          supressão de clique-pós-drag do useRailDrag (captura no rail,
+          stopPropagation) mata o evento antes desta bolha — nada a repetir
+          aqui. */}
+      <ViradaDelegada tickers={tickers} containerRef={envelopeRef} />
       {/* Controles FORA do container clipado (o anel de foco nunca é
           cortado pelo overflow do rail — guarda C2 do red-team, mesmo
           racional do FilmstripDimensoes). */}
@@ -338,7 +348,7 @@ export default function GaleriaBanca({ tickers, cartoes }: GaleriaBancaProps) {
                   (≥3.15:1 até no pico da luz), ativo `bg-brasa-texto`
                   (mesmo papel de "tab ativa" do design system).
                   `.banca-dot` (HORIZONTE): âncora do anel escopado ao
-                  veludo (`.veludo-escopo .banca-dot:focus-visible`,
+                  câmara (`.camara-escopo .banca-dot:focus-visible`,
                   cinema/vitrine.css, E15). */}
               <button
                 type="button"

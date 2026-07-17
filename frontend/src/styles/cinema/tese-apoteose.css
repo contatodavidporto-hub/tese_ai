@@ -4,15 +4,19 @@
  * espera digna), 7 (specular de /tese), 10 (masthead intensificado) e 11
  * (tooltips — lógica/folha do tooltip são da Onda 0; aqui nada a estilizar).
  *
- * IMPORTANTE — ORDEM DE IMPORT (garantida pela Onda 0, `globals.css`):
- * esta folha é a ÚLTIMA importada, depois de TODAS as outras (inclusive
- * `rotas.css`) — necessário para a regra de supressão do véu de chegada
- * abaixo vencer a cascata contra a regra irmã do CORPO do globals.css em
- * especificidade comparável (`html body .virada-edicao.morph-chegada::after`
- * vs `.virada-edicao::after` do corpo — a primeira já vence por
- * especificidade sozinha, mas a ordem é reforço deliberado do plano,
- * NUNCA reduzir para depender só da especificidade). `rotas.css`/CHROME
- * NÃO É TOCADO por esta regra.
+ * IMPORTANTE — ORDEM DE CARGA (desde a OURIVESARIA P.3, §7-D4/E3: folha
+ * ESCOPADA À ROTA /tese — importada por `app/tese/page.tsx`, fora do
+ * render-blocking das outras 8 rotas): esta folha segue sendo a ÚLTIMA a
+ * carregar, depois de TODAS as outras (inclusive `rotas.css`) — o chunk CSS
+ * da rota entra DEPOIS do globals.css no HTML servido (ordem layout→page do
+ * App Router; conferida no HTML vivo, ledger P.3) — necessário para a regra
+ * de supressão do véu de chegada abaixo vencer a cascata contra a regra
+ * irmã do CORPO do globals.css em especificidade comparável
+ * (`html body .virada-edicao.morph-chegada::after` vs
+ * `.virada-edicao::after` do corpo — a primeira já vence por especificidade
+ * sozinha, mas a ordem é reforço deliberado do plano, NUNCA reduzir para
+ * depender só da especificidade; prova viva: gate1_virada 7/7 + screenshot
+ * do véu na chegada). `rotas.css`/CHROME NÃO É TOCADO por esta regra.
  *
  * Quem escreve o quê (um-escritor-por-propriedade):
  *   - `view-transition-name: cartao-tese` — DESTINO: classe estática
@@ -24,7 +28,7 @@
  *     remove a box do pseudo-elemento (content:none) quando a chegada veio
  *     do morph — decisão de classList (TeseClient.tsx lê-e-limpa a flag
  *     `tese-ai:morph-chegada` e aplica `.morph-chegada` ANTES do paint).
- *   - `transform` do ::after do masthead (keyline ameixa) — só o keyframe
+ *   - `transform` do ::after do masthead (keyline tinta) — só o keyframe
  *     `masthead-keyline` daqui.
  *   - `opacity` do container do EsqueletoTese — só o keyframe
  *     `esqueleto-respira` daqui (as réguas internas seguem com o writer
@@ -60,8 +64,10 @@ html body .virada-edicao.morph-chegada::after {
 }
 
 /* ---------- Crit. 10 — MASTHEAD INTENSIFICADO ----------
-   Keyline ameixa (--moldura-ameixa: "borda do masthead" é uso canônico do
-   token — decorativo, nunca texto/estado, hue ~318° fora da faixa banida)
+   Keyline tinta-de-safira (--moldura-tinta, nome antigo aposentado
+   — rename atômico Onda 0.5 OURIVESARIA, achado 39: "borda do masthead" é
+   uso canônico do token — decorativo, nunca texto/estado, hue ~221° fora da
+   faixa banida)
    que SE IMPRIME da esquerda para a direita 1x no mount — a "entrada mais
    rica" do masthead sem tocar no writer do <Reveal> (que anima o próprio
    elemento; aqui anima-se SÓ o transform do ::after, elemento distinto).
@@ -79,7 +85,7 @@ html body .virada-edicao.morph-chegada::after {
   position: absolute;
   inset: 0 0 auto 0;
   height: 2px;
-  background: var(--moldura-ameixa);
+  background: var(--moldura-tinta);
   transform-origin: left;
   animation: masthead-keyline var(--dur-edition) var(--ease-rule) both;
   pointer-events: none;
@@ -127,6 +133,73 @@ html body .virada-edicao.morph-chegada::after {
   }
 }
 
+/* ---------- OURIVESARIA 2B — "MESA DE PRELO" (crit. 7, conceito B §7) ----------
+   O elemento novo NOMEADO de /tese: o card do formulário (estado idle — o
+   mais visto da rota) vira SUPERFÍCIE DE BANCADA. 100% CSS nesta folha
+   (escopada à rota): TeseClient.tsx fica INTOCADO (restrição dura da raia
+   — delta de JS/first-load = ZERO por construção), por isso o alvo é o
+   seletor `.virada-edicao form` — `main.virada-edicao` é exclusivo de
+   /tese e o formulário do TeseClient é o ÚNICO `<form>` da rota (conferido:
+   Header/Footer/TickerCombobox não têm form).
+
+   Três gestos, todos one-shot/estado (WCAG 2.2.2 ✓):
+   1. BISEL DE GEMA estático — a MESMA lista de box-shadow do
+      `.gema-chip__corpo` (cinema/gema.css, byte-a-byte: aresta ouro
+      topo/esquerda, quilha fria baixo/direita + `--gema-elevacao`), com a
+      mesma redeclaração local do escuro (ARMADILHA #1 da gema: `none`
+      numa lista de sombras invalida a declaração inteira — o formato
+      <shadow> `0 0 0 0 transparent` é o equivalente válido). A classe não
+      pode ser aplicada no markup (TeseClient intocado), então a lista é
+      replicada aqui — a fonte conceitual segue sendo gema.css.
+   2. FOCUS KEYLINE — `:focus-within` acende um anel 1px de ouro POR FORA
+      da borda (spread de box-shadow; a border `--line-*` de repouso fica
+      intacta embaixo — rito do pedestal S4, mesmo material provado por
+      pixel na 2A: `--fio-lapidario` a 55%, que LÊ nos 2 temas onde
+      `--valor-brilho` sobre papel claro media 1.06:1). Teclado nativo:
+      Tab → input → o form inteiro acende, zero JS.
+   3. O RÓTULO ACENDE — `color` do label ink-3 → `--accent-text` (o par
+      de TEXTO brasa já calibrado da casa, usado sobre bg-card em todas
+      as rotas) no mesmo :focus-within. Transição de color = one-shot que
+      assenta.
+
+   UM-ESCRITOR: o form não tem transition/box-shadow/translate de nenhum
+   outro dono (utilitários atuais: layout + border + bg). O label não tem
+   transition própria. O botão brasa NÃO é tocado (o `transition-colors`
+   utilitário já é dono da transition dele — colidir era o risco). */
+.virada-edicao form {
+  box-shadow:
+    inset 1px 0 0 0 var(--gema-aresta),
+    inset 0 1px 0 0 var(--gema-aresta),
+    inset -1px 0 0 0 var(--gema-quilha),
+    inset 0 -1px 0 0 var(--gema-quilha),
+    var(--gema-elevacao);
+  transition: box-shadow var(--dur-tick) var(--ease-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .virada-edicao form {
+    /* ver ARMADILHA #1 de gema.css: nunca a palavra-chave `none` em lista. */
+    --gema-elevacao: 0 0 0 0 transparent;
+  }
+}
+.virada-edicao form:focus-within {
+  box-shadow:
+    inset 1px 0 0 0 var(--gema-aresta),
+    inset 0 1px 0 0 var(--gema-aresta),
+    inset -1px 0 0 0 var(--gema-quilha),
+    inset 0 -1px 0 0 var(--gema-quilha),
+    var(--gema-elevacao),
+    0 0 0 1px color-mix(in srgb, var(--fio-lapidario) 55%, transparent);
+}
+.virada-edicao form label {
+  transition: color var(--dur-tick) var(--ease-ink);
+}
+.virada-edicao form:focus-within label {
+  /* token cru da casa (o utilitário `text-brasa-texto` é alias de
+     `--color-brasa-texto: var(--accent-text)` no @theme) — par de TEXTO
+     já calibrado sobre bg-card nos 2 temas. */
+  color: var(--accent-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Registro NOMINAL por efeito (regra da casa, DESIGN-TOKENS.md §1.4):
      - supressão do véu do morph: lógica de classList, segue valendo sob
@@ -148,5 +221,14 @@ html body .virada-edicao.morph-chegada::after {
   .chegada-suave {
     animation: none !important;
     opacity: 1 !important;
+  }
+  /* - MESA DE PRELO (2B, §7-F7 nominal): bisel/keyline são ESTADO, não
+       movimento — ficam; o que se desliga é a RAMPA (transition none). A
+       troca de cor do label e o acender da keyline seguem como troca de
+       estado instantânea ("transições de color" isentas registradas —
+       mesmo rito da cravação 2A em gema.css). */
+  .virada-edicao form,
+  .virada-edicao form label {
+    transition: none;
   }
 }

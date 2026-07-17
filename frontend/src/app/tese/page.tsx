@@ -5,6 +5,25 @@ import { newsreaderItalico } from "@/lib/fontes";
 import { EXEMPLOS_PRONTOS, TICKER_RE } from "@/lib/tickers";
 import { TeseClient } from "./TeseClient";
 
+// graficos.css é EXCLUSIVA de /tese (crédito OPCIONAL do ruling 6.9, Onda 3A —
+// mesmo rito P.3): TODAS as classes que declara (.grafico-scrub[--recuo],
+// .traco-grafico[-area|-barra|-ref]) são consumidas SÓ por app/tese/* (prova
+// por grep no registro-3a; mostruario.css só a cita em comentário). Importada
+// ANTES de tese-apoteose.css para preservar a ordem relativa herdada do
+// globals.css (graficos → tese-apoteose). Nenhum seletor colide com o corpo
+// do globals.css (utilities do Tailwind vivem em @layer e perdem para regra
+// sem camada independentemente da ordem).
+import "@/styles/cinema/graficos.css";
+
+// tese-apoteose.css é EXCLUSIVA de /tese (dieta OURIVESARIA P.3, §7-D4/E3 —
+// válvula pré-aprovada; precedente salao.css na landing): importada AQUI para
+// sair do CSS render-blocking das outras 8 rotas. O contrato de cascata
+// "por último" segue de pé: o chunk CSS da rota entra DEPOIS do globals.css
+// no HTML servido, e a supressão do véu do morph
+// (`html body .virada-edicao.morph-chegada::after`) vence também por
+// especificidade (prova: gate1_virada 7/7 + screenshot do véu, ledger P.3).
+import "@/styles/cinema/tese-apoteose.css";
+
 // Renderização dinâmica: o CSP com nonce por requisição (src/proxy.ts) precisa que
 // cada resposta HTML seja gerada por requisição para o nonce ser injetado.
 export const dynamic = "force-dynamic";
@@ -69,10 +88,17 @@ export default async function TesePage({
         // mesmo papel do antigo `flex-col gap-10`) é seguro aqui.
         className={`virada-edicao ${newsreaderItalico.variable} bancada flex-1 gap-y-10 py-12 sm:py-16`}
       >
-        <Reveal className="b-medida-esq flex flex-col gap-3 border-b border-line pb-8">
+        {/* COSTURA (OURIVESARIA 1A): morre o border-b do intro (hairline de
+            mesma superfície) — separa o respiro do gap-y-10 do main; a talha
+            de ouro entra sob o eyebrow (mastheads padronizados). A talha é
+            ESTÁTICA aqui (sem reveal-regua próprio): já vive DENTRO de um
+            Reveal — motor um-escritor, nada de animação aninhada. gap-6 =
+            assento/pós-fio único 1.5rem. */}
+        <Reveal className="b-medida-esq flex flex-col gap-6">
           <p className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
             Nova tese
           </p>
+          <div aria-hidden className="talha-capitulo" />
           {/* Alvo do foco na chegada do morph (missão APOTEOSE, M-g):
               tabIndex={-1} = focável SÓ programaticamente — o TeseClient
               move o foco para cá quando a navegação chega pelo

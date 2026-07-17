@@ -12,7 +12,9 @@
 @import "../styles/cinema/hero.css";
 @import "../styles/cinema/luz.css";
 @import "../styles/cinema/secoes.css";
-@import "../styles/cinema/graficos.css";
+/* graficos.css saiu do global (OURIVESARIA Onda 3A, crédito 6.9, rito P.3):
+   exclusiva de /tese — importada por app/tese/page.tsx ANTES de
+   tese-apoteose.css (ordem relativa preservada). */
 @import "../styles/cinema/rotas.css";
 @import "../styles/cinema/magnetico.css";
 @import "../styles/cinema/banca.css";
@@ -20,10 +22,11 @@
    Stubs com dono no cabeçalho (implementação real entra nas ondas de tela);
    ticker-luz.css e tooltip.css são conteúdo COMPLETO desta própria Onda 0
    (primitivas compartilhadas). ORDEM MANDATÓRIA (plano-apoteose.md §4):
-   `tese-apoteose.css` importado por ÚLTIMO — depois de `rotas.css` E de
-   todas as folhas novas — porque a regra de supressão do véu de chegada do
-   morph (`.virada-edicao.morph-chegada::after`) precisa vencer a cascata
-   contra a regra irmã do corpo deste arquivo em especificidade comparável.
+   `tese-apoteose.css` carrega por ÚLTIMO — hoje via chunk CSS da PRÓPRIA
+   rota /tese (OURIVESARIA P.3; entra DEPOIS do globals.css no HTML), porque
+   a regra de supressão do véu de chegada do morph
+   (`.virada-edicao.morph-chegada::after`) precisa vencer a cascata contra a
+   regra irmã do corpo deste arquivo em especificidade comparável.
    Ninguém edita `tese-apoteose.css` além da onda TESE; ninguém edita este
    bloco de @import além da Onda 0. */
 @import "../styles/cinema/marca.css";
@@ -31,12 +34,16 @@
 @import "../styles/cinema/virada.css";
 @import "../styles/cinema/ticker-luz.css";
 @import "../styles/cinema/tooltip.css";
-@import "../styles/cinema/glossario.css";
+/* glossario.css SAIU deste bloco (OURIVESARIA Onda P.3, §7-D4/E3 — válvula
+   pré-aprovada): folha EXCLUSIVA de /glossario (único consumidor de
+   `.verbete-glossario:target`/`engaste-acende`), importada direto por
+   `app/glossario/page.tsx` (precedente salao.css/como-funciona.css) — só a
+   rota a paga, sai do render-blocking das outras 8. */
 /* ---------- Folhas da missão "FRONTEND HORIZONTE" (2026-07-14, Onda 0 —
    Fundação). Ordem MANDATÓRIA (plano-horizonte.md §4/D7,
    direcao-horizonte.md §12): depois de TODAS as folhas Apoteose acima,
-   ANTES de `tese-apoteose.css` (que segue por último — ver comentário
-   original acima, ainda válido: a supressão do véu de chegada do morph
+   ANTES de `tese-apoteose.css` (que segue por último — hoje no chunk da
+   rota /tese, ver comentário acima: a supressão do véu de chegada do morph
    precisa vencer a cascata). `bancada.css` é conteúdo COMPLETO desta Onda 0
    (grid/fios/capa); `gema.css`/`vitrine.css`/`salao.css`/`lapidacao.css` são
    ESQUELETOS vazios (só cabeçalho com a dona) nesta Onda — cada raia da
@@ -59,7 +66,15 @@
    então só a landing a paga. `lapidacao.css` FICA global: 3 rotas a usam
    (landing, /como-funciona reusa CenaNascimento, 404 a pedra bruta). */
 @import "../styles/cinema/lapidacao.css";
-@import "../styles/cinema/tese-apoteose.css";
+/* tese-apoteose.css SAIU deste bloco (OURIVESARIA Onda P.3, §7-D4/E3 —
+   válvula pré-aprovada): folha EXCLUSIVA de /tese (consumidores:
+   TeseClient/TeseView; a regra `.vt-morph-destino` mora em virada.css, que
+   segue global), importada direto por `app/tese/page.tsx`. O contrato de
+   cascata "por último" SEGUE cumprido: o chunk CSS da rota entra DEPOIS do
+   globals.css no HTML servido (ordem layout→page do App Router) e a
+   supressão do véu (`html body .virada-edicao.morph-chegada::after`) vence
+   também por especificidade — provado por gate1_virada 7/7 + screenshot do
+   véu na chegada (ledger P.3). */
 
 /*
  * ============================================================
@@ -147,8 +162,13 @@
   --grafico-1: #a03a06; /* reaproveita a brasa — série primária (preço/linha principal) */
   --grafico-2: #2d3f7a; /* índigo — série secundária (sinal MACD, média móvel) */
   --grafico-3: #8a6415; /* ouro — série terciária (2ª média móvel, histograma positivo) */
-  --grafico-4: #7a2340; /* vinho — série quaternária (histograma negativo) */
-  --grafico-5: #5b3f8a; /* violeta-aço — faixa de Bollinger / 5ª série */
+  --grafico-4: #8c1f27; /* OURIVESARIA CONGELADO 0.5 (E-A1, protótipo 0.2 PASSOU):
+    granada ~356° — série quaternária (histograma negativo). Recuo 358–2°
+    NÃO acionado (proibido sem passar na distância do erro-*, §7-C4). */
+  --grafico-5: #46628c; /* OURIVESARIA CONGELADO 0.5 (protótipo 0.2 PASSOU):
+    aço-safira ~216° — faixa de Bollinger / 5ª série. Recuo 222°
+    (#5a7bab/#b9c6d9) NÃO acionado. Distinguibilidade 5×2 e 5×6 no escuro
+    assegurada por REDUNDÂNCIA de marca (DESIGN-TOKENS, emenda OURIVESARIA). */
   --grafico-6: #565b66; /* grafite — linhas de referência tracejadas (RSI 30/70 etc.) */
 
   /* ---------- Motion — "a edição sendo impressa" ---------- */
@@ -174,11 +194,11 @@
     2026-07-12; era 0.05 com teto 0.06) — modulada por body[data-secao] entre
     0.05–0.08 na landing (Onda 1A) e com decaimento por profundidade de
     scroll; recalibração AA correspondente em --ink-tertiary/--border-field */
-  --luz-foco-alfa: 0.09; /* MORTO (sprite único do PR #31): a Onda 1A já
-    trocou o .foco-luz pela dupla núcleo+bloom (cinema/luz.css vence por
-    especificidade); único consumidor é a regra .foco-luz legada deste
-    arquivo, sempre vencida. Remover token+regra num follow-up de limpeza
-    pós-merge (não nesta missão — cirurgia de CSS fora do escopo do QA). */
+  /* --luz-foco-alfa REMOVIDO (OURIVESARIA P.3, §7-D4 crédito por deleção):
+     era MORTO desde o sprite único do PR #31 — o único consumidor era o
+     `background` legado de `.foco-luz` deste arquivo, sempre vencido por
+     `.tem-foco .foco-luz` (cinema/luz.css). Deleção casada com as
+     declarações sombreadas da regra (ver §13). */
   --luz-foco-card-alfa: 0.05; /* pico do foco frio nos cards (§4) — intocado */
   --mx: 0px; /* ponteiro — X; default neutro */
   --my: 0px; /* ponteiro — Y; default neutro */
@@ -190,14 +210,16 @@
      screenshot no pico composto (cláusula de recuo: pico combinado da
      luminária recua p/ 0.12/0.14 e aurora p/ 0.06/0.06 se o AA não fechar —
      DESIGN-TOKENS.md §1). Luminária DUPLA: núcleo rápido (~180ms) + bloom
-     com inércia (700ms) + anel de penumbra ameixa. Implementação: Onda 1A
+     com inércia (700ms) + anel de penumbra safira. Implementação: Onda 1A
      (cinema/luz.css + FocoLuz.tsx com 3 sprites). */
   --luz-nucleo-alfa: 0.043; /* pico do núcleo rápido (36vmax, lag ~180ms) */
   --luz-bloom-alfa: 0.1; /* PROVISÓRIO — valor FINAL sai do calibra_tokens.py
     da Onda 3 (com o termo real do shader via readPixels); bloom = 90vmax
     com stop 45% ("luminária, não névoa") */
-  --luz-penumbra: 70 44 78; /* anel externo ameixa ~310° (fora da faixa
-    proibida 70–200°) — TRIPLET RGB p/ rgb(var(...)/alfa), como --luz-tinta */
+  --luz-penumbra: 26 38 66; /* OURIVESARIA CONGELADO 0.5: anel externo colapsado
+    na safira ~221° (fora da faixa proibida 70–200°) — TRIPLET RGB p/
+    rgb(var(...)/alfa), como --luz-tinta; alfa INTOCADO. calibra_tokens.py
+    emendado (§7-C7) re-rodou com este triplet: ink-3/border-field mantidos. */
   --luz-penumbra-alfa: 0.03;
   --brasa-ember: 160 58 6; /* cor das brasas do shader do hero (lida via
     getComputedStyle — nunca hardcoded no frag); âmbar, nunca vermelho sobre
@@ -215,9 +237,12 @@
   --valor-brilho: #f0dfae; /* stop de highlight do gradiente especular (sheen
     por background-position; keyline ≤4px; varredura única na palavra
     "fonte" do hero) — nunca texto sozinho */
-  --moldura-ameixa: #5a3153; /* keyline 1px de molduras editoriais
-    (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo,
-    nunca texto/estado; hue ~318°, fora de 70–200° */
+  --moldura-tinta: #2d3f66; /* OURIVESARIA CONGELADO 0.5 (rename atômico do
+    nome antigo aposentado, achado 39/§7-E10; consumidores atualizados no
+    mesmo passe: @theme abaixo, como-funciona/page.tsx,
+    tese-apoteose.css) — keyline 1px de molduras editoriais (pull-quotes,
+    aberturas de capítulo, borda do masthead) — decorativo, nunca
+    texto/estado; hue ~221°, fora de 70–200° */
   --sombra-fria: rgb(42 54 84 / 0.16); /* sombra única do .sombra-elevada —
     quita o ink hardcoded rgb(22 24 29/.16) apontado no recon. Só existe no
     claro: no escuro elevação = borda (o .sombra-elevada vira none e o valor
@@ -327,23 +352,24 @@
   --medida: 68ch; /* prosa — lei tipográfica (D3), nunca ultrapassada por default */
   --palco-max: 96rem; /* teto do palco editorial (~1536px) */
 
-  /* Veludo — S5: a ameixa promovida a superfície OPACA de palco (vitrine +
-     salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
+  /* Câmara — S5: tinta-de-safira promovida a superfície OPACA de palco
+     (vitrine + salão + aside de método do /sobre). NUNCA acento/estado/dado. Recuo
      binário registrado: se o dono vetar no wow-gate, re-skin sobre
      --bg-page com vinheta fria (nenhuma onda acopla lógica a este valor). */
-  --veludo-fundo: #241e2b;
-  --veludo-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --veludo-fundo */
-  --veludo-tinta-2: #beb3c6; /* metadados/legendas/controles sobre veludo —
-    >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 4) */
-  --veludo-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
-    veludo (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
-  --veludo-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
+  --camara-fundo: #1b2334; /* OURIVESARIA CONGELADO 0.5: tinta-de-safira (câmara).
+    Rename para --camara-* FEITO pela raia 1B (§7-E1 fase serial, commit atômico); VALOR final. */
+  --camara-tinta: #efe9e4; /* >=12:1 (verificado ~13,5:1) sobre --camara-fundo */
+  --camara-tinta-2: #aebacf; /* OURIVESARIA CONGELADO 0.5 — metadados/legendas/controles sobre câmara —
+    >=4.5:1 texto / >=3:1 UI no pico real (re-enumeração AA, Onda 3) */
+  --camara-anel: var(--valor-brilho); /* :focus-visible DENTRO do escopo
+    câmara (E15) — o --accent-text global cai a ~2.39:1 ali (reprova) */
+  --camara-vinheta-alfa: 0.35; /* anel radial, centro limpo, nunca sob texto */
 
   /* Gema-chip (crit.3, D14/S4/M3-b) — bisel 1px + sombra dupla (claro) /
      keyline (escuro, S2). Arestas (--gema-aresta/--gema-quilha) ficam FORA
      do campo interno de texto aferido por M3-b (provadas como decorativas). */
   --gema-aresta: var(--valor-brilho); /* alias — aresta de luz (topo/esquerda) */
-  --gema-quilha: rgb(90 49 83 / 0.28); /* aresta de sombra (baixo/direita); teto <=0.30 */
+  --gema-quilha: rgb(42 54 84 / 0.28); /* OURIVESARIA CONGELADO 0.5 (família sombra-fria) — aresta de sombra (baixo/direita); teto <=0.30; escuro INTOCADO */
   --gema-elevacao: 0 2px 6px rgb(42 54 84 / 0.16), 0 14px 32px rgb(42 54 84 / 0.1); /* dark: none (elevação=borda, S2) */
 
   /* Fio lapidário + faísca (crit.5, D29/S4) — aliases semânticos; reusado
@@ -360,7 +386,33 @@
   /* Deriva da vitrine (crit.4, D21/E7) — lida 1x por getComputedStyle pelo
      hook useVitrineDeriva.ts; teto <=16px/s. Mobile (<640px): 8, via @media
      logo abaixo. Reduce: nem monta (nenhum valor consumido). */
-  --deriva-vel: 12;
+  --deriva-vel: 14; /* OURIVESARIA CONGELADO 0.5 (C5, carve-out §7-E3): 12→14 desktop; teto ≤16; 1E só consome */
+
+  /* ---------- Missão "OURIVESARIA" (2026-07-16) — TOKENS NOVOS CONGELADOS
+     na Onda 0.5 (§7-E10 lista fechada; tabela teto/recuo em DESIGN-TOKENS.md,
+     emenda "OURIVESARIA 2026-07-16"). Escala de ritmo (C2, 4 degraus +
+     pós-fio) + assento do Salão (§7-A1) + corpo da bolha (§7-A5) + dial do
+     lábio de ouro (§7-C3). Ninguém toca globals.css depois da Onda 0
+     (lei herdada; carve-outs §7-E3). ---------- */
+  --ritmo-assento: 1.5rem; /* CONGELADO 0.5 — título→conteúdo */
+  --ritmo-bloco: 3rem; /* CONGELADO 0.5 — blocos irmãos */
+  --ritmo-respiro: 6rem; /* CONGELADO 0.5 — seções de mesmo fundo (substitui hairline) */
+  --ritmo-capitulo: 3.5rem; /* CONGELADO 0.5 — padding por lado da fronteira de material */
+  --ritmo-pos-fio: 1.5rem; /* CONGELADO 0.5 — vão único pós-fio (mata os 4 valores) */
+  --text-body-lg: 1.0625rem; /* CONGELADO 0.5 — 17px, uso EXCLUSIVO bolha/letreiro
+    (§7-E10/achado 41); deliberadamente FORA do @theme: não gera utilitário
+    Tailwind, consumo só via var() nas folhas donas — a exclusividade é
+    estrutural, não convenção */
+  --salao-repouso: 2rem; /* CONGELADO 0.5 — pouso da bolha da vez (§7-A1;
+    protótipo 0.6 PASSOU: snap implementável usa REPOUSO_PX=32 constante no
+    TSX — getComputedStyle devolve '2rem', nunca px; pegadinha 5) */
+  --labio-alfa: 0.5; /* CONGELADO 0.5 (protótipo 0.3 PASSOU): primeiro degrau
+    da escada pré-aprovada 0.35→0.50→0.60 que fecha ≥3:1 POR PIXEL nos dois
+    lados da fronteira dark, nas 2 bordas — "fronteira dark lê com lábio
+    0.50". Teto 0.60 (headroom medido 4,04/4,09); recuo binário registrado
+    NÃO acionado: 1px sólido var(--accent-valor) (medido 9,08/9,18). Tema
+    claro: lábio DECORATIVO (fronteira assinada pelo par papel×câmara
+    15,27:1, §7-C3a). */
 }
 
 /* ---------- Contratos estruturais responsivos (HORIZONTE, Onda 0) ----------
@@ -402,7 +454,7 @@
 }
 @media (max-width: 639px) {
   :root {
-    --deriva-vel: 8;
+    --deriva-vel: 10; /* OURIVESARIA CONGELADO 0.5 (C5): 8→10 mobile */
   }
 }
 
@@ -454,8 +506,13 @@
     --grafico-1: #e97b3c;
     --grafico-2: #93a6e6;
     --grafico-3: #d9b354;
-    --grafico-4: #e28aa8;
-    --grafico-5: #b6a0e6;
+    --grafico-4: #d97687; /* OURIVESARIA CONGELADO 0.5: granada ~349,7° — RECUO
+      §7-C4 ACIONADO no protótipo 0.2 (achado 24, eixo L/S pré-aprovado:
+      #f0949b dava ΔE76 9,0 vs --error-text #f2938a; #e78798 também reprovou;
+      #d97687 = 16,2/19,8 vs erro-* e CVD ≥12,4 em todos os pares; regra
+      "proibido 358–2° sem passar erro-*" respeitada) — re-provado por pixel */
+    --grafico-5: #a3b5cc; /* OURIVESARIA CONGELADO 0.5: aço-safira claro (~216°);
+      recuo 222°/#b9c6d9 NÃO acionado */
     --grafico-6: #9aa0ad;
 
     /* Luz — mesma identidade (§1), recalibrada para o papel escuro. */
@@ -463,13 +520,13 @@
     --luz-aurora-alfa: 0.08; /* NOVO teto autorizado (missão imersiva
       2026-07-12; era 0.055 com teto 0.06) — mesma modulação por data-secao
       e decaimento do claro */
-    --luz-foco-alfa: 0.1; /* LEGADO (ver nota do claro) */
+    /* --luz-foco-alfa (escuro) REMOVIDO com o par claro (OURIVESARIA P.3) */
     --grao-alfa: 0.04; /* teto 0.04 */
 
     /* Luz — MATÉRIA VIVA (novos tetos autorizados; mesmos papéis do claro) */
     --luz-nucleo-alfa: 0.054;
     --luz-bloom-alfa: 0.11; /* PROVISÓRIO — final na Onda 3 (readPixels) */
-    --luz-penumbra: 176 146 186; /* ameixa clara ~310° */
+    --luz-penumbra: 104 122 156; /* OURIVESARIA CONGELADO 0.5: safira clara ~221°; alfa INTOCADO */
     --luz-penumbra-alfa: 0.04;
     --brasa-ember: 233 123 60;
 
@@ -478,7 +535,7 @@
     --accent-confianca: #9db4dd;
     --accent-valor: #d9b354;
     --valor-brilho: #f7ecc9;
-    --moldura-ameixa: #b391ac;
+    --moldura-tinta: #8ea3c7; /* OURIVESARIA CONGELADO 0.5 (rename atômico, achado 39) */
 
     /* APOTEOSE (Onda 0) — único token de §"tokens novos" que troca de valor
        por tema (os demais são geometria fixa ou já apontam para um
@@ -491,10 +548,11 @@
     /* HORIZONTE (Onda 0) — únicos tokens novos desta missão que trocam de
        valor por tema (os demais são geometria fixa ou aliases que já
        trocam sozinhos via --valor-brilho/--accent-valor acima). */
-    --veludo-fundo: #16121c;
-    --veludo-tinta: #e9e5df;
-    --veludo-tinta-2: #b3a9bc;
-    --veludo-vinheta-alfa: 0.45;
+    --camara-fundo: #131a26; /* OURIVESARIA CONGELADO 0.5: câmara escura —
+      mantido pelo protótipo 0.3 (recuo "escurecer câmara" NÃO acionado) */
+    --camara-tinta: #e9e5df;
+    --camara-tinta-2: #a9b6cb; /* OURIVESARIA CONGELADO 0.5 */
+    --camara-vinheta-alfa: 0.45;
     --gema-quilha: rgb(0 0 0 / 0.45);
     --gema-elevacao: none; /* dark: elevação = borda/keyline (S2), nunca sombra */
   }
@@ -542,7 +600,7 @@
 
   /* Detalhes-joia (missão imersiva 2026-07-12) — viram utilitários Tailwind
      estáticos (ex.: `text-confianca`, `border-confianca`, `bg-valor`,
-     `border-moldura-ameixa`, `text-valor-brilho`). Guard-rails: micro-área/
+     `border-moldura-tinta`, `text-valor-brilho`). Guard-rails: micro-área/
      keyline SEMPRE; nunca CTA, nunca wash, nunca segundo acento de ação —
      a brasa segue única. Os triplets de luz (--luz-penumbra, --brasa-ember)
      NÃO entram aqui: não são cores CSS completas (consumidos via
@@ -550,7 +608,7 @@
   --color-confianca: var(--accent-confianca);
   --color-valor: var(--accent-valor);
   --color-valor-brilho: var(--valor-brilho);
-  --color-moldura-ameixa: var(--moldura-ameixa);
+  --color-moldura-tinta: var(--moldura-tinta);
 
   /* Paleta de gráficos — habilita `stroke-grafico-1..6` / `fill-grafico-1..6`
      (+ opacidade, ex.: `fill-grafico-5/15`) como classes Tailwind ESTÁTICAS,
@@ -1268,32 +1326,27 @@ body::after {
   isolation: isolate;
 }
 
-/* Camada-sprite do hero (componente `FocoLuz.tsx`) — sprite radial
-   PRÉ-PINTADO movido só por `transform: translate3d(...)` (compositor-only,
-   C2 do red-team); o `calc(... - 60vmax)` é só a centralização estática do
-   sprite de 120vmax dentro do container, somada ao deslocamento dinâmico de
-   `--mx`/`--my` — nenhuma outra propriedade anima por frame.
-   `will-change: transform` fica só nesta camada-folha (nunca ancestral de
-   `.regua-leitura`). Invisível por padrão: só aparece com ponteiro fino +
-   hover (M7); some de novo em `prefers-reduced-motion` (bloco de redução no
-   fim do arquivo). */
+/* Camada-sprite do hero (componente `FocoLuz.tsx`) — BASE do BLOOM da
+   luminária dupla. Esta regra NÃO é morta (dieta OURIVESARIA P.3, provado
+   por grep): `cinema/luz.css` declara em `.tem-foco .foco-luz` SÓ
+   width/height/background/transform/transition ("o bloom herda a sua base
+   do globals.css") — a ancoragem absoluta, o z-index, o raio, o
+   pointer-events, a opacidade base e o `will-change` moram AQUI, e o
+   `opacity: 1` do media hover abaixo é o único escritor do hover. O que a
+   P.3 DELETOU foram as 5 declarações legadas sempre sombreadas pela
+   especificidade maior de luz.css (geometria 120vmax + gradiente com
+   --luz-foco-alfa + transform/transition do sprite único do PR #31) e o
+   token `--luz-foco-alfa` (claro+escuro), cujo único consumidor era o
+   gradiente sombreado. `will-change: transform` fica só nesta camada-folha
+   (nunca ancestral de `.regua-leitura`). Invisível por padrão: só aparece
+   com ponteiro fino + hover (M7); some de novo em `prefers-reduced-motion`
+   (bloco de redução no fim do arquivo). */
 .foco-luz {
   position: absolute;
   top: 50%;
   left: 50%;
   z-index: -1;
-  width: 120vmax;
-  height: 120vmax;
   border-radius: 9999px;
-  background: radial-gradient(
-    circle at center,
-    rgb(var(--luz-tinta) / var(--luz-foco-alfa)) 0%,
-    transparent 60%
-  );
-  transform: translate3d(calc(var(--mx) - 60vmax), calc(var(--my) - 60vmax), 0);
-  transition:
-    transform var(--dur-set) var(--ease-cena),
-    opacity var(--dur-set) var(--ease-ink);
   pointer-events: none;
   opacity: 0;
   will-change: transform;

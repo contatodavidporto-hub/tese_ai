@@ -129,11 +129,11 @@ Sprite do foco (referência de implementação): `radial-gradient(circle at cent
 | `--accent-confianca` (utilitários `*-confianca`) | `#2d4a7a` | `#9db4dd` | Confiança em elementos **salientes** (scrollspy ativo, keyline do selo de metodologia, trilha de auditoria, fio duplo dos chips); **nunca CTA/wash** — brasa segue única cor de ação | Cyr et al. 2010; Alberts & van der Geest 2011 (financeiro: azul mais confiável; all-black pontua pior); Labrecque & Milne 2012. Anti-folclore: croma saliente em micro-área, não wash; Mehta & Zhu 2009 EXCLUÍDO (falhou replicação — Gnambs 2020) |
 | `--accent-valor` (utilitários `*-valor`) | `#8a6415` | `#d9b354` | Base do ouro-metálico em micro-área (<5% da tela): badge "Tese Profunda", marcos premium | Meert et al. 2014 (preferência por gloss); Skulmowski et al. 2016 (croma alto só em micro-área); família de `--grafico-3` |
 | `--valor-brilho` (utilitários `*-valor-brilho`) | `#f0dfae` | `#f7ecc9` | Stop de highlight do gradiente especular (sheen por background-position; keyline ≤4px; varredura única na palavra "fonte" do hero) | Meert et al. 2014 (dourado só lê "metal" com highlight deslocado); Palmer & Schloss 2010 (gradiente tonal nunca cruza 60–90°) |
-| `--moldura-ameixa` (utilitários `*-moldura-ameixa`) | `#5a3153` | `#b391ac` | Keyline 1px de molduras editoriais (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo, **nunca texto/estado**; hue ~318° (fora de 70–200°) | Labrecque & Milne 2012 (roxo = sofisticação); Valdez & Mehrabian 1994 |
+| `--moldura-ameixa` (utilitários `*-moldura-ameixa`) | `#5a3153` | `#b391ac` | Keyline 1px de molduras editoriais (pull-quotes, aberturas de capítulo, borda do masthead) — decorativo, **nunca texto/estado**; hue ~318° (fora de 70–200°) | Labrecque & Milne 2012 (roxo = sofisticação); Valdez & Mehrabian 1994 · **APOSENTADO 2026-07-16** → `--moldura-tinta` `#2d3f66`/`#8ea3c7` (~221°) — ver emenda OURIVESARIA abaixo |
 | `--sombra-fria` | `rgb(42 54 84 / 0.16)` | n/a (elevação = borda) | Única sombra do `.sombra-elevada` — quita o ink hardcoded `rgb(22 24 29/.16)` apontado no recon | Valdez & Mehrabian 1994 (PAD: frio escuro = dominância sem arousal) |
 | `--luz-nucleo-alfa` | `0.043` | `0.054` | Pico do núcleo rápido da luminária dupla (36vmax, lag ~180ms) — **é o 1º dial a reduzir se o AA do pico não fechar** | Orçamento composto AA calibrado por script; Skulmowski 2016 |
 | `--luz-bloom-alfa` | `0.10`\* | `0.11`\* | Pico do bloom (90vmax, stop 45%, lag 700ms) — pico combinado da luminária ≈0.14/0.16 (novos tetos autorizados) | Autorização do humano + cadeia calibra_tokens.py→AA |
-| `--luz-penumbra` + `--luz-penumbra-alfa` | `70 44 78` · α `0.03` | `176 146 186` · α `0.04` | Anel externo ameixa do foco (triplet RGB, mesmo padrão de `--luz-tinta`) — profundidade de joia na luz fria, nunca acionável | Valdez & Mehrabian 1994; Palmer & Schloss 2010 (222°→310° não cruza 60–90° nem 70–200°) |
+| `--luz-penumbra` + `--luz-penumbra-alfa` | `70 44 78` · α `0.03` | `176 146 186` · α `0.04` | Anel externo ameixa do foco (triplet RGB, mesmo padrão de `--luz-tinta`) — profundidade de joia na luz fria, nunca acionável | Valdez & Mehrabian 1994; Palmer & Schloss 2010 (222°→310° não cruza 60–90° nem 70–200°) · **TRIPLET APOSENTADO 2026-07-16** → safira `26 38 66`/`104 122 156` (~221°), alfas INTOCADOS — ver emenda OURIVESARIA abaixo |
 | `--brasa-ember` | `160 58 6` | `233 123 60` | Cor das brasas do shader do hero (triplet; lida via `getComputedStyle`, nunca hardcoded no frag); **nunca sobre número/dado** (uMask + chips opacos) | Bazley et al. 2021 (âmbar, nunca vermelho sobre dado financeiro) |
 
 \* provisórios — valores FINAIS saem do `calibra_tokens.py` da Onda 3 com o
@@ -447,7 +447,7 @@ mas a ordem é reforço deliberado do plano, não uma dependência única.
   (tabela de tokens abaixo) e **recuo BINÁRIO**: reprovou AA por pixel →
   keyline sem specular, nunca itera às cegas. Doutrina dark intacta:
   elevação-base continua = borda/keyline (nunca glow puro no escuro).
-- **S5 — o veludo como superfície de palco**: a ameixa (~285°, fora do hue
+- **S5 — a superfície opaca de palco** *(era HORIZONTE — "veludo" ameixa ~285°; re-materializada como família `--camara-*` tinta-de-safira ~221° e renomeada na OURIVESARIA, raia 1B)*: a ameixa (~285°, fora do hue
   banido 70–200°) deixa de ser keyline decorativa e vira **superfície
   OPACA** (`--veludo-fundo`), exclusiva de DUAS faixas da landing (vitrine
   + salão) e do aside de método do `/sobre`. NÃO é acento: nenhum
@@ -561,7 +561,7 @@ bloco de redução existente).
 | `--altura-header` | `4.5rem` (≥768px) / `5.5rem` (<768px) | idem | contrato de altura do Header (E1) — **estimativa Onda 0** | mesmo gate E4 |
 | `--sangria` | `1rem` (≥640px: `1.5rem`) | idem | respiro mínimo de borda da Bancada | fixo (geometria) |
 | `--medida` / `--palco-max` | `68ch` / `96rem` | idem | colunas da Bancada | ≤68ch é lei (D3) |
-| `--veludo-fundo` | `#241e2b` | `#16121c` | superfície do salão/vitrine (S5, hue ~285°) | superfície opaca, nunca wash; recuo S5: re-skin `--bg-page` |
+| `--veludo-fundo` *(era HORIZONTE — família renomeada `--camara-*` e re-materializada na OURIVESARIA; ver emenda abaixo)* | `#241e2b` | `#16121c` | superfície do salão/vitrine (S5, hue ~285°) | superfície opaca, nunca wash; recuo S5: re-skin `--bg-page` |
 | `--veludo-tinta` | `#efe9e4` | `#e9e5df` | tinta primária sobre veludo | ≥12:1 (verificado ~13,5:1) |
 | `--veludo-tinta-2` | `#beb3c6` | `#b3a9bc` | metadados/legendas/controles sobre veludo | ≥4.5:1 texto / ≥3:1 UI no pico real; recuo: clarear lightness |
 | `--veludo-anel` | `var(--valor-brilho)` | idem | `:focus-visible` DENTRO do escopo veludo (E15) — `--accent-text` global dá ~2,39:1 ali | ≥3:1 (estimado ~11:1) |
@@ -574,14 +574,14 @@ bloco de redução existente).
 | `--bolha-specular-alfa` | `0.10` | `0.10` | calota specular da bolha-bancada (S4) | teto de partida 0.10 (0.12 só com pixel-prova); recuo binário → keyline |
 | `--deriva-vel` | `12` (px/s; mobile <640px: `8`) | idem | cruzeiro da vitrine (lido 1× por `getComputedStyle`) | ≤16; recuo perf: update 30fps; reduce = nem monta |
 
-Mecanismo **escopo-veludo** (D20/E5/E6 — não é token, é contrato, para as
-raias 1B/1C aplicarem): `.vitrine-veludo`/`.salao-fundo` re-declaram
+Mecanismo **escopo-câmara** (D20/E5/E6 — não é token, é contrato; nome da
+era HORIZONTE: *escopo-veludo*): `.vitrine-camara`/`.salao-fundo` re-declaram
 localmente **PARES COMPLETOS** de semânticos (superfície+tinta+on-accent:
 `--bg-card`/`--bg-elevated`, `--ink-primary/-2/-3`, `--text-sobre-brasa`,
 `--border-line/-strong`, anel) — nunca meio-par (E5: um `bg-card` claro
 herdando `ink-primary` do tema errado é quase-branco sobre branco). O ramo
 de elevação (sombra fria claro / keyline dark) é forçado por **CLASSE**
-(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)` (E6). Todos
+(`.camara-escopo`), nunca por `@media (prefers-color-scheme)` (E6). Todos
 os pares entram na re-enumeração AA por pixel (Onda 4). Zero hex de
 conteúdo/tinta/brasa existente muda; zero hue novo em 70–200°.
 
@@ -677,7 +677,8 @@ antes do 1º rAF da deriva) em `useLayoutEffect` — nunca durante o 1º render
 servidor do cliente e quebra a hidratação; a leitura correta acontece
 depois do render inicial, sempre servidor-primeiro).
 
-**O escopo-veludo (`.veludo-escopo`)** — re-declaração de **pares
+**O escopo-câmara (`.camara-escopo`; nome da era HORIZONTE:
+`.veludo-escopo`)** — re-declaração de **pares
 completos** (superfície+tinta+on-accent: `--bg-card`/`--bg-elevated`,
 `--ink-primary/-2/-3`, `--text-sobre-brasa`, `--border-line/-strong`, anel),
 nunca meio-par. Por quê: re-declarar só a tinta (sem a superfície-par) deixa
@@ -685,7 +686,7 @@ a cascata descer até sub-superfícies opacas internas com o tema ERRADO —
 ex.: um `bg-card` claro herdando `--ink-primary` do tema escuro vira
 quase-branco sobre branco (texto invisível). O ramo de elevação (sombra fria
 no claro / keyline ouro no escuro) é forçado **por CLASSE**
-(`.veludo-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
+(`.camara-escopo`), nunca por `@media (prefers-color-scheme)`: a media query
 pergunta "qual é o tema do SISTEMA operacional", não "este elemento está
 sobre veludo" — no tema CLARO sobre um veludo (superfície opaca ~285°,
 sempre escura) o ramo por media query aplicaria o tratamento de elevação do
@@ -742,6 +743,141 @@ orçamento apertar de novo): escopar `salao.css`/`lapidacao.css` (~+2,3KB)
 para fora das rotas que não os usam via CSS Modules/route-level import, em
 vez do `@import` global único que hoje entra em toda rota via
 `globals.css`.
+
+---
+
+### Emenda OURIVESARIA 2026-07-16 (Onda 0.5 — CONGELAMENTO de tokens)
+
+> LEI da missão: `.maestro/plano-ourivesaria.md` (o §7 prevalece). Vereditos
+> dos protótipos da Onda 0: **0.2 gráficos PASSOU_COM_RECUO · 0.3
+> câmara/lábio PASSOU · 0.4 fio PASSOU · 0.6 geometria PASSOU**. Depois
+> desta emenda **ninguém toca `globals.css`** (lei herdada; carve-outs
+> §7-E3: nenhum além dos já aplicados aqui). Lista FECHADA de tokens novos
+> = §7-E10 — token fora dela é ESCALAR ao maestro, nunca valor arbitrário.
+
+#### Tokens congelados (`globals.css` :root / dark) — teto + recuo por token
+
+| Token | Claro | Escuro | Papel | Teto / recuo |
+|---|---|---|---|---|
+| `--grafico-4` | `#8c1f27` (E-A1, ~356°) | `#d97687` (~349,7°) | granada — série quaternária (histograma negativo) | Claro: congelado (candidato E-A1). Escuro: **RECUO §7-C4 ACIONADO** pelo eixo L/S pré-aprovado (achado 24): `#f0949b` (ΔE76 9,0 vs `--error-text` `#f2938a`) e `#e78798` REPROVADOS na distância do erro-*; `#d97687` = ΔE76 16,2/19,8 vs erro-* e CVD ≥12,4 em todos os pares; regra "proibido 358–2° sem passar erro-*" respeitada; re-provado por pixel |
+| `--grafico-5` | `#46628c` | `#a3b5cc` | aço-safira ~216° — faixa de Bollinger / 5ª série | Recuo 222° (`#5a7bab`/`#b9c6d9`) **NÃO acionado**; prova de franja contra a janela do verde ok (drift medido para baixo) |
+| `--luz-penumbra` | `26 38 66` · α `0.03` | `104 122 156` · α `0.04` | anel externo da luminária COLAPSADO na safira ~221° (um só eixo de temperatura) | Alfas/geometria/tempos INTOCADOS; recuo pré-aprovado do passo 0.7 (escada −8 de L no triplet escuro) reservado à varredura verde `capa_escuro` |
+| `--moldura-tinta` | `#2d3f66` | `#8ea3c7` | keyline 1px de molduras editoriais (pull-quotes, borda do masthead) — decorativo, nunca texto/estado; ~221° | Rename ATÔMICO feito nesta 0.5 (achado 39): `@theme` + `como-funciona/page.tsx` + `tese-apoteose.css` no mesmo passe; grep-zero pelo nome antigo em `src/` |
+| família **câmara** — `--camara-fundo` / `--camara-tinta` / `--camara-tinta-2` / `--camara-anel` / `--camara-vinheta-alfa` (rename atômico **FEITO** pela raia 1B, 2026-07-17, §7-E1 fase serial; classes `.camara-escopo` / `.vitrine-camara`) | fundo `#1b2334` · tinta `#efe9e4` · tinta-2 `#aebacf` · anel `var(--valor-brilho)` · vinheta-α `0.35` | fundo `#131a26` · tinta `#e9e5df` · tinta-2 `#a9b6cb` · anel idem · vinheta-α `0.45` | superfície de palco tinta-de-safira (câmara = pedra: S≤33/L≤15,5; nunca confundir com `--accent-confianca` = voz) | VALORES congelados (protótipo 0.3: recuo "escurecer câmara" **NÃO acionado** — nenhum hex novo); recuo S5 herdado (re-skin `--bg-page`) segue registrado |
+| `--gema-quilha` (claro) | `rgb(42 54 84 / 0.28)` | `rgb(0 0 0 / 0.45)` (intocado) | aresta de sombra do bisel — família sombra-fria | teto ≤0.30; recuo: keyline simples |
+| `--labio-alfa` | `0.5` | `0.5` | dial do lábio de ouro — CONTRATO da fronteira REAL de material no dark (§7-C3) | **0.50 = primeiro degrau da escada pré-aprovada 0.35→0.50→0.60 que fecha ≥3:1 POR PIXEL nos dois lados, nas 2 bordas** ("fronteira dark lê com lábio 0.50"). Teto 0.60 (headroom medido 4,04/4,09 — disponível se a raia 1B quiser margem); recuo binário 1px sólido `var(--accent-valor)` medido 9,08/9,18 — registrado, **NÃO acionado**. Tema claro: lábio DECORATIVO (sem exigência 3:1) — fronteira assinada pelo par papel×câmara 15,27:1 (§7-C3a) |
+| `--ritmo-assento` / `--ritmo-bloco` / `--ritmo-respiro` / `--ritmo-capitulo` / `--ritmo-pos-fio` | `1.5rem` / `3rem` / `6rem` / `3.5rem` / `1.5rem` | idem | escala única de ritmo (C2): título→conteúdo · blocos irmãos · seções de mesmo fundo (substitui hairline) · padding por lado da fronteira de material · vão único pós-fio | `gate_ritmo.py`: vão ∈ {0.75, 1.5, 3, 6}rem ±1px OU exceção da lista FECHADA (`ritmo-excecoes.json`) |
+| `--text-body-lg` | `1.0625rem` (17px) | idem | degrau tipográfico novo — uso EXCLUSIVO bolha/letreiro (achado 41) | Deliberadamente FORA do `@theme`: não gera utilitário Tailwind — a exclusividade é estrutural (consumo só por `var()` nas folhas donas) |
+| `--salao-repouso` | `2rem` | idem | pouso da bolha da vez (§7-A1 decompõe entrada≠repouso) | Snap na forma implementável (protótipo 0.6): `ponto_i = (offset_i − REPOUSO_PX)/distancia` com `REPOUSO_PX = 32` CONSTANTE no TSX — `getComputedStyle` devolve a string `'2rem'`, nunca px (pegadinha 5) |
+| `--deriva-vel` | `14` (mobile <640px: `10`) | idem | cruzeiro da vitrine (C5; carve-out §7-E3 — 1E só consome) | teto ≤16 |
+| *locais nas folhas donas (registro §7-E10)* | — | — | `--ease-assento`, `--nasc-lume` (default `1`), `--bolha-*` nas folhas donas; `--salao-recuo` em `salao.css` | `--salao-recuo: calc(100% − var(--bolha-largura) − var(--salao-gap))` CONGELADA pelo 0.6, mas o CONSUMO muda na 1D (ver nota geometria abaixo) |
+
+#### Aposentadoria da família *ameixa* — racional (adendo científico C10)
+
+O site colapsa em **um só eixo de temperatura** (pedra fria ~221° × luz de
+ouro): a penumbra ~310° e a moldura ~318° eram os últimos violetas vivos do
+sistema e morrem aqui (janela banida canônica **[250°, 345°]**; croma piso 8
+na prova por token, 12 por pixel). Lastros admitidos: **Reber 2004**
+(fluência de processamento — coerência de um eixo), **Labrecque & Milne
+2012** (sofisticação comunicada via LUMINÂNCIA, não via matiz violeta),
+**Bazley 2021** (vermelho só em série negativa — `--grafico-4` granada),
+**Cyr 2010** (azul-confiança SÓ no papel do acento `--accent-confianca`,
+nunca alegado para superfície). **PROIBIDO** citar Mehta & Zhu 2009
+(excluído pelo brief por falha de replicação). Mapa do rename: 
+`--moldura-ameixa` → `--moldura-tinta` (FEITO nesta 0.5, atômico);
+`--veludo-*` → `--camara-*` e `.veludo-escopo` → `.camara-escopo` /
+`.vitrine-veludo` → `.vitrine-camara` (**FEITO pela raia 1B, 2026-07-17**:
+commit único + grep-zero funcional e nominal em `src/` e
+`.maestro/ferramentas/` + harness sincronizado §7-C9 — gate1_virada,
+fps_deriva, gate_ritmo, prova_tokens, medir_aa, prototipo_04).
+
+#### Nota C6 — os 12 hexes do escopo dark são BYTE-IDÊNTICOS
+
+Os 12 hexes copiados do bloco dark de `globals.css` para o escopo da câmara
+(`vitrine.css`) ficam **byte-idênticos** — nenhum é roxo; a frase
+"REVISADOS" do C8 do plano está SOBREPOSTA pelo §7-C6. Gate: diff mecânico
+contra o bloco dark de `globals.css` = zero (pós-condição da raia 1B).
+
+#### Nota E-C3 — `lapidacao.css` PERMANECE GLOBAL
+
+Racional gravado: a pedra do 404/`error.tsx` (boundary EAGER no Next 16 —
+Pegadinha 3 da Apoteose) depende de classes já pagas no CSS global; escopar
+a folha quebraria o 404 sem round-trip. Toda regra NOVA do nascimento que
+não seja compartilhada com /como-funciona/404 tenta folha escopada primeiro.
+**`.pedra-404`** (classe + keyframe `pedra-404-desenho` 900ms one-shot +
+registro reduce nominal) nasceu nesta 0.5 em `lapidacao.css` com **dona
+nomeada** (achado 40): 2C e 2D são CONSUMIDORAS — a licença de substituição
+de elemento da 2C NÃO cobre remover/renomear a classe compartilhada.
+
+#### Redundância de marca dos gráficos (registro do protótipo 0.2)
+
+Distinguibilidade **5×2 e 5×6 no escuro** e **4×1/4×`err-text`** assegurada
+por REDUNDÂNCIA de tipo de marca, não só por cor: Bollinger = banda com
+fill 15% + legenda TRACEJADA vs linha SÓLIDA das séries vs referência
+tracejada 4-4 (`--grafico-6`); histograma negativo assinado pela LINHA DO
+ZERO. Política de franja §7-C1 validada inteira: falha só cluster ≥2×2;
+100% das violações residuais classificáveis como franja AA de cruzamento
+laranja×índigo (~269–273°) e granada×índigo (~331–344°). O selo da prova
+por pixel EXIGE a máscara de decorativos `aria-hidden` (pegadinha herdada
+reconfirmada: sem ela o ◈ ouro vira falso pior-pixel `[123,91,23]`).
+
+#### Registro do protótipo 0.3 — bônus B3
+
+O par `--ink-primary`/`--ink-tertiary` sobre `bg-card` está APTO para o
+esmaecimento por TROCA DE COR das legendas do nascimento (§7-B3): 7,11:1 no
+pior tema (≥4,5:1) — mecanismo primário confirmado, opacity fica 1 sempre.
+
+#### Registro do protótipo 0.4 — fio sobre a câmara
+
+`--fio-lapidario` PERMANECE `var(--accent-valor)` e o `color-mix` de
+`salao.css:92` permanece **78%** — congelados como estão. Recuos
+pré-aprovados (clarear fio no escopo do salão / ajustar % do color-mix)
+registrados e **NÃO usados**. Gate decidido pela leitura honesta (corte
+75% + erosão + máscara de bolhas/HUD); método do baseline reportado junto
+só para comparabilidade com o 3,35 herdado. Achado encaminhado à raia 1D
+(fora do escopo de recuo do 0.4): traço da talha inativa ~3,0 —
+pré-existente e melhorado pela câmara; sugestão de 1 linha: `opacity`
+.5→.55 no `.salao-talha__traco` inativo.
+
+#### Registro do protótipo 0.6 — geometria do Salão (VINCULANTE à raia 1D)
+
+Fórmula do recuo CONGELADA (token §7-A1 mantido) mas o CONSUMO muda:
+`.salao-pinado .salao-trilho { padding-inline-start: 0 }` e `.salao-pinado
+.salao-trilho > li:nth-child(1) { margin-inline-start: var(--salao-recuo) }`.
+Espaçador CONGELADO: `.salao-pinado .salao-espaco { inline-size: max(1px,
+calc(100% − var(--bolha-largura) − var(--salao-gap) − var(--salao-repouso)))
+}` — `block-size` 1px mantido (pegadinha 6). **RECUO ACIONADO sobre a
+fórmula literal da emenda** (achado 1c/§7-A2 com base 100%): degenera por
+construção — PROIBIDO espaçador em 100% com recuo no padding do trilho.
+Alternativa 100vw+padding registrada como recuo binário (só com overlay
+scrollbar garantida; fura §7-A3(iv) e p5 ≥0.995 com scrollbar clássica).
+Achado 18/§7-RT2.2 é no-op neste worktree (`padding-inline: 0` do palco
+pinado já existe em `salao.css:377`); mantida como GATE a asserção de
+entrada `b2.gBCR.left ≥ documentElement.clientWidth` (clientWidth, não
+innerWidth). Notas: **0 deixa de ser ponto de snap** (p1
+viewport-dependente 0,153–0,363; re-prova E10 entrada/saída obrigatória);
+comentários `salao.css:398-423` e `SalaoDimensoes.tsx:558-561` ficam FALSOS
+— a 1D atualiza; fórmulas paramétricas: re-medir com 26rem/17rem na raia.
+
+#### `calibra_tokens.py` emendado (§7-C7, achados 14/29) — resultado da 0.5
+
+Emenda aplicada com rito S3 (cabeçalho com data/motivo): (1) penumbra =
+triplets safira novos; (2) `ink_tertiary_atual`/`border_field_atual`
+re-sincronizados com o `globals.css` VIGENTE (`#4c4f56`/`#6a6963` ·
+`#a5a49e`/`#7e8691` — os hexes antigos do script eram os da 1ª passada,
+defasados); (3) conferência automática: o script LÊ `globals.css`
+(ink-3, border-field, bg-page/card, luz-tinta, penumbra) e **ABORTA** em
+divergência. Nenhum resultado anterior à emenda é evidência válida.
+**Rodado na 0.5 (analítico, shader=0)**: sincronia OK; pico composto novo
+`#c8cbcf`/`#2d323d`; **`--ink-tertiary` e `--border-field` MANTIDOS** —
+ink-3 5,031/5,116:1 e border-field 3,377/3,474:1 no pico (mínimos 4,5/3,0;
+alvos 4,62/3,13), todos os 5 contextos R12d passam nos 2 temas → NENHUMA
+recalibração aplicada; os pares dos Grupos A–F do R7 já nascem medidos
+contra os finais. Informativo pré-existente (não é reprovação da emenda):
+`accent-text` claro no pico ANALÍTICO sem shader dá 4,155:1 — com a
+penumbra ameixa antiga já dava 4,171:1 (Δ−0,016); o dial é da cadeia AA da
+Onda 3 (readPixels + pixel real), nunca deste script (token intocável).
+Saída completa: `.maestro/evidencias/onda0/05-congelamento/calibra_tokens_emendado_saida.txt`.
 
 ---
 

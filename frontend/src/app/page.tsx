@@ -111,18 +111,20 @@ function edicaoDeHoje(): string {
 
 // Dimensões canônicas D1…D5 (ARQUITETURA.md — verificadas em
 // backend/app/services/orquestracao.py). `numero`/`titulo`/`fonte` INTACTOS;
-// `texto` = copy nova, aplicada VERBATIM de .maestro/ondas/copy-horizonte-spec.md
-// §2.5. `texto` é ReactNode (contrato do SalaoDimensoes, raia 1C): é aqui que
-// entram os TermoTooltip DENTRO das bolhas — o gatilho focável é o que torna
-// `focusin → travelling` um caminho REAL de teclado (e o pior caso 1.4.13 da
-// bolha da borda, E13). Slugs SÓ de src/lib/glossario.ts (D7).
+// `texto` = copy nova, TRANSCRITA byte-fiel de .maestro/copy-ourivesaria.md
+// §2 (COPY CONGELADA da missão Ourivesaria — §7-E5: divergência sobe ao
+// maestro, nunca se resolve aqui). `texto` é ReactNode (contrato do
+// SalaoDimensoes, raia 1C): é aqui que entram os TermoTooltip DENTRO das
+// bolhas — o gatilho focável é o que torna `focusin → travelling` um caminho
+// REAL de teclado (e o pior caso 1.4.13 da bolha da borda, E13). Tooltips nos
+// MESMOS termos/slugs de antes; slugs SÓ de src/lib/glossario.ts (D7).
 const DIMENSOES: readonly DimensaoSalao[] = [
   {
     numero: "D1",
     titulo: "Fundamentos",
     fonte: "CVM",
     texto:
-      "O que a empresa declara ao regulador: receita, margens, dívida — direto das demonstrações públicas da CVM. Nada além do que o documento sustenta.",
+      "O que a empresa declara ao regulador: receita, margens, dívida e caixa, direto das demonstrações públicas arquivadas na CVM. A tese não completa o que o documento não diz — cada linha vem do arquivo, com data de publicação.",
   },
   {
     numero: "D2",
@@ -131,9 +133,9 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     texto: (
       <>
         Como empresas parecidas aparecem nos{" "}
-        <TermoTooltip {...tooltipDe("sec-edgar")}>arquivos da SEC</TermoTooltip>, lá fora.
-        Comparação selecionada, com a ressalva de moeda e padrão contábil — nunca
-        equivalência.
+        <TermoTooltip {...tooltipDe("sec-edgar")}>arquivos da SEC</TermoTooltip>, lá fora. A
+        comparação é selecionada e rotulada: moeda, padrão contábil e porte entram como
+        ressalva explícita, porque semelhança não é equivalência.
       </>
     ),
   },
@@ -143,9 +145,9 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     fonte: "BCB",
     texto: (
       <>
-        O chão em que a empresa pisa: juros, câmbio e atividade nas séries do Banco Central,
-        e o preço do petróleo <TermoTooltip {...tooltipDe("brent")}>Brent</TermoTooltip> —
-        cada série com rótulo e data.
+        O chão em que a empresa pisa: juros, câmbio e atividade nas séries abertas do Banco
+        Central, e o preço do petróleo <TermoTooltip {...tooltipDe("brent")}>Brent</TermoTooltip>.
+        Cada série chega com rótulo, unidade e data — nunca um índice sem origem.
       </>
     ),
   },
@@ -154,7 +156,7 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     titulo: "Macro global",
     fonte: "World Bank + Tesouro",
     texto:
-      "O vento que vem de fora: atividade e juros globais, pelo Banco Mundial e pelo Tesouro dos EUA — o contexto que também pressiona a tese, com rótulo e data.",
+      "O vento que vem de fora: atividade global pelo Banco Mundial e juros longos pelo Tesouro dos EUA. É o contexto que pressiona a tese de longe — medido, datado e citado como tudo o mais.",
   },
   {
     numero: "D5",
@@ -162,9 +164,10 @@ const DIMENSOES: readonly DimensaoSalao[] = [
     fonte: "fonte nas duas pontas",
     texto: (
       <>
-        A ligação narrada entre evento, commodity, setor e empresa. É interpretação, marcada
-        como tal — e com fonte nas duas pontas de cada{" "}
-        <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>.
+        A ligação narrada entre evento, commodity, setor e empresa. É interpretação — e é
+        marcada como interpretação, com fonte nas duas pontas de cada{" "}
+        <TermoTooltip {...tooltipDe("elo-causal")}>elo</TermoTooltip>. Você pode discordar do
+        meio segurando as duas pontas.
       </>
     ),
   },
@@ -441,11 +444,15 @@ export default function Home() {
             `.gema-chip__corpo` (nó que o GSAP nunca toca).
             ============================================================ */}
         <CenaScrub>
+          {/* RITMO (OURIVESARIA 1A, §3-C2): pt-14 = lado da dobra (contrato
+              E1 do hero); pb-12 = metade do respiro papel↔papel com o
+              cabeçalho do nascimento (3rem + 3rem = 6rem, --ritmo-respiro);
+              gap-y-6 = assento/pós-fio único de 1.5rem (--ritmo-pos-fio). */}
           <section
             id="prova"
             data-cena="prova"
             aria-labelledby="prova-titulo"
-            className="capitulo bancada relative gap-y-8 py-14"
+            className="capitulo bancada relative gap-y-6 pt-14 pb-12"
           >
             {/* `relative` na SEÇÃO: containing block + offsetParent do
                 <FioDaFonte/> (SVG absolute, PRIMEIRO filho — pinta sob as
@@ -456,9 +463,11 @@ export default function Home() {
                 path — medido em coordenadas da SEÇÃO — sairia deslocado). */}
             <FioDaFonte className="b-sangria" />
 
-            {/* Assinatura de abertura de capítulo (D6): hairline full-bleed que
-                se imprime como uma régua ("clac"). */}
-            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+            {/* Assinatura de abertura de capítulo (OURIVESARIA C1): a talha
+                de ouro (2.5rem × 2px, bancada.css §4) se imprime pelo MESMO
+                `.reveal-regua` — morre o fio cinza full-bleed de mesma
+                superfície (papel→papel não desenha fronteira). */}
+            <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
               {null}
             </Reveal>
 
@@ -534,18 +543,29 @@ export default function Home() {
         </CenaScrub>
 
         {/* ============================================================
-            3. A CENA DO NASCIMENTO (crit. 3c) — seção NOVA entre #prova e
-            #galeria, FORA de qualquer CenaScrub (R1: nenhum ancestral do
-            sticky pode receber transform — grep de auditoria).
-            O cabeçalho e o colofão ficam FORA do rolo de 240svh: o
-            `.nascimento-cena` é o ÚNICO filho do rolo, então o sticky começa
-            exatamente onde a timeline do NascimentoScrub começa (trigger "top
-            top" do rolo). Um cabeçalho dentro do rolo dessincronizaria o
-            scrub do grude. `aria-labelledby` cruza a fronteira por ID — o
-            nome acessível da seção continua sendo o h2 visível.
+            3. A CENA DO NASCIMENTO (crit. 3) — 8 planos em 420svh (missão
+            OURIVESARIA 1C, §3-C3/§7-B5), FORA de qualquer CenaScrub (R1:
+            nenhum ancestral do sticky pode receber transform — grep de
+            auditoria). O cabeçalho e o colofão ficam FORA do rolo de
+            420svh: o `.nascimento-cena` é o ÚNICO filho do rolo, então o
+            sticky começa exatamente onde a timeline do NascimentoScrub
+            começa (trigger "top top" do rolo). Um cabeçalho dentro do rolo
+            dessincronizaria o scrub do grude. `aria-labelledby` cruza a
+            fronteira por ID — o nome acessível da seção continua sendo o
+            h2 visível. `legendasVisiveis` liga o letreiro (E-A3: o próprio
+            <ol>, fonte única); `.nascimento-poeira` é camada decorativa da
+            atmosfera --nasc-lume (aria-hidden, cinema/nascimento.css).
             ============================================================ */}
-        <div className="bancada gap-y-3 pt-14">
-          <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+        {/* RITMO/COSTURA (OURIVESARIA 1A): id `nascimento-cabecalho` é o
+            identificador que o gate_ritmo usa para casar a exceção declarada
+            "encostos-rolo" (o vão até o rolo é 0 por contrato do rig — o
+            pin-spacer do NascimentoScrub vive num wrapper display:contents).
+            pt-12 = metade do respiro papel↔papel com #prova (3+3 = 6rem);
+            gap-y-6 = pós-fio único 1.5rem (era 0.75rem, o menor do site);
+            fio cinza → talha de ouro. pb permanece 0 (encosto do rolo,
+            exceção declarada §3-C2). */}
+        <div id="nascimento-cabecalho" className="bancada gap-y-6 pt-12">
+          <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
             {null}
           </Reveal>
           <div className="b-medida-esq flex flex-col gap-3">
@@ -569,22 +589,27 @@ export default function Home() {
             className="nascimento-rolo b-sangria"
           >
             <div className="nascimento-cena">
-              <CenaNascimento />
+              <CenaNascimento legendasVisiveis />
+              <div aria-hidden="true" className="nascimento-poeira" />
             </div>
           </section>
         </NascimentoScrub>
-        <div className="bancada gap-y-3 pb-14">
+        {/* Colofão: pt permanece 0 (encosto do rolo — exceção declarada);
+            pb-14 = 3.5rem, lado papel da fronteira REAL de material M1
+            (papel→câmara, --ritmo-capitulo). id p/ a exceção do gate_ritmo
+            (mesmo racional do cabeçalho acima). */}
+        <div id="nascimento-colofao" className="bancada gap-y-6 pb-14">
           <p className="b-medida-esq text-ui leading-relaxed text-ink-3">
             Assim nasce cada número da tese: com fonte e data — ou não entra.
           </p>
         </div>
 
         {/* ============================================================
-            4. A VITRINE (crit. 4) — a faixa de veludo full-bleed. O `.b-sangria`
+            4. A VITRINE (crit. 4) — a faixa de câmara full-bleed. O `.b-sangria`
             no <section> é inerte aqui (o <main> não é grade — e não pode ser:
             um ancestral flex/grid desliga o pinSpacing do Salão logo abaixo);
             fica registrado porque a faixa JÁ é borda-a-borda por ser um bloco
-            de nível de <main>. `.veludo-escopo` re-declara os PARES COMPLETOS
+            de nível de <main>. `.camara-escopo` re-declara os PARES COMPLETOS
             de tokens semânticos (E5/E6) — por isso `text-ink`/`text-ink-2` aqui
             dentro já saem claros nos DOIS temas, sem fork de componente.
             E18: o <div> que envolve <GaleriaBanca> NÃO leva [data-cena-el] — o
@@ -597,7 +622,7 @@ export default function Home() {
             id="galeria"
             data-cena="galeria"
             aria-labelledby="galeria-titulo"
-            className="capitulo vitrine-veludo veludo-escopo b-sangria"
+            className="capitulo vitrine-camara camara-escopo b-sangria"
           >
             <div className="bancada gap-y-6">
               <div data-cena-el="" className="b-medida-esq flex flex-col gap-3">
@@ -654,7 +679,7 @@ export default function Home() {
 
         {/* ============================================================
             5. O SALÃO DE LAPIDAÇÃO (crit. 5) — o travelling de página inteira.
-            O componente renderiza, num fragmento, o PÓRTICO (o veludo que
+            O componente renderiza, num fragmento, o PÓRTICO (a câmara que
             escurece; recebe este cabeçalho como children) e a própria
             <section id="dimensoes">: os dois viram FILHOS DIRETOS de <main>.
             NENHUM wrapper aqui — um ancestral flex/grid desliga o pinSpacing,
@@ -741,9 +766,44 @@ export default function Home() {
             id="postura"
             data-cena="postura"
             aria-labelledby="postura-titulo"
-            className="capitulo bancada gap-y-6 py-14"
+            className="capitulo bancada relative gap-y-6 py-14"
           >
-            <Reveal variant="reveal-regua" className="fio-travessa" aria-hidden="true">
+            {/* OURIVESARIA 2A (C6) — FIO DO AVAL: reuso do <FioDaFonte/>
+                (zero JS novo) — o CenaScrub DESTA seção encontra o
+                [data-fio-path] e o desenha na janela 0.20–0.65 da timeline
+                (mesmo mecanismo do fio de #prova; reversível por natureza).
+                `relative` na SEÇÃO = containing block/offsetParent do SVG
+                (contrato de montagem idêntico ao de #prova); `.b-sangria`
+                devolve ao SVG o padding-box inteiro da seção. Âncoras
+                (defaults do componente, resolvidas DENTRO de #postura):
+                nasce no numeral da placa 01 [data-fio-de], passa pelos
+                numerais 02/03 [data-fio-via] e desce até a BASE da fileira
+                de placas [data-fio-ate] — o traço TERMINA ~2.5rem ACIMA do
+                box CVM por construção de layout (a peça de honra jamais é
+                tocada). Ouro --fio-lapidario via regra #postura em
+                cinema/secoes.css. Decorativo (aria-hidden no componente). */}
+            <FioDaFonte className="b-sangria" />
+            {/* LUME DA SEÇÃO (2A): camada irmã decorativa cuja opacity
+                pertence à MESMA timeline do CenaScrub — é [data-cena-el]
+                (dona única da opacity; zero escritor novo): acende na
+                entrada, assenta no platô, recua ao piso na saída. A poça é
+                a primitiva `.aurora-masthead` REUSADA (o alfa segue o
+                ambiente body[data-secao] da casa); cinema/secoes.css só a
+                posiciona no TOPO da seção (24rem): a luz jamais alcança as
+                linhas mono .exemplo-vivo nem o box CVM (M3 por geometria;
+                as placas são bg-card OPACO por cima). Default CSS =
+                visível (D16: no-JS/reduce veem a sala acesa). */}
+            <div
+              data-cena-el=""
+              aria-hidden="true"
+              className="lume-postura aurora-masthead b-sangria"
+            />
+            {/* OURIVESARIA C1: morre o fio-travessa redundante que ficava
+                4.5rem DEPOIS da fronteira real M3 (câmara-funda→papel, já
+                desenhada pela 1D com lábio de ouro no fim do salão) — quem
+                abre o capítulo agora é a talha. py-14 = 3.5rem por lado da
+                fronteira de material (--ritmo-capitulo). */}
+            <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
               {null}
             </Reveal>
             <h2
@@ -779,11 +839,20 @@ export default function Home() {
             <ol className="b-medida-dir mt-2 grid gap-6 sm:grid-cols-3">
               {PRINCIPIOS.map((p, i) => (
                 <li key={p.titulo} className={DESALINHO_PLACA[i]}>
+                  {/* 2A: o relevo/lume/cravação vem de cinema/gema.css §2b,
+                      escopado por `#postura` (zero classe nova — teto de
+                      bytes 6.9; /sobre segue byte-idêntica). Os numerais
+                      são as âncoras do fio do aval (atributos de GEOMETRIA
+                      — zero texto novo). */}
                   <div
                     data-cena-el=""
                     className="placa-gravada flex h-full flex-col gap-2 bg-card px-6 py-6"
                   >
-                    <span className="placa-gravada__numeral font-mono text-h3">
+                    <span
+                      className="placa-gravada__numeral font-mono text-h3"
+                      data-fio-de={i === 0 ? "" : undefined}
+                      data-fio-via={i === 0 ? undefined : ""}
+                    >
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <h3 className="font-display text-lede font-semibold text-ink">
@@ -794,6 +863,13 @@ export default function Home() {
                       {p.exemplo}
                     </p>
                   </div>
+                  {/* Âncora de chegada do fio do aval: bloco VAZIO = altura
+                      zero (nenhum pixel de layout novo; sem `h-0` — bloco
+                      vazio não tem strut) na base do último <li> — o fio
+                      para aqui, acima do box CVM, por construção. */}
+                  {i === 2 ? (
+                    <span data-fio-ate="" aria-hidden="true" className="block" />
+                  ) : null}
                 </li>
               ))}
             </ol>

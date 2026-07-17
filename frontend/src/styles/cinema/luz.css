@@ -12,13 +12,13 @@
  *       globals.css (as folhas cinema entram por @import no topo).
  *
  *   .foco-luz-nucleo     — núcleo rápido 36vmax (offset -18vmax), chega em
- *       ~180ms. .foco-luz-penumbra — anel EXTERNO ameixa (~310°), o corpo
+ *       ~180ms. .foco-luz-penumbra — anel EXTERNO safira (~221°), o corpo
  *       mais lento (900ms). Os 3 sprites são folhas irmãs dentro do
  *       .tem-foco (FocoLuz.tsx); usePonteiro escreve --mx/--my NA FOLHA de
  *       cada sprite (escreverEm em lista) — nunca no container, nunca
  *       @property inherits:false. will-change:transform só nas folhas.
  *
- *   html body::before    — aurora tonal DUPLA (safira 222° + ameixa 310°) e
+ *   html body::before    — aurora tonal DUPLA (safira 222° + penumbra-safira 221°) e
  *       DECAIMENTO por profundidade (R7a). UM ESCRITOR POR PROPRIEDADE:
  *       transform segue sendo do keyframe aurora-drift do globals.css;
  *       opacity é do keyframe aurora-decai DESTA folha — como animation-name
@@ -97,7 +97,7 @@
     opacity var(--dur-set) var(--ease-ink);
 }
 
-/* PENUMBRA: anel EXTERNO ameixa (~310°, fora da faixa proibida 70–200°) —
+/* PENUMBRA: anel EXTERNO safira (~221°, fora da faixa proibida 70–200°) —
    faixa translúcida logo além da borda de luz do bloom (banda ~30%→64% de
    um sprite de 110vmax; o centro do anel é transparente, é ANEL mesmo).
    Profundidade de joia; a luz segue FRIA e NUNCA acionável. */
@@ -125,8 +125,8 @@
 
 /* ---------- 2. Aurora tonal dupla + decaimento por profundidade ----------
    (camada 4 do crit.4 + R7a.) Dois radial-gradients: a safira do globals
-   (mesma geometria) + um pool AMEIXA menor e deslocado para o alto-direito
-   (~310°; o par 222°→310° não cruza 60–90° nem 70–200°). O pool ameixa usa
+   (mesma geometria) + um pool PENUMBRA-SAFIRA menor e deslocado para o
+   alto-direito (~221°; 222°→221°: zero trajeto de matiz). O pool penumbra usa
    metade do alfa da aurora e centro fora da zona de pico analítico central
    (o pico calibrado da Onda 0 considera a aurora plena no centro); a prova
    por screenshot da Onda 3 revalida o composto real. */
@@ -185,8 +185,8 @@ body[data-secao="prova"] {
   --luz-aurora-alfa: 0.06;
 }
 /* Emenda mínima (Onda 1A, missão FRONTEND HORIZONTE, 2026-07-14): capítulo
-   "papel" entre #prova e #galeria (D6 — ritmo papel→papel→papel→veludo→
-   veludo→papel), mesmo teto de #prova (ambos "papel", vizinhos na leitura).
+   "papel" entre #prova e #galeria (D6 — ritmo papel→papel→papel→câmara→
+   câmara→papel), mesmo teto de #prova (ambos "papel", vizinhos na leitura).
    CONTRATO COM O INTEGRADOR (E25, Onda 2): esta regra só deixa de ser dead
    code quando `AmbienteLanding.tsx`/`useSecaoAtiva.ts` incluírem "nascimento"
    na lista de ids observados — dono daquele arquivo é o integrador da

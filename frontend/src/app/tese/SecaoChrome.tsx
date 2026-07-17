@@ -72,14 +72,20 @@ export function CabecalhoSecao({
   lacunas: boolean;
 }) {
   const { ref, armado, revelado } = useReveal<HTMLDivElement>();
+  // OURIVESARIA 1A (§3-C1): a régua h-1 (4px — a ÚNICA régua de 4px do
+  // site, 4× o peso de todo o resto) harmoniza com a casa: vira a
+  // `.talha-capitulo` (traço de ouro 2.5rem×2px, bancada.css §4), mesma
+  // impressão `.reveal-regua`. A variante de ALERTA da seção "Lacunas"
+  // mantém o papel (âmbar `--warn-border`) via `.talha-capitulo--aviso`.
+  // gap-6 = pós-fio único 1.5rem (--ritmo-pos-fio; era 1rem).
   return (
-    <div ref={ref} className="flex flex-col gap-4">
+    <div ref={ref} className="flex flex-col gap-6">
       <div
         className={classesReveal(
           "reveal-regua",
           armado,
           revelado,
-          lacunas ? "h-1 w-full origin-left bg-aviso-borda" : "h-1 w-full origin-left bg-line-strong",
+          lacunas ? "talha-capitulo talha-capitulo--aviso" : "talha-capitulo",
         )}
       />
       <h3

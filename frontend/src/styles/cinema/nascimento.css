@@ -1,0 +1,310 @@
+/* ============================================================
+ * cinema/nascimento.css — RIG + LEGENDAS VISÍVEIS + ATMOSFERA da cena
+ * do nascimento (missão OURIVESARIA, raia 1C, 2026-07-17). DONA: 1C.
+ * LEI: plano-ourivesaria §3-C3 · §7-B1..B5 · E-A3/E-A4 · ruling 6.8i.
+ *
+ * FOLHA ESCOPADA À LANDING (E-C3: regra nova do nascimento que NÃO é
+ * compartilhada com /como-funciona/404 tenta folha escopada primeiro):
+ * importada por `NascimentoScrub.tsx` (ilha da landing) — as outras 8
+ * rotas não pagam estes bytes. O que é COMPARTILHADO (estilos do SVG
+ * dos 8 planos, `.nascimento-figura`/`.nascimento-svg`, `.pedra-404`)
+ * segue em `lapidacao.css` (global por lei E-C3).
+ *
+ * UM-ESCRITOR (tabela da cena — emenda nominal da raia 1C):
+ *   color dos <li> das legendas   → GSAP, dono ÚNICO (§7-B3: ativa =
+ *                                   --ink-primary, irmãs = --ink-tertiary,
+ *                                   par 7,11:1 provado no protótipo 0.3;
+ *                                   opacity dos <li> NUNCA é animada).
+ *   z-index dos <li>              → GSAP (traz a legenda da VEZ ao topo
+ *                                   da caixa empilhada; nenhuma outra
+ *                                   pena escreve z-index aqui).
+ *   --nasc-lume (na .nascimento-cena) → escrita pela ilha no onUpdate
+ *                                   COALESCIDO (só quando o valor muda —
+ *                                   precedente exato do --ilum do Salão;
+ *                                   CSSOM, carve-out formal). Default 1.
+ *   opacity dos pseudo-elementos  → esta folha (via var(--nasc-lume)).
+ *   background/position/grid      → esta folha (defaults estáticos).
+ *   transform                     → NINGUÉM no rig (R1: nenhum ancestral
+ *                                   do sticky recebe transform).
+ *
+ * DOIS ESTADOS DA CENA (D16 + §7-B1):
+ *   DEFAULT (no-JS / pré-boot / falha do chunk): grid rows
+ *   minmax(0,1fr) auto com min-block-size — a figura fica no tamanho
+ *   natural e as 8 legendas FLUEM plenas abaixo do diagrama (todas
+ *   opacity:1, todas --ink-primary — D16 pleno: a explicação inteira).
+ *   SCRUB (`.nascimento-cena--viva`, classe que a ilha aplica via
+ *   classList quando a timeline nasce): block-size trava em
+ *   100svh−tarja, as 8 legendas EMPILHAM por grid-area na MESMA caixa
+ *   (altura = a mais alta; "todas opacity:1" nunca muda altura) e o
+ *   GSAP conduz cor + z. Em ≥1024px a caixa ancora no canto
+ *   inferior-esquerdo da cena (conceito B §3.3) SOBRE a zona vazia do
+ *   desenho (vb x<214 · y>520 não tem ator — geometria conferida), e o
+ *   SVG mantém a altura da fileira inteira (gate §7-B4 ≥85%).
+ * ============================================================ */
+
+/* ------------------------------------------------------------
+ * 1. O RIG (era lapidacao.css §1 — movido para cá na 1C: só a landing
+ *    usa .nascimento-escopo/rolo/cena; /como-funciona usa o diagrama
+ *    estático via .oficina-cena-scrub e o 404 só usa a pedra).
+ * ------------------------------------------------------------ */
+.nascimento-escopo {
+  display: contents;
+}
+
+/* C3: rolo 240svh → 420svh (~40svh/plano). O `end` da timeline é
+   funcional (rolo − cena) com invalidateOnRefresh: re-deriva sozinho. */
+.nascimento-rolo {
+  position: relative;
+  block-size: 420svh;
+}
+
+.nascimento-cena {
+  --nasc-lume: 1; /* default = sala acesa (E-A4/D16; reduce/no-JS dignos) */
+  position: sticky;
+  top: var(--altura-tarja);
+  min-block-size: calc(100svh - var(--altura-tarja));
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  contain: layout paint; /* clipa a atmosfera à cena (correto) e já é
+                            stacking context: as camadas z:-1 ficam dentro */
+  background: var(--bg-card);
+  /* A border-block cinza de mesma-superfície morreu (§2.2/M0): quem
+     separa papel↔cena agora é a atmosfera abaixo. */
+}
+
+.nascimento-cena .nascimento-figura {
+  grid-area: 1 / 1 / 2 / 2; /* range explícito — auto-placement jamais
+                               decide a fileira da figura */
+  align-self: stretch;
+  min-block-size: 0;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------
+ * 2. ATMOSFERA (--nasc-lume) — vinheta fria + portas de luz + poeira.
+ *    Pseudo-elementos/camada DENTRO da cena (contain:paint as clipa);
+ *    hue: só safira (--luz-penumbra/--luz-tinta ~220°) e ouro — janelas
+ *    verde 70–200 e violeta 250–345 intactas. Trava M3 por GEOMETRIA
+ *    (anel de vinheta com centro limpo; portas coladas às bordas, fora
+ *    do desenho) e por MASK (poeira mascarada para fora do centro):
+ *    a luz jamais banha dado/citação. A caixa de legendas é opaca
+ *    (bg-card): lume nunca alcança o texto interpolado da legenda 2.
+ * ------------------------------------------------------------ */
+.nascimento-cena::before,
+.nascimento-cena::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--nasc-lume);
+}
+
+/* Vinheta fria — anel radial de safira, centro LIMPO (precedente do
+   Salão): a cena ganha profundidade sem tocar o campo do número. */
+.nascimento-cena::before {
+  background: radial-gradient(
+    ellipse at 50% 46%,
+    transparent 52%,
+    rgb(var(--luz-penumbra) / 0.12) 100%
+  );
+}
+
+/* Portas da câmara — duas colunas de luz fria coladas às bordas
+   (6rem cada): o SVG ocupa min(100%, 62rem) central, então a luz
+   nunca alcança número/citação por geometria. */
+.nascimento-cena::after {
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgb(var(--luz-tinta) / 0.07),
+      rgb(var(--luz-tinta) / 0.02) 62%,
+      transparent
+    ),
+    linear-gradient(
+      to bottom,
+      rgb(var(--luz-tinta) / 0.07),
+      rgb(var(--luz-tinta) / 0.02) 62%,
+      transparent
+    );
+  background-size: 6rem 100%;
+  background-position:
+    0 0,
+    100% 0;
+  background-repeat: no-repeat;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* No escuro a vinheta aprofunda (anel neutro 0.35 + 8% de penumbra
+     safira — alfas na família do --camara-vinheta-alfa 0.45). */
+  .nascimento-cena::before {
+    background:
+      radial-gradient(ellipse at 50% 46%, transparent 50%, rgb(0 0 0 / 0.35) 100%),
+      radial-gradient(
+        ellipse at 50% 46%,
+        transparent 52%,
+        rgb(var(--luz-penumbra) / 0.08) 100%
+      );
+  }
+}
+
+/* Poeira sutil — gramática da .salao-poeira (pontos ouro+safira a 3%),
+   ESTÁTICA, mascarada para fora do centro (M3 por mask). */
+.nascimento-poeira {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: calc(var(--nasc-lume) * 0.9);
+  background-image:
+    radial-gradient(
+      circle at 14% 18%,
+      color-mix(in srgb, var(--valor-brilho) 3%, transparent) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 72% 64%,
+      color-mix(in srgb, var(--accent-confianca) 3%, transparent) 0 2px,
+      transparent 3px
+    );
+  background-size:
+    156px 138px,
+    204px 182px;
+  mask-image: radial-gradient(
+    ellipse 130% 130% at 50% 46%,
+    transparent 46%,
+    black 90%
+  );
+}
+
+/* ------------------------------------------------------------
+ * 3. LEGENDAS VISÍVEIS (E-A3/§7-B1 — fonte única, o próprio <ol>)
+ * ------------------------------------------------------------
+ * DEFAULT = fluxo pleno (D16). Tipografia --text-ui, medida ≤38ch,
+ * número do passo em mono --ink-tertiary (contador CSS — decorativo,
+ * fora do innerText; a ordem semântica é do próprio <ol>).
+ * ------------------------------------------------------------ */
+.nascimento-legendas {
+  counter-reset: nasc-passo;
+  grid-area: 2 / 1 / 3 / 2; /* range explícito (fileira das legendas) */
+  inline-size: 100%;
+  max-inline-size: var(--palco-max, 96rem);
+  justify-self: center;
+  padding-inline: var(--sangria);
+  padding-block: 1rem 1.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.nascimento-legendas li {
+  counter-increment: nasc-passo;
+  position: relative;
+  max-inline-size: 38ch;
+  padding-inline-start: 2.25ch;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ink-primary); /* default D16 pleno; no scrub o GSAP é o
+                                dono único desta propriedade (§7-B3) */
+}
+
+.nascimento-legendas li::before {
+  content: counter(nasc-passo);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.15em;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--ink-tertiary);
+}
+
+/* --- Estado SCRUB (classe da ilha; classList, canal permitido) ---
+   A TRAVA de altura (cena = exatamente 100svh − tarja) vale só onde a
+   caixa de legendas comprovadamente cabe (≥1024px, ramo do overlay).
+   Abaixo disso a cena mantém o min-block-size e PODE crescer: no caso
+   extremo (375×667 + fonte 200%, tarja medida ~310px) a caixa sozinha
+   excede o vão — crescer em fluxo é o único estado sem texto clipado
+   (1.4.4; gate §7-B4 "nunca clip"). */
+.nascimento-cena--viva .nascimento-svg {
+  max-block-size: 100%;
+}
+
+/* A caixa única: as 8 legendas empilhadas por grid-area (altura = a
+   mais alta). Cada <li> é opaco (bg-card): a legenda da vez (z do
+   GSAP) cobre as irmãs por inteiro — nada de palimpsesto — e o lume
+   jamais banha o texto (M3 por construção). */
+.nascimento-cena--viva .nascimento-legendas {
+  justify-self: start;
+  inline-size: auto;
+  max-inline-size: min(42ch, 100% - 2 * var(--sangria));
+  margin-inline: var(--sangria);
+  margin-block: 0.5rem 1rem;
+  padding: 0;
+  gap: 0;
+}
+
+.nascimento-cena--viva .nascimento-legendas li {
+  grid-area: 1 / 1;
+  max-inline-size: none;
+  background: var(--bg-card);
+  padding: 0.5rem 0.75rem 0.625rem calc(0.75rem + 2.25ch);
+}
+
+.nascimento-cena--viva .nascimento-legendas li::before {
+  inset-inline-start: 0.75rem;
+  inset-block-start: calc(0.5rem + 0.15em);
+}
+
+/* ≥1024px: a caixa ancora no canto inferior-esquerdo DENTRO da fileira
+   da figura (conceito B §3.3) — o SVG fica com a fileira inteira
+   (§7-B4: altura ≥85% da atual) e a caixa pousa sobre a zona vazia do
+   desenho (vb x<214 · y>520 — sem ator; conferido por geometria). */
+@media (min-width: 1024px) {
+  .nascimento-cena--viva {
+    block-size: calc(100svh - var(--altura-tarja));
+  }
+  .nascimento-cena--viva .nascimento-legendas {
+    grid-area: 1 / 1 / 2 / 2;
+    align-self: end;
+    z-index: 1;
+    max-inline-size: min(42ch, 30%);
+    margin-block-end: 1.25rem;
+  }
+}
+
+/* Recuo de fold pré-aprovado (§7-B4): viewports estreitos — legendas
+   a 32ch/--text-meta. O TEXTO não muda (copy congelada). */
+@media (max-width: 767px) {
+  .nascimento-legendas li {
+    font-size: var(--text-meta);
+  }
+  .nascimento-cena--viva .nascimento-legendas {
+    max-inline-size: min(36ch, 100% - 2 * var(--sangria));
+  }
+}
+
+/* ------------------------------------------------------------
+ * 4. REDUCE — registro NOMINAL por nome (§7-F7, tabela da missão):
+ *    · legendas → default = fluxo pleno (a classe --viva nunca nasce:
+ *      a timeline nem monta; as 8 legendas estáticas ficam visíveis).
+ *    · lume → --nasc-lume fica no default 1 (sala ACESA — a atmosfera
+ *      estática digna, nunca apagada).
+ *    · vinheta + portas → estáticas acesas (nenhuma animação a cortar).
+ *    · poeira → decorativa pura: some.
+ *    O rig vira fluxo normal (sem scroll-jack), como na Horizonte.
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .nascimento-rolo {
+    block-size: auto;
+  }
+  .nascimento-cena {
+    --nasc-lume: 1;
+    position: static;
+    block-size: auto;
+    min-block-size: 0;
+    padding-block: 2rem;
+  }
+  .nascimento-poeira {
+    display: none;
+  }
+}

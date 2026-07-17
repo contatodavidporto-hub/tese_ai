@@ -13,8 +13,10 @@
  *       acessível do h1 inalterado). Cascata: keyframe INCONDICIONAL
  *       transform-only (translateY(0.55em) + rotate(1.2deg) → 0), 700ms
  *       --ease-ink, stagger 45ms via classes LITERAIS .palavra-1 …
- *       .palavra-12 (Tailwind v4 purga classe montada em template string —
- *       tudo por extenso abaixo). HERO É LCP: nasce com opacity:1 — NUNCA
+ *       .palavra-9 (Tailwind v4 purga classe montada em template string —
+ *       tudo por extenso abaixo; o H1 tem 9 palavras — .palavra-10/11/12
+ *       eram órfãs sem consumidor e foram deletadas na OURIVESARIA P.3,
+ *       crédito §7-D4). HERO É LCP: nasce com opacity:1 — NUNCA
  *       opacity:0, nunca gate de JS/IO (padrão .entrada-hero do globals.css);
  *       durante o delay a palavra fica visível no estado "from" (só
  *       deslocada/rotacionada — fill:both), jamais oculta.
@@ -99,15 +101,6 @@
 .palavra-9 {
   --atraso-palavra: 360ms;
 }
-.palavra-10 {
-  --atraso-palavra: 405ms;
-}
-.palavra-11 {
-  --atraso-palavra: 450ms;
-}
-.palavra-12 {
-  --atraso-palavra: 495ms;
-}
 
 /* ---------- 2. Sheen de ouro na palavra "fonte" (crit.1b) ----------
    "Tinta que vira metal por um instante": varredura especular ÚNICA
@@ -115,7 +108,8 @@
    tonal --accent-valor → --valor-brilho → --accent-valor. A palavra nasce
    ouro sólido no frame 1 (highlight fora da caixa, fill both) e a varredura
    dispara 1x após a cascata inteira assentar (delay fixo 1400ms > pior caso
-   495ms + 700ms). AA: #8a6415 ≈ 4.98:1 sobre --bg-page claro (texto-hero é
+   360ms + 700ms — .palavra-9 é a última desde a dieta P.3). AA: #8a6415 ≈
+   4.98:1 sobre --bg-page claro (texto-hero é
    large text, ≥3:1) e #d9b354 tem folga no escuro. Micro-área: uma palavra. */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .palavra-hero-fonte {

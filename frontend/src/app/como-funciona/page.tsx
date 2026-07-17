@@ -245,15 +245,21 @@ export default function ComoFuncionaPage() {
             funciona como item DIRETO do grid `.bancada` (grid-column
             depende do container pai) — por isso vive dentro dele, não como
             irmão solto. */}
-        <div className="bancada py-10 sm:py-14">
+        {/* RITMO (OURIVESARIA 1A, §3-C2): pt-14 = 3.5rem contra o Header
+            (--ritmo-capitulo; morrem os paddings 2.5/3.5rem fora do padrão
+            de masthead). O
+            fio-travessa full-bleed morreu — eram TRÊS linhas no 1º viewport
+            (dupla régua do Header + este fio, R1 §2.5); a talha de ouro abre
+            o capítulo sem repetir fronteira. mt-6 = pós-fio único 1.5rem. */}
+        <div className="bancada pt-14">
           <Reveal
             variant="reveal-regua"
-            className="fio-travessa origin-left bg-line-strong"
+            className="talha-capitulo b-medida-esq"
             aria-hidden="true"
           >
             {null}
           </Reveal>
-          <Reveal className="b-medida-esq mt-8 flex flex-col gap-3">
+          <Reveal className="b-medida-esq mt-6 flex flex-col gap-3">
             <h1 className="font-display text-h1 font-semibold tracking-tight text-ink">
               Como o motor monta uma tese
             </h1>
@@ -291,7 +297,10 @@ export default function ComoFuncionaPage() {
           </div>
         </div>
 
-        <div className="bancada py-10">
+        {/* Corpo: mt-24 = respiro REAL 6rem (--ritmo-respiro) após o
+            masthead (papel↔papel — o vão é gap de caixa, não padding);
+            pb-14 = 3.5rem contra o Footer. */}
+        <div className="bancada mt-24 pb-14">
           <div className="b-palco grid gap-10 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
             {/* Sumário: fixo na lateral no desktop, dobrável no mobile — mesmo
                 padrão do sumário da tese (TeseView.tsx). */}
@@ -312,10 +321,15 @@ export default function ComoFuncionaPage() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-16">
+            {/* RITMO 1A: o gap de 4rem (fora da escala — era o maior vão
+                inter-seção do site, R1 §3b) morre; o respiro de 6rem entra
+                como mt-24 nas seções seguintes (mesma utility do resto do
+                site — vão medível caixa a caixa). Réguas h-px de coluna →
+                talha de ouro (gap-6 interno = pós-fio único 1.5rem). */}
+            <div className="flex min-w-0 flex-col">
               {/* O pipeline */}
               <section id="pipeline" aria-labelledby="pipeline-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-6">
                   <h2 id="pipeline-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     O pipeline
@@ -370,8 +384,8 @@ export default function ComoFuncionaPage() {
               </section>
 
               {/* As cinco dimensões */}
-              <section id="dimensoes" aria-labelledby="dimensoes-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+              <section id="dimensoes" aria-labelledby="dimensoes-titulo" className="mt-24 flex flex-col gap-6">
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-2">
                   <h2 id="dimensoes-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     As cinco dimensões
@@ -414,12 +428,13 @@ export default function ComoFuncionaPage() {
                           </h3>
                           {c.narrada ? (
                             // HORIZONTE (direção §9): a cláusula narrada ganha
-                            // moldura de pull-quote em `--moldura-ameixa`
-                            // (token já publicado — DESIGN-TOKENS.md §S5/E5,
+                            // moldura de pull-quote em `--moldura-tinta`
+                            // (nome antigo aposentado — rename atômico
+                            // da Onda 0.5 OURIVESARIA, achado 39; DESIGN-TOKENS.md,
                             // "keyline 1px de molduras editoriais... pull-
                             // quotes"), reusando o mesmo Tailwind estático de
-                            // /tese (`border-moldura-ameixa`) — zero CSS novo.
-                            <blockquote className="max-w-prose border-l-2 border-moldura-ameixa pl-5 font-display-italico text-lede italic font-medium leading-relaxed text-ink-2">
+                            // /tese (`border-moldura-tinta`) — zero CSS novo.
+                            <blockquote className="max-w-prose border-l-2 border-moldura-tinta pl-5 font-display-italico text-lede italic font-medium leading-relaxed text-ink-2">
                               {c.descricao}
                             </blockquote>
                           ) : (
@@ -447,8 +462,8 @@ export default function ComoFuncionaPage() {
               </section>
 
               {/* O que entrega / não entrega — faixa de postura CVM */}
-              <section id="entrega" aria-labelledby="entrega-titulo" className="flex flex-col gap-6">
-                <Reveal variant="reveal-regua" className="h-px w-full bg-line-strong" aria-hidden="true">{null}</Reveal>
+              <section id="entrega" aria-labelledby="entrega-titulo" className="mt-24 flex flex-col gap-6">
+                <Reveal variant="reveal-regua" className="talha-capitulo" aria-hidden="true">{null}</Reveal>
                 <Reveal className="atraso-regua flex flex-col gap-2">
                   <h2 id="entrega-titulo" className="font-display text-h2 font-semibold tracking-tight text-ink">
                     O que a tese entrega — e o que não entrega
@@ -460,37 +475,57 @@ export default function ComoFuncionaPage() {
                   </p>
                 </Reveal>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex flex-col gap-3 border border-line bg-card p-6">
-                    <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
-                      Entrega
-                    </span>
-                    <ul className="flex flex-col gap-2">
-                      {ENTREGA.map((item) => (
-                        <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
-                          <span aria-hidden className="font-mono text-brasa-texto">
-                            →
-                          </span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="flex flex-col gap-3 border border-line bg-card p-6">
-                    <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
-                      Não entrega
-                    </span>
-                    <ul className="flex flex-col gap-2">
-                      {NAO_ENTREGA.map((item) => (
-                        <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
-                          <span aria-hidden className="font-mono text-ink-3">
-                            —
-                          </span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* ELEMENTO NOVO OURIVESARIA 2B — "ENGASTE DA ENTREGA"
+                    (crit. 7, conceito B §7): a área mais parada da rota
+                    (R6 §4) acende. Os 2 cards viram superfície de gema —
+                    `.gema-chip__corpo` DIRETO no nó do bg opaco (reuso
+                    "sem o filho", precedente documentado em gema.css:
+                    bisel + lift 2px no hover/focus-within, transition da
+                    própria gema.css, reduce nominal já registrado lá) — e
+                    entram pela Fila do Ticker escalonada (Reveal
+                    `reveal-ticker` i-1/i-2 + `.stagger`). Os marcadores
+                    "—" da lista "não entrega" ACENDEM em sequência no
+                    hover do card (ink-3 → ink, transição de color
+                    one-shot; regra em cinema/como-funciona.css). Zero JS
+                    novo, zero string nova (§7-E5). UM-ESCRITOR ✓: o
+                    Reveal anima o PRÓPRIO wrapper; bisel/lift vivem no
+                    filho (nós distintos); os cards não contêm
+                    TermoTooltip (§7-F5 ✓ — strings puras). */}
+                <div className="stagger grid gap-4 sm:grid-cols-2">
+                  <Reveal variant="reveal-ticker" className="i-1">
+                    <div className="oficina-engaste gema-chip__corpo flex h-full flex-col gap-3 border border-line bg-card p-6">
+                      <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
+                        Entrega
+                      </span>
+                      <ul className="flex flex-col gap-2">
+                        {ENTREGA.map((item) => (
+                          <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
+                            <span aria-hidden className="font-mono text-brasa-texto">
+                              →
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
+                  <Reveal variant="reveal-ticker" className="i-2">
+                    <div className="oficina-engaste gema-chip__corpo flex h-full flex-col gap-3 border border-line bg-card p-6">
+                      <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3 [font-stretch:72%]">
+                        Não entrega
+                      </span>
+                      <ul className="flex flex-col gap-2">
+                        {NAO_ENTREGA.map((item) => (
+                          <li key={item} className="flex gap-2 text-ui leading-relaxed text-ink-2">
+                            <span aria-hidden className="oficina-marcador font-mono text-ink-3">
+                              —
+                            </span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 border border-line bg-card px-6 py-5">

@@ -26,7 +26,7 @@
 //       CENTRO a CENTRO e cruzava os painéis por dentro. Aqui ele nasce na
 //       BORDA (círculo publicado) de uma bolha e morre na BORDA da seguinte,
 //       por FORA, com garantia geométrica (§ "O FIO", abaixo).
-//   (c) "grande espaço vazio" → o vazio virou o palco: veludo com vinheta,
+//   (c) "grande espaço vazio" → o vazio virou o palco: câmara com vinheta,
 //       poeira de luz em paralaxe (0.55×), bolhas em 3 planos de
 //       profundidade com sombra projetada no chão, e a catenária ocupando o
 //       corredor entre elas.
@@ -133,8 +133,20 @@ export type RotuloSalao = {
 /** Gate do modo pinado — a MQ canônica da casa composta com `hover:hover`. */
 const GATE_PINADO = `(hover: hover) and ${MQ_PIN_FILMSTRIP}`;
 
-/** Raio publicado da bolha = metade da diagonal + INFLA (direção §7c.2). */
-const INFLA = 8;
+/** Raio publicado da bolha = metade da diagonal + INFLA (direção §7c.2).
+ *  OURIVESARIA §7-A4 (achado 19, emenda nominal): 8 → 12px — a ênfase da
+ *  vez (`.bolha-ativa`, scale 1.035 no miolo + sobressinal ~1.037 do
+ *  --ease-assento) cresce a meia-diagonal PINTADA em até ~10px numa bolha
+ *  de 26rem; com INFLA 8 o canto pintado furava o círculo publicado e o
+ *  gate "0 colisões/folga ≥2px" dava verde falso. 12px mantém o círculo
+ *  publicado ≥ bolha pintada TAMBÉM no estado de ênfase. */
+const INFLA = 12;
+/** Pouso da bolha da vez = `--salao-repouso` (2rem) em px — §7-A1.
+ *  CONSTANTE no TSX (mesma disciplina do INFLA) porque o valor computado de
+ *  uma custom property é o TOKEN ("2rem"), nunca um comprimento resolvido
+ *  (pegadinha 5) — e `--salao-recuo` agora é um calc(%) que o JS NÃO lê
+ *  (E-A2). Se o token global mudar, esta constante muda JUNTO. */
+const REPOUSO_PX = 32;
 /** Passo da amostragem de colisão (asserção de regressão). */
 const PASSO_AMOSTRA = 12;
 /** Máximo de empurrões do corredor antes de aceitar a curva (D29.5). */
@@ -371,14 +383,17 @@ export function SalaoDimensoes({
         // JANELA DE DESENHO — deslocada UM passo para trás em relação à
         // fórmula herdada do filmstrip (lá o elo completava quando o painel
         // i+1 aterrissava). Medido no palco novo: no ponto de repouso da
-        // bolha i, a bolha i−1 está INTEIRAMENTE fora da tela (passo 576 >
-        // largura 352) e a bolha i+1 está em cena — ou seja, o fio "de trás"
-        // que a fórmula herdada acabava de desenhar não é visível, e o único
-        // fio que o olho vê (o da frente) estaria 0% desenhado em TODO
-        // repouso. Com a janela deslocada, o elo i completa quando a bolha i
-        // pousa: na chegada o fio já convida o olho para a direita, e durante
-        // o percurso ele se desenha à FRENTE, no vão entre as duas bolhas em
-        // cena. Reversível de graça pelo scrub (função pura do progresso).
+        // bolha i (pouso = REPOUSO_PX), a bolha i−1 está INTEIRAMENTE fora
+        // da tela (passo 688 > largura 416 + repouso 32) e a bolha i+1 está
+        // em cena — ou seja, o fio "de trás" que a fórmula herdada acabava
+        // de desenhar não é visível, e o único fio que o olho vê (o da
+        // frente) estaria 0% desenhado em TODO repouso. Com a janela
+        // deslocada, o elo i completa quando a bolha i pousa: na chegada
+        // (geometria E-A2: pontos[0] > 0, o elo 1 se desenha durante o
+        // travelling de entrada) o fio já convida o olho para a direita, e
+        // durante o percurso ele se desenha à FRENTE, no vão entre as duas
+        // bolhas em cena. Reversível de graça pelo scrub (função pura do
+        // progresso).
         const fim = pontos[i] ?? 0;
         const passo = (pontos[1] ?? 0.25) - (pontos[0] ?? 0);
         const ini = i > 0 ? (pontos[i - 1] ?? 0) : fim - passo;
@@ -536,6 +551,9 @@ export function SalaoDimensoes({
 
         const desligarBase = () => {
           alvoNavRef.current = null;
+          // Colar/reduce não têm estado "ativa" (E-B1) — a classe morre com
+          // o modo (senão a ênfase vazaria para o colar num resize).
+          for (const b of bolhas) b.classList.remove("bolha-ativa");
           secao.classList.remove("salao-pinado");
           document.documentElement.classList.remove("rolagem-pinada");
           secao.style.removeProperty("--ilum");
@@ -555,15 +573,22 @@ export function SalaoDimensoes({
         const distancia = () => Math.max(0, trilho.scrollWidth - trilho.clientWidth);
         let dist = distancia();
 
-        // Pontos de snap = OFFSETS REAIS (nunca k/4). Com o espaçador de fim
-        // da folha, eles caem em [0, .25, .5, .75, 1] — E10: 0 e 1 SÃO pontos
-        // de snap, então o snap não puxa o scroll na entrada nem segura na
-        // saída (as zonas mortas de 6%+6% ficam sem tranco).
+        // Pontos de snap = OFFSETS REAIS (nunca k/4). GEOMETRIA ENTRADA ≠
+        // REPOUSO (§7-A1, protótipo 0.6): offset_0 == recuo (margem da bolha
+        // 1) e cada bolha pousa em `--salao-repouso` ⇒
+        //   ponto_i = (offset_i − offset_0 + (recuo − repouso))/distancia
+        //           = (offset_i − REPOUSO_PX)/distancia.
+        // 0 DEIXOU de ser ponto de snap (p1 é viewport-dependente: ~0,15 a
+        // 1024px … ~0,36 a 1920px): o trecho [0, p1) é o travelling de
+        // ENTRADA da composição E-A2 (só a bolha 1 visível, à direita) — um
+        // flick que para ali assenta na bolha 1 (vizinho; E10 re-provado na
+        // entrada). 1 SEGUE ponto (p5 = 1,0 exato, Δ=0 medido): zero tranco
+        // na saída. A zona morta de iluminação (6%) < p1 em todos os
+        // viewports pinados — a costura de entrada acende antes do 1º pouso.
         const recalcularPontos = () => {
           dist = distancia();
-          const base = bolhas[0]?.offsetLeft ?? 0;
           pontosSnapRef.current = bolhas.map((b) =>
-            dist > 0 ? limitar((b.offsetLeft - base) / dist, 0, 1) : 0,
+            dist > 0 ? limitar((b.offsetLeft - REPOUSO_PX) / dist, 0, 1) : 0,
           );
         };
         recalcularPontos();
@@ -686,6 +711,15 @@ export function SalaoDimensoes({
               escreverIlum(prog);
               const indice = indiceMaisProximo(prog);
               if (ativoPinadoRef.current !== indice) {
+                // ÊNFASE DA VEZ (E-B1/ruling 6.1): quem publica o índice
+                // também aplica `.bolha-ativa` no <li> — toggle coalescido
+                // (só quando o índice MUDA), via classList (canal homologado
+                // dos véus/modo pinado; o slot server-rendered nunca
+                // re-renderiza — a casca toca classe, jamais conteúdo/style).
+                // O visual (scale 1.035, 420ms --ease-assento) é 100% da
+                // folha; `scale` no miolo não altera offsets (fio/snap ✓).
+                bolhas[ativoPinadoRef.current]?.classList.remove("bolha-ativa");
+                bolhas[indice]?.classList.add("bolha-ativa");
                 ativoPinadoRef.current = indice;
                 // startTransition: mitigação do glitch de raster do Chromium
                 // no pin (herdado/aceito — diagnóstico da APOTEOSE).
@@ -702,6 +736,9 @@ export function SalaoDimensoes({
           return;
         }
         ativoPinadoRef.current = indiceMaisProximo(st.progress);
+        // Estado inicial da ênfase (E-B1): a bolha da vez já nasce marcada —
+        // o onUpdate só re-toca a classe quando o índice MUDA.
+        bolhas[ativoPinadoRef.current]?.classList.add("bolha-ativa");
         recalcularFio();
 
         // Estratos internos por containerAnimation (sem pin/snap aninhado —
@@ -834,10 +871,10 @@ export function SalaoDimensoes({
 
   return (
     <>
-      {/* PÓRTICO — a chegada (D25/7a): o veludo da vitrine não termina,
+      {/* PÓRTICO — a chegada (D25/7a): a câmara da vitrine não termina,
           escurece. Cabeçalho + parágrafo vêm do integrador (children), sobre
           a MESMA superfície. Irmão direto do <main>, como a seção. */}
-      <div className="salao-portico veludo-escopo">{children}</div>
+      <div className="salao-portico camara-escopo">{children}</div>
 
       {/* A SEÇÃO É O PALCO: filha direta do <main>, sem container, sem
           ancestral flex (E1/E3) — é ela que o ScrollTrigger pina. */}
@@ -845,7 +882,7 @@ export function SalaoDimensoes({
         ref={secaoRef}
         id="dimensoes"
         aria-labelledby={rotuladoPor}
-        className="salao-fundo veludo-escopo"
+        className="salao-fundo camara-escopo"
       >
         <div ref={poeiraRef} aria-hidden className="salao-poeira" />
 

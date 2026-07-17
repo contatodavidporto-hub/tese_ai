@@ -43,6 +43,42 @@
   }
 }
 
+/* ------------------------------------------------------------
+ * OURIVESARIA 2C — "Fólios em contra-ritmo" (conceito B §7, crit. 7)
+ * ------------------------------------------------------------
+ * A metade de PONTEIRO do elemento novo (a metade de SCROLL é a
+ * `.paralaxe-numero` global aplicada à letra-folio no page.tsx — zero
+ * regra aqui): o verbete ganha micro-lift `translate: 0 -2px` que
+ * ASSENTA (mesma gramática do lift da gema/placa — propriedade
+ * SEPARADA: nenhuma regra desta folha ou global disputa translate do
+ * `<article>`; o Reveal anima o wrapper PAI) e o chip "Conceito · X"
+ * acende keyline OURO (`--gema-aresta`, o MESMO motivo do :target
+ * acima — engaste que rima com a chegada por âncora, nunca colide:
+ * o :target escreve box-shadow/animation, o hover escreve translate/
+ * border-color — escritores disjuntos por propriedade).
+ * `:focus-within` dá o equivalente de teclado de graça (os links
+ * "ver também" dentro do verbete). One-shot por mudança de estado
+ * (2.2.2 ✓); hover que assenta, nunca contínuo. Zero string nova
+ * (§7-E5); zero byte na landing (folha exclusiva da rota).
+ * ------------------------------------------------------------ */
+.verbete-glossario {
+  transition: translate var(--dur-tick) var(--ease-ink);
+}
+
+.verbete-glossario:hover,
+.verbete-glossario:focus-within {
+  translate: 0 -2px;
+}
+
+.verbete-chip {
+  transition: border-color var(--dur-tick) var(--ease-ink);
+}
+
+.verbete-glossario:hover .verbete-chip,
+.verbete-glossario:focus-within .verbete-chip {
+  border-color: var(--gema-aresta);
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Registro NOMINAL por efeito (LEI §0 — reduce-motion nominal na folha):
      - `engaste-acende` (banho de realce na chegada por âncora): decorativo —
@@ -51,5 +87,20 @@
        continua marcando o verbete alvo sem nenhum movimento. */
   .verbete-glossario:target {
     animation: none;
+  }
+
+  /* - verbete-lift (2C, tabela §7-F7): decorativo — sob reduce o verbete
+       NÃO desloca (translate none) e as trocas viram estado instantâneo
+       (transition none). O chip ainda acende a keyline no hover/focus
+       (troca de cor sem movimento — informação preservada, movimento
+       zero). A `.paralaxe-numero` da letra-folio já é neutralizada pelo
+       bloco reduce do globals.css (animation+transform none). */
+  .verbete-glossario,
+  .verbete-chip {
+    transition: none;
+  }
+  .verbete-glossario:hover,
+  .verbete-glossario:focus-within {
+    translate: none;
   }
 }

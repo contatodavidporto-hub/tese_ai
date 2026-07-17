@@ -256,13 +256,15 @@ export function TeseView({ tese }: { tese: TeseOut }) {
     // full-bleed, C7), `.b-palco` no resto do corpo (largura >= à antiga,
     // E30), default `medida` (68ch) nos dois estados de fallback sem
     // estrutura — texto puro, sem prova de largura a proteger.
-    // `gap-y-10` (NUNCA `gap-10`): mesma armadilha de page.tsx — este
-    // `<article>` é `.bancada` (grid de 6 colunas nomeadas); `gap-10`
+    // `gap-y-12` (NUNCA `gap-12`): mesma armadilha de page.tsx — este
+    // `<article>` é `.bancada` (grid de 6 colunas nomeadas); a forma curta
     // escreveria `column-gap` também, quebrando a soma das trilhas e
     // produzindo overflow-x real em viewports estreitos (achado por teste
-    // em 390px, E3). `gap-y-10` é só o espaçamento vertical entre as
-    // seções empilhadas — o mesmo papel do antigo `flex-col gap-10`.
-    <article className="bancada gap-y-10">
+    // em 390px, E3). Só `row-gap` entre as seções empilhadas.
+    // RITMO (OURIVESARIA 1A, conceito B §2.1e): gap-y-10 → gap-y-12 (3rem,
+    // --ritmo-bloco) — mata a DUALIDADE de ritmo da mesma coluna visual
+    // (corpo markdown a gap-12/3rem × envelope herdando 2.5rem, R1 §2.2).
+    <article className="bancada gap-y-12">
       {/* Régua de Leitura: barra de progresso de 2px em brasa no topo da
           página (CSS scroll-driven em globals.css, `.regua-leitura`); o
           scrollspy de fallback vive em `useSecaoAtiva`, logo acima.
@@ -294,7 +296,7 @@ export function TeseView({ tese }: { tese: TeseOut }) {
           item 20; ela cobre a caixa inteira via `inset:0`, então continua
           válida no card agora full-bleed. Missão APOTEOSE (crit. 10):
           `.masthead-apoteose` (cinema/tese-apoteose.css) imprime a keyline
-          ameixa no topo 1x no mount — entrada mais rica sem tocar no
+          tinta (--moldura-tinta) no topo 1x no mount — entrada mais rica sem tocar no
           writer do <Reveal> (o keyframe anima só o ::after próprio); a
           aurora segue com o alfa CALIBRADO do globals (reuso, nunca boost
           local). Essa keyline + o `border-b-4` abaixo são as "réguas
@@ -443,7 +445,9 @@ export function TeseView({ tese }: { tese: TeseOut }) {
 
           <div className="flex min-w-0 flex-col gap-12">
             {documento.intro.length > 0 && (
-              <div className="max-w-[68ch] border-b border-line-strong pb-8">
+              /* COSTURA 1A: morre o border-b-strong do intro (linha de
+                 mesma superfície); o vão de 3rem do gap-12 separa. */
+              <div className="max-w-[68ch]">
                 <Blocos blocos={documento.intro} refs={refs} hostsOk={hostsOk} />
               </div>
             )}
@@ -613,8 +617,10 @@ export function TeseView({ tese }: { tese: TeseOut }) {
       )}
 
       {/* Metadados da geração — parte da trilha de auditoria. `.b-palco`:
-          mesma largura do resto do corpo. */}
-      <footer className="b-palco flex flex-wrap gap-x-6 gap-y-1 border-t border-line pt-4 font-mono text-meta text-ink-3">
+          mesma largura do resto do corpo. COSTURA 1A: morre o border-t do
+          colofão (convenção de linha em mesmo fundo) — quem o aparta é o
+          respiro do gap-y-12 + a própria tipografia meta (§3-C1). */}
+      <footer className="b-palco flex flex-wrap gap-x-6 gap-y-1 font-mono text-meta text-ink-3">
         <span>id: {tese.id}</span>
         {tese.uso?.modelo && <span>modelo: {tese.uso.modelo}</span>}
         {typeof tese.uso?.custo_estimado_usd === "number" && (

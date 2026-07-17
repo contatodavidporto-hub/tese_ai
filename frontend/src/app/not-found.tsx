@@ -60,6 +60,12 @@ export default async function NaoEncontrada() {
         <FocoLuz />
         {/* D7 (baixa): `atraso-regua` presume uma régua irmã logo antes —
             aqui não há nenhuma. Stagger simples (.i-N). */}
+        {/* OURIVESARIA 2C — ELEMENTO NOVO "Aresta que se desenha" (conceito
+            B §7): `.pedra-404` (dona: lapidacao.css, Onda 0.5 — a 2C só
+            CONSOME) desenha o contorno da pedra em dash-draw one-shot de
+            900ms, 1×. Zero import novo (pegadinha 3, boundary eager: a
+            classe já é paga no CSS global de toda rota); reduce = contorno
+            completo estático (bloco nominal da folha dona). */}
         <Reveal className="i-1">
           <svg
             viewBox="405 135 110 85"
@@ -69,7 +75,7 @@ export default async function NaoEncontrada() {
           >
             <path
               d="M 420 150 L 470 143 L 508 168 L 497 208 L 438 212 L 413 183 Z"
-              className="nascimento-pedra-bruta"
+              className="nascimento-pedra-bruta pedra-404"
             />
           </svg>
         </Reveal>
