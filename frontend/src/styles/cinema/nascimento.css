@@ -252,12 +252,12 @@
      figura centrada, ancorar a caixa em `--sangria` da viewport a
      largaria do desenho em telas largas e o pouso sobre a zona vazia do
      viewBox (x<214 · y>520, §3.3) deixaria de valer. A conta reproduz a
-     borda esquerda do palco: metade da sobra + sangria; abaixo de
-     --palco-max o `max()` devolve --sangria e NADA muda (no-op). */
-  margin-inline: max(
-      var(--sangria),
-      calc((100% - var(--palco-max, 96rem)) / 2 + var(--sangria))
-    )
+     borda esquerda do palco: metade da SOBRA (0 quando não há sobra) mais a
+     sangria. Abaixo de --palco-max o `max()` devolve 0px e a conta colapsa em
+     --sangria: NADA muda (no-op) nos viewports já cobertos pelos gates.
+     `--palco-max` é token global (globals.css:353) — sem fallback aqui pelo
+     mesmo motivo de bancada.css:63. */
+  margin-inline: calc(max(0px, (100% - var(--palco-max)) / 2) + var(--sangria))
     var(--sangria);
   margin-block: 0.5rem 1rem;
   padding: 0;
