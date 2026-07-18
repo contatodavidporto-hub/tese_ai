@@ -64,23 +64,67 @@
  * segmentos cúbicos (mesma fórmula de "barriga suave" de cada segmento,
  * encadeados ponta a ponta) em vez de um segmento único.
  *
- * RETROCOMPATIBILIDADE (100%, testável por leitura): com ZERO elementos
- * `[data-fio-via]` no pai (o caso de TODOS os usos atuais do componente),
- * a lista de pontos é exatamente `[origem, destino]` — o laço de
- * construção do `d` roda UMA única iteração com a MESMA fórmula de
- * controle (`y1 + dy*0.45`, `y2 - dy*0.3`) do código original. Byte a
- * byte, o `d` produzido é idêntico ao de antes desta extensão.
+ * CADEIA DE SEGMENTOS: com ZERO elementos `[data-fio-via]` no pai (o caso
+ * do único consumidor de hoje) a lista de pontos é exatamente
+ * `[origem, destino]` e o laço de construção do `d` roda UMA iteração com
+ * a fórmula de controle `y1 + dy*0.45` / `y2 - dy*0.3`.
  *
- * MEDIÇÃO DOS WAYPOINTS (R12e, mesma lei): `offsetLeft/offsetTop`
- * acumulados até o pai (nunca `getBoundingClientRect`) — imune a
- * `transform` de um CenaScrub ancestral. Convenção do ponto de conexão:
- * origem = centro-base (como hoje); waypoints = CENTRO do próprio elemento
- * (`offsetWidth/2`, `offsetHeight/2` — um waypoint é "passe por aqui", não
- * "chegue por cima" como o destino); destino = topo, recuo ≤28px da borda
- * esquerda (como hoje). Um waypoint fora da cadeia de `offsetParent` até o
- * pai (contrato quebrado pelo integrador) é simplesmente IGNORADO — o fio
+ * ORIGEM NA BORDA DO BLOCO (missão ARREMATE, raia H — V4 da regra de
+ * ferro). A origem ERA o centro-BASE da própria âncora
+ * (`pOrigem.y + origem.offsetHeight`). Como a âncora do único consumidor
+ * é um `<sup>` — conteúdo INLINE do parágrafo (page.tsx:507) —, esse
+ * ponto fica DENTRO do rect do `<p>` POR CONSTRUÇÃO, e o fio só saía do
+ * parágrafo depois de correr pelo interior dele. O varredor de conectoras
+ * mediu, em REPOUSO TOTAL (passada reduced-motion: opacidade 1, escala 1,
+ * zero transform do GSAP), corda 48,81px e profundidade 11,91px dentro de
+ * `SECTION#prova > P.TEXT-BODY`, mais `ponta_sem_folga` com folga 0,00px
+ * (mínimo 2,00) — 27 ocorrências de cada. Era a MAIOR corda do site.
+ *
+ * O conserto é por ÂNCORA, no padrão `naBorda()` do Salão
+ * (SalaoDimensoes.tsx:203-209): a origem passa a nascer na aresta
+ * INFERIOR do BLOCO QUE CONTÉM a âncora, na MESMA COLUNA x da âncora,
+ * deslocada de `FOLGA_BORDA`. Assim o traço já nasce FORA do parágrafo e
+ * nunca percorre o interior dele — o vão que ele atravessa passa a ser o
+ * corredor vazio entre o bloco de texto e a fileira de gemas (na landing,
+ * a calha de GAP-Y-6 da seção). "Bloco que contém" é resolvido subindo o
+ * DOM enquanto o `display` for de nível inline (ou CONTENTS): parar no
+ * primeiro INLINE-BLOCK deixaria a origem dentro do parágrafo de novo,
+ * que é exatamente o defeito.
+ *
+ * PRECONDIÇÃO de montagem (não há guarda em código — é contrato): a
+ * aresta inferior do bloco da âncora tem de estar ACIMA do destino. É o
+ * caso do único consumidor (o `<p>` fecha o bloco de texto; a fileira de
+ * gemas vem depois, na linha seguinte do grid). Um integrador que ancore
+ * ABAIXO do destino verá o fio desenhar de baixo para cima.
+ *
+ * UM ÚNICO CONSUMIDOR (registro honesto, 2026-07-18): o `<FioDaFonte/>`
+ * de `#postura` foi DEMOLIDO no commit 94f2084 (critério 3 do dono), e
+ * com ele a regra `#postura [data-fio-path]` de cinema/secoes.css. Hoje o
+ * componente é montado UMA vez, em page.tsx:472 (`#prova`). Este arquivo
+ * já afirmou "retrocompatibilidade byte a byte do `d`" quando ganhou os
+ * waypoints — a afirmação MORREU aqui: o `d` mudou de propósito, e não há
+ * segundo consumidor para quem preservá-la.
+ *
+ * MEDIÇÃO (R12e, mesma lei): `offsetLeft/offsetTop` acumulados até o pai
+ * (nunca `getBoundingClientRect`) — imune a `transform` de um CenaScrub
+ * ancestral. Convenção do ponto de conexão: origem = coluna x da âncora ×
+ * aresta inferior do bloco dela + folga; waypoints = CENTRO do próprio
+ * elemento (`offsetWidth/2`, `offsetHeight/2` — um waypoint é "passe por
+ * aqui", não "chegue por cima" como o destino); destino = topo, recuo
+ * ≤28px da borda esquerda (INTOCADO: tangenciar o topo do chip é o padrão
+ * já aceito). Um waypoint fora da cadeia de `offsetParent` até o pai
+ * (contrato quebrado pelo integrador) é simplesmente IGNORADO — o fio
  * ainda desenha entre os pontos válidos restantes (degradação honesta,
  * nunca uma exceção que apaga o fio inteiro).
+ *
+ * O QUE ESTE CONSERTO NÃO ALCANÇA (medido, não suposto): o SVG é irmão
+ * dos blocos e NÃO é `[data-cena-el]`, então o GSAP do CenaScrub move as
+ * CAIXAS (ENTRADA_Y +16 → 0 → SAIDA_Y −12, com stagger de 0.15 entre
+ * alvos — CenaScrub.tsx:107-117) enquanto o fio, medido em coordenadas de
+ * LAYOUT, fica parado. Durante a entrada e a saída as caixas varrem o
+ * traço: são violações TRANSITÓRIAS, de amplitude ≤ 28px, que nenhum
+ * reancoramento resolve — só um dono comum de transform resolveria, e o
+ * GSAP é dono único do transform dos `[data-cena-el]` por lei.
  */
 
 import { useEffect, useRef } from "react";
@@ -104,6 +148,29 @@ type PropsFioDaFonte = {
 function arred(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+/**
+ * Arredonda para 0.1px SEMPRE PARA CIMA (para longe do bloco de origem):
+ * o `arred` normal pode comer 0,05px da folga, e a folga é justamente o
+ * que o gate mede.
+ */
+function arredCima(n: number): number {
+  return Math.ceil(n * 10) / 10;
+}
+
+/**
+ * Folga de nascimento na aresta do bloco da âncora — padrão `naBorda()` do
+ * Salão (SalaoDimensoes.tsx:203-209, `b.r + 2`), que é o mesmo FOLGA_MIN =
+ * 2.0 do varredor global (.maestro/ferramentas/gate_conectoras.py:197).
+ *
+ * 3 e não 2 porque a medida vem de `offsetTop`/`offsetHeight`, que os
+ * navegadores devolvem ARREDONDADOS A INTEIRO, enquanto o gate compara
+ * contra o rect FRACIONÁRIO do `getBoundingClientRect`: a aresta real pode
+ * estar até ~1px abaixo do que a soma dos offsets indica. 3 − 1 = 2 no
+ * pior caso, 3 no melhor — e 3px é imperceptível na calha entre o
+ * parágrafo e a fileira de gemas.
+ */
+const FOLGA_BORDA = 3;
 
 export function FioDaFonte({
   de = "[data-fio-de]",
@@ -141,6 +208,26 @@ export function FioDaFonte({
       return atual === pai ? { x, y } : null;
     };
 
+    // BLOCO QUE CONTÉM a âncora (ARREMATE raia H — ver cabeçalho): sobe do
+    // próprio elemento enquanto o `display` for de nível INLINE (o `<sup>`
+    // da prova viva é INLINE dentro do `<p>`) ou CONTENTS (não gera caixa
+    // nenhuma, logo não tem aresta para nascer). Para no primeiro elemento
+    // que gera caixa de BLOCO e nunca ultrapassa o pai.
+    // `startsWith("inline")` cobre de propósito INLINE-BLOCK, INLINE-FLEX,
+    // INLINE-GRID e INLINE-TABLE: parar num deles devolveria uma aresta que
+    // ainda está DENTRO do parágrafo — o defeito que este conserto mata.
+    const blocoQueContem = (el: HTMLElement): HTMLElement => {
+      let atual: HTMLElement = el;
+      while (atual !== pai) {
+        const disp = window.getComputedStyle(atual).display;
+        if (!disp.startsWith("inline") && disp !== "contents") break;
+        const acima = atual.parentElement;
+        if (!acima) break;
+        atual = acima;
+      }
+      return atual;
+    };
+
     const medir = () => {
       agendado = false;
       if (!vivo) return;
@@ -158,12 +245,19 @@ export function FioDaFonte({
         trilho.removeAttribute("d");
         return;
       }
-      // Sai do centro-base do [n]; chega no topo do chip, perto da borda
-      // esquerda (onde mora o fio duplo de citação) — teto de 28px de recuo.
+      // Nasce na ARESTA INFERIOR do bloco da âncora (+FOLGA_BORDA), na
+      // coluna x da âncora; chega no topo do chip, perto da borda esquerda
+      // (onde mora o fio duplo de citação) — teto de 28px de recuo.
+      const bloco = blocoQueContem(origem);
+      const pBloco = bloco === origem ? pOrigem : posLocal(bloco);
+      if (!pBloco) {
+        trilho.removeAttribute("d");
+        return;
+      }
       const pontos: Array<{ x: number; y: number }> = [
         {
           x: arred(pOrigem.x + origem.offsetWidth / 2),
-          y: arred(pOrigem.y + origem.offsetHeight),
+          y: arredCima(pBloco.y + bloco.offsetHeight + FOLGA_BORDA),
         },
       ];
       // Waypoints (extensão aditiva): centro do próprio elemento, em ordem
@@ -189,9 +283,13 @@ export function FioDaFonte({
         return;
       }
       // Cadeia de curvas cúbicas com barriga suave por segmento (funciona
-      // subindo/descendo em qualquer trecho) — com 0 waypoints (todos os
-      // usos de hoje) roda 1 iteração e produz o MESMO `d` de antes desta
-      // extensão (retrocompatibilidade byte a byte).
+      // subindo/descendo em qualquer trecho) — com 0 waypoints (o caso do
+      // único consumidor) roda 1 iteração. As duas abscissas de controle
+      // são as dos próprios extremos e as ordenadas caem em
+      // `y1 + dy*0.45` e `y2 − dy*0.3`, ambas DENTRO de [y1, y2]: a curva
+      // nunca escapa da faixa vertical entre os dois pontos, então a
+      // origem na borda garante que o traço inteiro corre no corredor
+      // vazio, e não só o seu primeiro pixel.
       let d = `M ${pontos[0].x} ${pontos[0].y}`;
       for (let i = 0; i < pontos.length - 1; i += 1) {
         const p1 = pontos[i];
