@@ -768,21 +768,19 @@ export default function Home() {
             aria-labelledby="postura-titulo"
             className="capitulo bancada relative gap-y-6 py-14"
           >
-            {/* OURIVESARIA 2A (C6) — FIO DO AVAL: reuso do <FioDaFonte/>
-                (zero JS novo) — o CenaScrub DESTA seção encontra o
-                [data-fio-path] e o desenha na janela 0.20–0.65 da timeline
-                (mesmo mecanismo do fio de #prova; reversível por natureza).
-                `relative` na SEÇÃO = containing block/offsetParent do SVG
-                (contrato de montagem idêntico ao de #prova); `.b-sangria`
-                devolve ao SVG o padding-box inteiro da seção. Âncoras
-                (defaults do componente, resolvidas DENTRO de #postura):
-                nasce no numeral da placa 01 [data-fio-de], passa pelos
-                numerais 02/03 [data-fio-via] e desce até a BASE da fileira
-                de placas [data-fio-ate] — o traço TERMINA ~2.5rem ACIMA do
-                box CVM por construção de layout (a peça de honra jamais é
-                tocada). Ouro --fio-lapidario via regra #postura em
-                cinema/secoes.css. Decorativo (aria-hidden no componente). */}
-            <FioDaFonte className="b-sangria" />
+            {/* ARREMATE (crit. 3) — O FIO DO AVAL FOI DEMOLIDO.
+                O <FioDaFonte/> que vivia aqui ligava CENTRO a CENTRO dos
+                numerais (FioDaFonte.tsx:177-180) — ou seja, nascia DENTRO da
+                placa 01 e passava pelo interior de 02 e 03. Era exatamente o
+                defeito que o Salão foi construído para demolir ("nasce na
+                BORDA e morre na BORDA, por FORA, com garantia geométrica").
+                A oclusão por ordem de pintura NÃO era defesa: o CenaScrub leva
+                a opacity das placas ao PISO_OPACIDADE 0.55 na saída, e o fio
+                sepultado reaparecia atravessando o texto.
+                O componente <FioDaFonte/> PERMANECE no projeto — é
+                compartilhado com o fio de #prova (linha ~464).
+                O `relative` da <section> FICA: `#postura .lume-postura` é
+                position:absolute e depende dele como containing block. */}
             {/* LUME DA SEÇÃO (2A): camada irmã decorativa cuja opacity
                 pertence à MESMA timeline do CenaScrub — é [data-cena-el]
                 (dona única da opacity; zero escritor novo): acende na
@@ -841,18 +839,14 @@ export default function Home() {
                 <li key={p.titulo} className={DESALINHO_PLACA[i]}>
                   {/* 2A: o relevo/lume/cravação vem de cinema/gema.css §2b,
                       escopado por `#postura` (zero classe nova — teto de
-                      bytes 6.9; /sobre segue byte-idêntica). Os numerais
-                      são as âncoras do fio do aval (atributos de GEOMETRIA
-                      — zero texto novo). */}
+                      bytes 6.9; /sobre segue byte-idêntica).
+                      ARREMATE: os atributos [data-fio-de]/[data-fio-via] que
+                      ancoravam o fio do aval saíram junto com ele. */}
                   <div
                     data-cena-el=""
                     className="placa-gravada flex h-full flex-col gap-2 bg-card px-6 py-6"
                   >
-                    <span
-                      className="placa-gravada__numeral font-mono text-h3"
-                      data-fio-de={i === 0 ? "" : undefined}
-                      data-fio-via={i === 0 ? undefined : ""}
-                    >
+                    <span className="placa-gravada__numeral font-mono text-h3">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <h3 className="font-display text-lede font-semibold text-ink">
@@ -863,13 +857,6 @@ export default function Home() {
                       {p.exemplo}
                     </p>
                   </div>
-                  {/* Âncora de chegada do fio do aval: bloco VAZIO = altura
-                      zero (nenhum pixel de layout novo; sem `h-0` — bloco
-                      vazio não tem strut) na base do último <li> — o fio
-                      para aqui, acima do box CVM, por construção. */}
-                  {i === 2 ? (
-                    <span data-fio-ate="" aria-hidden="true" className="block" />
-                  ) : null}
                 </li>
               ))}
             </ol>
