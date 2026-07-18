@@ -258,6 +258,40 @@
 }
 
 /* ------------------------------------------------------------
+ * 2c. A FILEIRA — alinhamento puro (ARREMATE, crit. 3)
+ * ------------------------------------------------------------
+ * O fio do aval morreu; quem costura as 3 placas agora é o ALINHAMENTO.
+ * A fileira saiu de `.b-medida-dir` (único uso do utilitário na landing)
+ * para `.b-medida-esq` — a mesma faixa da talha, do h2 e dos dois
+ * parágrafos: prumo único na borda do palco. A troca é IMUNE A REFLUXO
+ * porque col2 e col4 da bancada são a MESMA declaração (bancada.css:63
+ * e 65): as duas faixas têm sempre largura idêntica, então nenhuma linha
+ * de texto quebra diferente e qualquer variação de altura vem só do fim
+ * do stagger.
+ *
+ * RITMO: os utilitários `mt-2` (fileira) e `mt-4` (box CVM) morreram —
+ * somados ao gap da seção davam 2rem e 2.5rem, ambos FORA da escala
+ * {0.75/1.5/3/6}rem. Com --ritmo-assento aqui + o gap da seção, os dois
+ * vãos viram 1.5 + 1.5 = 3rem = --ritmo-bloco EXATO: a fileira fica entre
+ * parênteses de ar igual. O gutter continua 24px, agora NOMEADO.
+ *
+ * ESCRITORES: só `margin` e `gap`, e só no <ol> e no [data-cvm] — nada de
+ * `transform`/`opacity` (o GSAP do CenaScrub segue dono único nos
+ * [data-cena-el]) e nada de `translate` (dono: o lift de hover/focus da
+ * placa, §2b acima). Zero classe nova — os seletores usam estrutura já no
+ * bundle, respeitando o teto de bytes 6.9. Zero efeito de MOVIMENTO novo
+ * ⇒ nada a registrar no bloco reduce desta folha.
+ * Escopo por #postura: as placas de /sobre seguem byte-idênticas.
+ * ------------------------------------------------------------ */
+#postura ol,
+#postura [data-cvm] {
+  margin-block-start: var(--ritmo-assento);
+}
+#postura ol {
+  gap: var(--ritmo-assento);
+}
+
+/* ------------------------------------------------------------
  * 3. `.exemplo-vivo` — espaço reservado + reveal por opacity (D35)
  * ------------------------------------------------------------
  * SEMPRE no DOM, SEMPRE ocupando sua altura natural desde o SSR — zero

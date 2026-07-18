@@ -52,6 +52,91 @@ const FACETAS = [
   { numero: "D5", rotulo: "ELOS" },
 ] as const;
 
+/**
+ * ESPINHA CENTRAL (x = cxGema) — R1/V2, missão ARREMATE (ruling R15).
+ * Era UMA <line> sólida y=130→628 que atravessava o INTERIOR da pedra
+ * bruta (fill-opacity .22), do texto do dado, das facetas (.16–.28), do
+ * texto "data · {data}" do plano 4 e do texto da citação. A regra de
+ * ferro global proíbe conectora cruzando caixa/placa/texto em QUALQUER
+ * rota — e esta cena roda em duas (`/` e `/como-funciona`), sendo que na
+ * interna ela fica PERMANENTEMENTE no estado final (sem scrub), então a
+ * travessia era visível 100% do tempo lá.
+ *
+ * A espinha CONTINUA existindo: sobraram os 5 trechos que já corriam em
+ * corredor vazio — é exatamente o que a linha pareceria se todos os
+ * atores fossem opacos (a oclusão que a translucidez quebrava). Folga
+ * mínima medida: 2,25px contra a caixa PINTADA de cada ator (inclui meio
+ * stroke), padrão FOLGA_MIN = 2.0 de
+ * .maestro/ferramentas/gate_1d_salao.py:53.
+ *
+ * Corredores (y em unidades do viewBox, contra caixa pintada):
+ *   130–140  moldura (borda, y=130) → pedra bruta 143,65 ... folga 3,61
+ *   378–448  facetas 374,5          → "fonte · B3" 452,73 . folga 2,72
+ *   490–516  "data · …" 485,02      → punção EM VIAGEM 522  folga 5,52
+ *   570–590  punção 566             → citação 594,67 ...... folga 3,25
+ *   616–627  citação 611,58         → mini-chip 630 ....... folga 2,25
+ * Os vãos 211,26–214,62 · 234,12–243,75 · 256,75–267,5 foram DESCARTADOS:
+ * com 2px de folga de cada lado sobrariam −0,6 / 5,6 / 6,7px, e um toco
+ * de 6px com stroke 1,5 lê como sujeira, não como espinha (regra: só
+ * emite segmento com comprimento >= 8px).
+ *
+ * RESSALVA DE NÚMERO (ARREMATE raia H, não é geometria a corrigir): o
+ * segmento 2 fica em [378,448] por decisão do maestro. A raia anterior
+ * mediu que a maior fatia de espinha removida sobre TELA VAZIA é 22,80
+ * unidades (y 448,05–470,85), não os 10,75 da manchete de R15 — R15 usou
+ * a extensão Y do texto "fonte · B3" sem conferir a extensão X (a caixa
+ * dele para em x=456, antes da banda pintada da espinha em 459,25), e o
+ * primeiro ator que de fato cruza a coluna é "data · 08/07/2026" em
+ * y=470,87. Esticar o segmento até ~468,8 fecharia o vão, MAS sob
+ * fallback de fonte +10% o "fonte · B3" cresce para x≈462,6 e passaria a
+ * cruzar a coluna. O maestro ACEITOU o vão de 22,80 e mandou corrigir o
+ * NÚMERO da ressalva, não a geometria.
+ *
+ * TERCEIRO SEGMENTO — ENCURTADO DE 546 PARA 516 (ARREMATE raia H, a 2ª
+ * violação que sobrara na regra de ferro). A espinha é ESTÁTICA e irmã
+ * dos [data-plano]; a punção NÃO é: NascimentoScrub.tsx:294-296 roda
+ * `fromTo(puncao, { y: -28 }, { y: 0 })` no plano 6, então o rect
+ * (CenaNascimento.tsx:304 — x 444, y 550, 32×16) VIAJA com a aresta
+ * superior indo de y=522 (início do tween) a y=550 (repouso) e a
+ * inferior de 538 a 566. A faixa de viagem [522,566] engolia o fim do
+ * antigo [490,546]: o gate mediu a espinha atravessando a punção de
+ * lado a lado — corda 17,25px / 16,00 unidades, prof 6,13px, em
+ * `/` 1440×900 p=0.6 (opacidade da caixa 0,278 ⇒ y ≈ −20,2) e o mesmo
+ * cruzamento a 390×844 (corda 15,99 uu, opacidade 0,087 ⇒ y ≈ −25,6);
+ * mais um `ponta_sem_folga` com o fim do segmento 0,29px DENTRO da
+ * punção em viagem.
+ *   ESCOLHA DO CORTE (medida, não chute — as duas opções foram rodadas no
+ *   varredor). Parar em 519 já zera o cruzamento e já paga FOLGA_MIN em
+ *   UNIDADES DE USUÁRIO — o espaço em que este `d` é escrito e em que o
+ *   stroke é definido, que é o espaço normativo para folga por
+ *   arbitragem do maestro: 522 − 519 = 3,0 un de vão, lidos pelo gate
+ *   como folga 2,50 un. MAS a 390×844 o SVG desce à escala 0,3891 e
+ *   essas mesmas unidades viram 1,93px de viewport — 0,07px abaixo do
+ *   piso — e o segmento seguia aparecendo no relatório como
+ *   `ponta_sem_folga`. Parar em 516 custa TRÊS unidades a mais de
+ *   espinha e compra folga 5,52 un = 2,15px a 0,3891 e 5,95px a 1,0783:
+ *   o segmento passa a limpo nos DOIS sistemas de coordenadas, e a
+ *   disputa "user units ou px de viewport" deixa de tocá-lo. Sobram 26
+ *   unidades de segmento, acima do piso de 8.
+ *   ATENÇÃO ao que NÃO era o culpado: a punção entra POR CIMA (y −28 =
+ *   28 unidades ACIMA do repouso) e nunca desce abaixo de 566, então o
+ *   segmento [570,590] — que fica entre a punção em repouso e a citação
+ *   — jamais é atravessado por ela. Ele fica INTOCADO.
+ *
+ * Decorativa e ESTÁTICA: nenhum seletor de NascimentoScrub.tsx:157-188 a
+ * lê (nem classe, nem data-attr, nem [data-plano] — a <line> é IRMÃ dos
+ * grupos de plano, não filha), então 1 → 5 nós é inobservável pela
+ * timeline. Seguem sendo os PRIMEIROS filhos do <svg>: ordem de pintura
+ * idêntica, a espinha continua por baixo de todos os atores.
+ */
+const ESPINHA = [
+  [130, 140],
+  [378, 448],
+  [490, 516],
+  [570, 590],
+  [616, 627],
+] as const;
+
 function formatDataIso(iso: string): string {
   const [ano, mes, dia] = iso.split("-");
   return `${dia}/${mes}/${ano}`;
@@ -138,8 +223,21 @@ export function CenaNascimento({ className, legendasVisiveis = false }: PropsCen
           aria-hidden="true"
           focusable="false"
         >
-          {/* Espinha central — conecta os planos, sempre visível (decorativo). */}
-          <line x1={cxGema} y1={130} x2={cxGema} y2={628} className="nascimento-esteira" />
+          {/* Espinha central — conecta os planos, sempre visível
+              (decorativo). 5 trechos em corredor vazio: ver ESPINHA acima.
+              A classe é a MESMA (lapidacao.css:52-55 vale para 1 ou para 5
+              elementos sem nenhuma alteração: a folha é global e não se
+              toca). */}
+          {ESPINHA.map(([y1, y2]) => (
+            <line
+              key={y1}
+              x1={cxGema}
+              y1={y1}
+              x2={cxGema}
+              y2={y2}
+              className="nascimento-esteira"
+            />
+          ))}
 
           {/* PLANO 1 — as fontes: moldura + 6 selos (E12: B3 é o índice 0). */}
           <g data-plano="1" className="nascimento-plano nascimento-plano--mina">
@@ -163,9 +261,35 @@ export function CenaNascimento({ className, legendasVisiveis = false }: PropsCen
                 </text>
               </g>
             ))}
-            {/* Linha de extração — sai do selo B3 (índice 0) rumo à pedra bruta. */}
+            {/* Linha de extração — sai do selo B3 (índice 0) rumo à pedra
+                bruta, nascendo e morrendo na BORDA (padrão naBorda() do
+                Salão, SalaoDimensoes.tsx:203-209). R1/V3, ruling R15: o `d`
+                antigo terminava em (440,150), 2,8px DENTRO do polígono da
+                pedra (a aresta (420,150)→(470,143) está em y=147,2 nesse x),
+                e nascia em (100,116), sobre o anel PINTADO do selo (r 24 +
+                stroke 2,5 → raio pintado 25,25) e por cima da caixa do
+                rótulo "B3" (getBBox x 93,6–106,4 / y 121,75–134,75).
+                  P3: ponto da aresta em x=440 deslocado 3,5px pela normal
+                      externa (−0,1386, −0,9903) → (439,5 , 143,7). Os 3,5px
+                      são 0,75 (meio traço da pedra) + 2,0 (folga naBorda) +
+                      0,75 (meio traço da própria linha) ⇒ gap entre faces
+                      pintadas = 2,0px exatos.
+                  P0: naBorda do selo a raio 29 (= 25,25 pintado + 2,0 folga
+                      + 0,75 meio-traço), saindo 25° a leste do sul → o
+                      +12,3/+26,3 abaixo. O desvio a leste é o que tira a
+                      curva de cima do rótulo "B3": x=112,3 limpa a borda
+                      direita do rótulo (106,4) por 5,9px. Saída a 0° (sul
+                      puro) cairia dentro da caixa do rótulo, que é centrada
+                      no mesmo x do selo — por isso P0 também entrou.
+                  C1 acompanha P0 em x para a tangente de saída seguir
+                      vertical; C2 (380,130) INTOCADO.
+                CONTINUA SENDO UM ÚNICO <path>: NascimentoScrub.tsx:163-165
+                usa querySelector — dividir quebraria a timeline em silêncio.
+                Só o atributo `d` muda; o tween de lá é `opacity` (:252),
+                independente de geometria (path-morph é PROIBIDO, :15-17).
+                Folga mínima na curva inteira, amostrada a 2px: 2,79px. */}
             <path
-              d={`M ${selosX[0]} ${selCyBase + 24} C ${selosX[0]} ${selCyBase + 70}, 380 130, 440 150`}
+              d={`M ${selosX[0] + 12.3} ${selCyBase + 26.3} C ${selosX[0] + 12.3} 162, 380 130, 439.5 143.7`}
               className="nascimento-linha-extracao"
             />
           </g>
