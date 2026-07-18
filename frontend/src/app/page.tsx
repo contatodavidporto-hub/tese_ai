@@ -173,11 +173,12 @@ const DIMENSOES: readonly DimensaoSalao[] = [
   },
 ];
 
-// Desalinho das placas da Sala do Contrato (D35 — "placas gravadas
-// desalinhadas"): classes LITERAIS por índice (nunca template string — o JIT
-// do Tailwind v4 escaneia texto literal do código-fonte). Só a partir de `sm`
-// (empilhadas no mobile, onde desalinho vira buraco).
-const DESALINHO_PLACA = ["sm:mt-0", "sm:mt-8", "sm:mt-16"] as const;
+// ARREMATE (crit. 3): a const DESALINHO_PLACA morreu. O escalonamento
+// ["sm:mt-0","sm:mt-8","sm:mt-16"] dava às 3 placas topos em diagonal (0/32/64px)
+// com alturas decrescentes — rodapé comum, topos escalonados. Lia como grid
+// quebrado, não como ritmo: era metade do "ficou muito esquisita" do dono
+// (a outra metade era o fio do aval, demolido acima). Quem costura a fileira
+// agora é o ALINHAMENTO, não o deslocamento.
 
 export default function Home() {
   const exemplos = exemplosProntos();
@@ -444,9 +445,16 @@ export default function Home() {
             `.gema-chip__corpo` (nó que o GSAP nunca toca).
             ============================================================ */}
         <CenaScrub>
-          {/* RITMO (OURIVESARIA 1A, §3-C2): pt-14 = lado da dobra (contrato
-              E1 do hero); pb-12 = metade do respiro papel↔papel com o
-              cabeçalho do nascimento (3rem + 3rem = 6rem, --ritmo-respiro);
+          {/* RITMO (OURIVESARIA 1A, §3-C2 · revisto ARREMATE crit. 1, R2'):
+              pt-14 = lado da dobra (contrato E1 do hero); PB-12 = 3rem =
+              --ritmo-bloco, o FECHO deste capítulo — deixou de ser "metade do
+              respiro". O vão papel↔papel até o nascimento subiu a 9rem e o
+              incremento inteiro foi para o PT do #nascimento-cabecalho, onde
+              não há acoplamento: este bloco fica byte-idêntico de propósito
+              (o padding de #prova segue pt-14+pb-12 = 104px, então o
+              contain-intrinsic-size desta seção NÃO se toca — o token
+              dimensiona o CONTEÚDO e o padding soma por fora; re-derivar por
+              causa de padding CRIARIA o CLS que a lei proíbe).
               gap-y-6 = assento/pós-fio único de 1.5rem (--ritmo-pos-fio). */}
           <section
             id="prova"
@@ -556,15 +564,39 @@ export default function Home() {
             <ol>, fonte única); `.nascimento-poeira` é camada decorativa da
             atmosfera --nasc-lume (aria-hidden, cinema/nascimento.css).
             ============================================================ */}
-        {/* RITMO/COSTURA (OURIVESARIA 1A): id `nascimento-cabecalho` é o
-            identificador que o gate_ritmo usa para casar a exceção declarada
-            "encostos-rolo" (o vão até o rolo é 0 por contrato do rig — o
-            pin-spacer do NascimentoScrub vive num wrapper display:contents).
-            pt-12 = metade do respiro papel↔papel com #prova (3+3 = 6rem);
-            gap-y-6 = pós-fio único 1.5rem (era 0.75rem, o menor do site);
-            fio cinza → talha de ouro. pb permanece 0 (encosto do rolo,
+        {/* RITMO/COSTURA (OURIVESARIA 1A · revisto ARREMATE crit. 1, R2'):
+            id `nascimento-cabecalho` é o identificador que o gate_ritmo usa
+            para casar a exceção declarada "encostos-rolo" (o vão até o rolo é 0
+            por contrato do rig — o pin-spacer do NascimentoScrub vive num
+            wrapper display:contents).
+
+            O VÃO ATÉ #prova SUBIU DE 6rem PARA 9rem. O dono viu a fronteira
+            "colada": ela vinha logo depois de um hero de tela cheia e fechava
+            uma #prova densa, e 6rem já era o TETO da escala — não havia degrau
+            acima para "promover". 9rem = --ritmo-respiro + --ritmo-bloco, e na
+            divisão 3+6 cada LADO continua sendo um degrau legal: PB-12 = 3rem
+            (--ritmo-bloco, o fecho de #prova, INTOCADO) e PT-24 = 6rem
+            (--ritmo-respiro, a abertura deste capítulo — em tipografia de livro
+            o espaço grande pertence à ABERTURA, não ao fecho anterior).
+
+            Por que 9 e não 12: as fronteiras de MATERIAL da landing entregam
+            6rem MAIS marca (lábio de ouro em M1, degrau-gradiente em M2). Esta
+            é papel→papel, SEM marca nenhuma desde que a hairline morreu (C1) —
+            96px sem marca lê menor que 96px com marca, que é exatamente o
+            diagnóstico do dono. 9rem = 1,5× o ar da fronteira de material,
+            compensando a marca ausente SEM inverter a hierarquia; 12rem seria
+            2× (uma quebra na MESMA superfície ranquearia acima de uma troca de
+            mundo) e, a 390×844, seriam 192px = 22,7% do viewport de papel morto.
+
+            O incremento inteiro vem para ESTE lado porque aqui ele custa zero:
+            o cabeçalho não tem content-visibility, não tem intrinsic-size, não
+            é [data-cena] e não tem ScrollTrigger. Mexer no PB de #prova tocaria
+            três acoplamentos de uma vez, inclusive o `end` do CenaScrub que
+            reagenda o fade do ato 3 — coreografia que o dono já aprovou.
+
+            gap-y-6 = pós-fio único 1.5rem; pb permanece 0 (encosto do rolo,
             exceção declarada §3-C2). */}
-        <div id="nascimento-cabecalho" className="bancada gap-y-6 pt-12">
+        <div id="nascimento-cabecalho" className="bancada gap-y-6 pt-24">
           <Reveal variant="reveal-regua" className="talha-capitulo b-medida-esq" aria-hidden="true">
             {null}
           </Reveal>
@@ -830,13 +862,26 @@ export default function Home() {
               o dado na mão.
             </p>
 
-            {/* As 3 placas gravadas, desalinhadas à direita (D35). O
-                `.exemplo-vivo` é a citação REAL derivada de exemplosProntos()
+            {/* ARREMATE (crit. 3) — ALINHAMENTO PURO. A fileira ganha topo
+                comum (o rodapé já era comum: grid stretch + H-FULL + o MT-AUTO
+                do `.exemplo-vivo`) e sai de `.b-medida-dir` — único uso desse
+                utilitário na landing — para `.b-medida-esq`, a MESMA faixa da
+                talha, do h2 e dos dois parágrafos. Um prumo só na borda do
+                palco: some o vazio de 386px (@1440) / 458px (@1920) à esquerda
+                que desequilibrava a seção.
+                A troca é IMUNE A REFLUXO: col2 e col4 da bancada são a mesma
+                declaração (bancada.css:63 e 65), logo as duas faixas têm sempre
+                a mesma largura — nenhuma linha de texto quebra diferente, em
+                nenhum viewport. Logo qualquer variação de altura vem só do fim
+                do stagger, e a re-derivação do intrinsic-size é determinística.
+                Margem e gap saíram para a folha dona (cinema/gema.css §2c) como
+                token `--ritmo-*`: zero utilitário de espaço aqui.
+                O `.exemplo-vivo` é a citação REAL derivada de exemplosProntos()
                 — espaço SEMPRE reservado no DOM (CLS-safe), revelado por
                 opacity no hover/foco e sempre visível em touch/reduce. */}
-            <ol className="b-medida-dir mt-2 grid gap-6 sm:grid-cols-3">
+            <ol className="b-medida-esq grid sm:grid-cols-3">
               {PRINCIPIOS.map((p, i) => (
-                <li key={p.titulo} className={DESALINHO_PLACA[i]}>
+                <li key={p.titulo}>
                   {/* 2A: o relevo/lume/cravação vem de cinema/gema.css §2b,
                       escopado por `#postura` (zero classe nova — teto de
                       bytes 6.9; /sobre segue byte-idêntica).
@@ -874,13 +919,19 @@ export default function Home() {
                 dois role=note com o mesmo rótulo confundem a navegação por
                 landmark em leitor de tela — e o seletor do pin do Salão
                 ('[role="note"][aria-label="Aviso regulatório"]') passa a casar
-                SÓ com a Tarja, por construção. */}
+                SÓ com a Tarja, por construção.
+                ARREMATE (crit. 3): o MT-4 saiu daqui — somado ao GAP-Y-6 da
+                seção ele dava 2.5rem, valor FORA da escala {0.75/1.5/3/6}rem.
+                O vão fileira→CVM agora é --ritmo-assento na folha dona
+                (cinema/gema.css §2c) + o gap da seção = 3rem = --ritmo-bloco
+                EXATO, igual dos dois lados da fileira. Só a ÂNCORA de espaço
+                mudou: o conteúdo do box segue VERBATIM (compliance). */}
             <div
               data-cena-el=""
               data-cvm=""
               role="note"
               aria-label="Postura regulatória"
-              className="b-palco mt-4"
+              className="b-palco"
             >
               <div className="cvm-honra flex flex-col items-center gap-2 border-y-2 border-aviso-borda bg-aviso-fundo px-6 py-8 text-center sm:px-10">
                 <span className="font-sans text-label font-semibold uppercase tracking-[0.16em] text-aviso-texto">

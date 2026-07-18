@@ -261,8 +261,10 @@
  * Os valores abaixo são o offsetHeight real MENOS o padding respectivo.
  * Medida FLUIDA (§7-D1) — reta por (390, h390)–(768, h768) com clamp nos
  * extremos medidos. Conferência (BOX = clamp + padding) nos 3 viewports:
- *   #prova   box → 973 / 560,9 / 497  (Δ ≤ +0,9px)
- *   #postura box → 2054,1 / 1294,3 / 1079 (Δ ≤ +0,3px)
+ *   #prova   box → 973 / 560,9 / 497  (Δ ≤ +0,9px) — INALTERADO no ARREMATE
+ *   #postura box → 2078 / 1286 / 1062 (Δ ≤ +0,05px) — re-derivado no ARREMATE
+ *   (o padding de #prova segue pt-14+pb-12 = 104px: o vão de 9rem do crit. 1
+ *    foi todo para o PT do #nascimento-cabecalho, que não tem c-v nem clamp)
  * `auto` na frente: o tamanho ÚLTIMO-RENDERIZADO substitui a estimativa
  * após a 1ª renderização (re-entrada sem shift por construção).
  *
@@ -283,8 +285,18 @@
 #prova {
   contain-intrinsic-size: auto clamp(393px, 1294px - 109vw, 869px);
 }
+/* ARREMATE (crit. 3) — RE-DERIVADO. A recomposição da fileira (fim do
+   stagger sm:mt-0/8/16 + fileira em .b-medida-esq + ritmo em token) mudou a
+   altura de CONTEÚDO de #postura, então o clamp muda JUNTO, no mesmo commit —
+   intrinsic-size dessincronizada é CLS por construção.
+   Medido com content-visibility forçado a `visible` (sem isso o offsetHeight
+   devolve a própria ESTIMATIVA) e conteúdo = caixa − 112px (py-14 soma por
+   fora). Conteúdo: 1942→1966 @390 · 1182→1174 @768 · 967→950 @1440.
+   Conferência (BOX = clamp + 112): Δ +0,05 / +0,04 / 0,0px.
+   Contraste com #prova (crit. 1): lá o vão subiu só por PADDING, e padding não
+   entra no intrinsic-size — por isso aquele clamp NÃO foi tocado. */
 #postura {
-  contain-intrinsic-size: auto clamp(967px, 2726px - 201vw, 1942px);
+  contain-intrinsic-size: auto clamp(950px, 2783px - 209.5vw, 1966px);
 }
 
 @media (prefers-reduced-motion: reduce) {
