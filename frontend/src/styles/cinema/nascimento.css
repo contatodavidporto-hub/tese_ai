@@ -77,6 +77,17 @@
   grid-area: 1 / 1 / 2 / 2; /* range explícito — auto-placement jamais
                                decide a fileira da figura */
   align-self: stretch;
+  /* ARREMATE (crit. 2) — CENTRO DO RIG. A figura é `width:100%` +
+     `max-width: var(--palco-max, 96rem)` (lapidacao.css:30-31). Como a
+     largura NÃO é `auto`, o `justify-self: stretch` implícito degrada
+     para o fallback `start` (CSS Box Alignment): acima de 1536px o box
+     trava e ancora à ESQUERDA — deslocamento (W − 1536)/2, isto é
+     −192px @1920 e −512px @2560, o sintoma que o dono viu. A irmã
+     `.nascimento-legendas` (§3) já nascia com `justify-self: center`:
+     esta linha só encerra a divergência. Correção de POSIÇÃO apenas —
+     animação, scrub, viewBox e legendas intactos. Escopada à landing
+     de propósito (lapidacao.css é global a 3 superfícies). */
+  justify-self: center;
   min-block-size: 0;
   align-items: center;
 }
@@ -237,7 +248,17 @@
   justify-self: start;
   inline-size: auto;
   max-inline-size: min(42ch, 100% - 2 * var(--sangria));
-  margin-inline: var(--sangria);
+  /* ARREMATE (crit. 2) — a caixa ACOMPANHA o palco centralizado. Com a
+     figura centrada, ancorar a caixa em `--sangria` da viewport a
+     largaria do desenho em telas largas e o pouso sobre a zona vazia do
+     viewBox (x<214 · y>520, §3.3) deixaria de valer. A conta reproduz a
+     borda esquerda do palco: metade da sobra + sangria; abaixo de
+     --palco-max o `max()` devolve --sangria e NADA muda (no-op). */
+  margin-inline: max(
+      var(--sangria),
+      calc((100% - var(--palco-max, 96rem)) / 2 + var(--sangria))
+    )
+    var(--sangria);
   margin-block: 0.5rem 1rem;
   padding: 0;
   gap: 0;
