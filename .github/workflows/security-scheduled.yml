@@ -1,0 +1,187 @@
+name: Security (agendado)
+
+# Re-scan diário do master ATUAL. O ci.yml só roda em push/PR, então uma CVE
+# recém-divulgada numa dependência JÁ mergeada (código inalterado) nunca dispara
+# o CI. Este workflow re-roda os MESMOS scanners do ci.yml todo dia e, ao falhar,
+# abre/atualiza uma issue rotulada `security` — a CVE nova vira alerta rastreado.
+#
+# Hardening idêntico ao ci.yml: actions fixadas por SHA de commit completo
+# (imutável — mitiga supply-chain via reescrita de tag); o comentário `# vX.Y`
+# registra a versão e o Dependabot (.github/dependabot.yml) atualiza os SHAs.
+
+on:
+  schedule:
+    # 06:00 UTC (~03:00 BRT) — fora do horário de pico; roda contra o default branch.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# Mínimo necessário: ler o código e abrir/atualizar issue no caso de achado.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: security-scheduled
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Re-scan diário (secrets + SAST + vuln + SBOM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # História completa: o gitleaks varre TODOS os commits, não só o HEAD.
+          fetch-depth: 0
+
+      # --- Secret scan (mesma action/config do ci.yml) ------------------------
+      # `continue-on-error` + `id`: o achado NÃO aborta o job; o passo final
+      # agrega os `outcome` e decide sobre a issue e o status vermelho do run.
+      - name: Gitleaks (secret scan)
+        id: gitleaks
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- SAST (mesmos rulesets de segurança do ci.yml) ----------------------
+      - name: Semgrep (SAST)
+        id: semgrep
+        continue-on-error: true
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/python
+            p/javascript
+
+      # --- Vuln scan do filesystem (mesma linha do ci.yml) --------------------
+      # Instalação direta do trivy (o wrapper trivy-action fixava um setup-trivy
+      # já removido). ESTE é o passo que pega CVE nova em dependência inalterada.
+      - name: Trivy (filesystem vuln scan)
+        id: trivy
+        continue-on-error: true
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy"
+          "$RUNNER_TEMP/trivy/trivy" fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .
+
+      # --- Vulnerabilidades das deps Python (mesma invocação do ci.yml) -------
+      - name: Install uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+
+      - name: Set up Python
+        working-directory: backend
+        run: uv python install 3.12
+
+      # `--locked`: instala EXATAMENTE o conjunto pinado do uv.lock (mesmo da imagem
+      # de produção) + extra dev; falha se o lock divergir do pyproject (anti-drift).
+      - name: Install dependencies (pinned from uv.lock)
+        working-directory: backend
+        run: uv sync --locked --extra dev
+
+      - name: pip-audit (deps Python)
+        id: pip_audit
+        continue-on-error: true
+        working-directory: backend
+        run: .venv/bin/pip-audit --progress-spinner off --skip-editable
+
+      # --- Vulnerabilidades das deps do frontend (mesma invocação do ci.yml) --
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        working-directory: frontend
+        run: npm ci
+
+      # Falha só em HIGH/CRITICAL (moderadas transitivas do Next não bloqueiam).
+      - name: npm audit (prod deps)
+        id: npm_audit
+        continue-on-error: true
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      # --- SBOM (CycloneDX) — inventário para diff de supply-chain entre dias --
+      # Artefato persistido; baixar o de ontem e diffar mostra o que entrou/saiu
+      # da árvore de dependências (detecção de dependência nova/injetada).
+      - name: Generate SBOM (syft)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b "$RUNNER_TEMP/syft"
+          "$RUNNER_TEMP/syft/syft" dir:. -o cyclonedx-json="$RUNNER_TEMP/sbom.cyclonedx.json"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom-cyclonedx
+          path: ${{ runner.temp }}/sbom.cyclonedx.json
+          retention-days: 90
+
+      # --- Agrega os achados: abre/atualiza issue `security` e falha o run -----
+      # Roda SEMPRE (mesmo com scanners vermelhos, pois são continue-on-error).
+      # Outcomes vêm via env (evita injeção no script). Reusa uma única issue
+      # aberta (marcador HTML) para não poluir com uma issue nova por dia.
+      - name: Abrir/atualizar issue de segurança em caso de falha
+        if: always()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          R_GITLEAKS: ${{ steps.gitleaks.outcome }}
+          R_SEMGREP: ${{ steps.semgrep.outcome }}
+          R_TRIVY: ${{ steps.trivy.outcome }}
+          R_PIP_AUDIT: ${{ steps.pip_audit.outcome }}
+          R_NPM_AUDIT: ${{ steps.npm_audit.outcome }}
+        with:
+          script: |
+            const scanners = {
+              "gitleaks (secret scan)": process.env.R_GITLEAKS,
+              "semgrep (SAST)": process.env.R_SEMGREP,
+              "trivy fs (vuln CRITICAL/HIGH)": process.env.R_TRIVY,
+              "pip-audit (deps Python)": process.env.R_PIP_AUDIT,
+              "npm audit (deps prod frontend)": process.env.R_NPM_AUDIT,
+            };
+            const falhas = Object.entries(scanners)
+              .filter(([, outcome]) => outcome === "failure")
+              .map(([nome]) => nome);
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            if (falhas.length === 0) {
+              core.info("Todos os scanners passaram — nenhuma issue a abrir.");
+              return;
+            }
+            const marcador = "<!-- security-scheduled-scan -->";
+            const titulo = "Scan de seguranca agendado falhou (CVE nova ou segredo em codigo inalterado)";
+            const corpo = [
+              marcador,
+              `## Scan agendado falhou em ${new Date().toISOString()}`,
+              "",
+              "O re-scan diario do branch default encontrou achados que **nao** aparecem no CI de push/PR — tipicamente uma **CVE recem-divulgada** numa dependencia ja mergeada, ou um segredo. Triagem e severidade: `docs/security/plano-resposta-incidentes-lgpd.md` (SEV-3 por padrao para CVE HIGH/CRITICAL em producao).",
+              "",
+              "### Scanners com achado",
+              ...falhas.map((nome) => `- ${nome}`),
+              "",
+              `Run: ${runUrl}`,
+              `Commit: \`${context.sha}\``,
+            ].join("\n");
+            const abertas = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              labels: "security",
+              per_page: 100,
+            });
+            const existente = abertas.data.find((i) => (i.body || "").includes(marcador));
+            if (existente) {
+              await github.rest.issues.update({ owner, repo, issue_number: existente.number, body: corpo });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existente.number,
+                body: `Reincidencia no scan de ${new Date().toISOString()}: ${falhas.join(", ")}. Run: ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: titulo, body: corpo, labels: ["security"] });
+            }
+            core.setFailed(`Scanners com achado: ${falhas.join(", ")}`);
