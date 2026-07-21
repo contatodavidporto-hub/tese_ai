@@ -76,19 +76,28 @@ jobs:
             p/python
             p/javascript
 
-      # Instalacao direta do trivy (o wrapper trivy-action fixava um
-      # setup-trivy@v0.2.1 ja removido). Scanner de vulnerabilidades; segredos
-      # ficam por conta do gitleaks acima.
+      # Instalacao direta do trivy. install.sh pinado por SHA de commit IMUTAVEL
+      # + binario em VERSAO FIXA (mesma politica de pin das actions). Antes baixava
+      # de 'main' (branch mutavel) e instalava 'latest' => RCE latente no proprio
+      # job de seguranca (achado Fortaleza ALTO). Bump e manual (curl nao entra no
+      # Dependabot); migrar p/ action oficial pinada por SHA fica no roadmap.
       - name: Trivy (filesystem vuln scan)
+        env:
+          TRIVY_INSTALL_SHA: 75c4dc0f45c5d7ffd05ae26df1e0c666787bdf2a  # contrib/install.sh @ v0.72.0
+          TRIVY_VERSION: v0.72.0
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy"
+          curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_INSTALL_SHA}/contrib/install.sh" | sh -s -- -b "$RUNNER_TEMP/trivy" "${TRIVY_VERSION}"
           "$RUNNER_TEMP/trivy/trivy" fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .
 
       # SBOM (CycloneDX) do repositório — inventário de dependências para auditoria
-      # e rastreabilidade de supply-chain. Publicado como artefato.
+      # e rastreabilidade de supply-chain. Publicado como artefato. install.sh
+      # pinado por SHA de commit IMUTAVEL + versao fixa (ver nota do trivy acima).
       - name: Generate SBOM (syft)
+        env:
+          SYFT_INSTALL_SHA: e854078fb02b7704f5630818662144d12096dac2  # install.sh @ v1.49.0
+          SYFT_VERSION: v1.49.0
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b "$RUNNER_TEMP/syft"
+          curl -sSfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_INSTALL_SHA}/install.sh" | sh -s -- -b "$RUNNER_TEMP/syft" "${SYFT_VERSION}"
           "$RUNNER_TEMP/syft/syft" dir:. -o cyclonedx-json="$RUNNER_TEMP/sbom.cyclonedx.json"
 
       - name: Upload SBOM
