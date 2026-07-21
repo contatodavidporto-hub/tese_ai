@@ -57,13 +57,17 @@ jobs:
             p/javascript
 
       # --- Vuln scan do filesystem (mesma linha do ci.yml) --------------------
-      # Instalação direta do trivy (o wrapper trivy-action fixava um setup-trivy
-      # já removido). ESTE é o passo que pega CVE nova em dependência inalterada.
+      # install.sh pinado por SHA de commit IMUTAVEL + versao fixa (mesma politica
+      # do ci.yml; achado Fortaleza ALTO). ESTE e o passo que pega CVE nova em
+      # dependencia inalterada. Bump manual (curl fora do Dependabot).
       - name: Trivy (filesystem vuln scan)
         id: trivy
         continue-on-error: true
+        env:
+          TRIVY_INSTALL_SHA: 75c4dc0f45c5d7ffd05ae26df1e0c666787bdf2a  # contrib/install.sh @ v0.72.0
+          TRIVY_VERSION: v0.72.0
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/trivy"
+          curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_INSTALL_SHA}/contrib/install.sh" | sh -s -- -b "$RUNNER_TEMP/trivy" "${TRIVY_VERSION}"
           "$RUNNER_TEMP/trivy/trivy" fs --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .
 
       # --- Vulnerabilidades das deps Python (mesma invocação do ci.yml) -------
@@ -109,8 +113,11 @@ jobs:
       # Artefato persistido; baixar o de ontem e diffar mostra o que entrou/saiu
       # da árvore de dependências (detecção de dependência nova/injetada).
       - name: Generate SBOM (syft)
+        env:
+          SYFT_INSTALL_SHA: e854078fb02b7704f5630818662144d12096dac2  # install.sh @ v1.49.0
+          SYFT_VERSION: v1.49.0
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b "$RUNNER_TEMP/syft"
+          curl -sSfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_INSTALL_SHA}/install.sh" | sh -s -- -b "$RUNNER_TEMP/syft" "${SYFT_VERSION}"
           "$RUNNER_TEMP/syft/syft" dir:. -o cyclonedx-json="$RUNNER_TEMP/sbom.cyclonedx.json"
 
       - name: Upload SBOM

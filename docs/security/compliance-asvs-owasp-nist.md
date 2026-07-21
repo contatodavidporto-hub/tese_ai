@@ -1,6 +1,15 @@
 # Conformidade — ASVS L3 · OWASP Top 10 (Web/API/LLM 2025) · NIST/CIS
 
-> **Baseline:** `origin/master @ 1fbcdc2` (2026-07-11). Aterrado em leitura de código + advisors da produção.
+> ⚠️ **RE-BASELINE (2026-07-21, missão Fortaleza):** este documento nasceu no PR#30
+> ("Segurança Nível Bancário"), que **nunca foi mergeado** (o branch ficou stale e
+> apagaria o visual das 7 missões). Ele foi **recuperado** para o master atual
+> (`4790479`). Vários itens marcados aqui como "fix **nesta entrega**" referiam-se ao
+> PR#30 órfão — o estado REAL contra o master atual (e o que a Onda 1 Fortaleza de fato
+> corrigiu, ex.: COOP/CORP) está reconciliado em **`docs/fortaleza/01-scorecard-fortaleza.md` §7**.
+> Leia o scorecard para o veredito vigente; este mapa por-controle continua válido como
+> detalhamento aterrado em `arquivo:linha`, com a ressalva acima.
+
+> **Baseline (original):** `origin/master @ 1fbcdc2` (2026-07-11). Aterrado em leitura de código + advisors da produção.
 > **Legenda:** ✅ PASS (com evidência) · 🟡 PARCIAL · ❌ GAP (com achado) · ⛔ N/A hoje (pré-login) · 🔒 escalonar (humano/pago).
 >
 > **Honestidade metodológica (importante):** este mapa é feito no nível de **controle/tema**, com evidência
