@@ -25,6 +25,13 @@ const securityHeaders = [
   },
   // Sem prefetch de DNS para terceiros.
   { key: "X-DNS-Prefetch-Control", value: "off" },
+  // Isola o contexto de navegação (cross-origin isolation / defesa Spectre). O
+  // app não abre popup cross-origin nem usa window.opener — same-origin é seguro.
+  // (COEP fica de fora de propósito: pode quebrar carregamentos e não há ganho concreto.)
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Impede que outras origens embutam nossos recursos (defesa de vazamento
+  // cross-origin). Servimos tudo same-origin; nenhum terceiro embute nossos assets.
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
 ];
 
 const nextConfig: NextConfig = {

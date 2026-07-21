@@ -1,0 +1,10 @@
+Found 3 known vulnerabilities in 1 package
+Name Version ID             Fix Versions
+---- ------- -------------- ------------
+mcp  1.23.3  CVE-2026-52870 1.27.2
+mcp  1.23.3  CVE-2026-52869 1.27.2
+mcp  1.23.3  CVE-2026-59950 1.28.1
+
+Name            Skip Reason
+--------------- -------------------------------
+tese-ai-backend distribution marked as editable
