@@ -15,7 +15,9 @@ from app.services.avaliacao import _faithfulness_numerica, avaliar_tese
 class _FakeTese:
     def __init__(self, ticker: str, status: str, criado_em: dt.datetime) -> None:
         self.id = f"id-{ticker}-{status}"
-        self.user_id = "u1"
+        # Acervo do sistema (público): sem dono. O reaper/versão herdam visibilidade.
+        self.user_id = None
+        self.visibilidade = "publica"
         self.ticker = ticker
         self.status = status
         self.criado_em = criado_em
@@ -61,19 +63,19 @@ class _FakeQuerySession:
 # --- Cache de tese pública ---------------------------------------------------
 def test_cache_desligado_retorna_none() -> None:
     s = _FakeQuerySession([_FakeTese("PETR4", "ready", dt.datetime.now(dt.UTC))])
-    assert tese_svc.buscar_tese_cache(s, "PETR4", ttl_horas=0) is None
+    assert tese_svc.buscar_tese_publica(s, "PETR4", ttl_horas=0) is None
 
 
 def test_cache_hit_devolve_tese_ready_recente() -> None:
     recente = _FakeTese("PETR4", "ready", dt.datetime.now(dt.UTC))
     s = _FakeQuerySession([recente])
-    hit = tese_svc.buscar_tese_cache(s, "petr4", ttl_horas=24)
+    hit = tese_svc.buscar_tese_publica(s, "petr4", ttl_horas=24)
     assert hit is recente
 
 
 def test_cache_miss_sem_linhas() -> None:
     s = _FakeQuerySession([])
-    assert tese_svc.buscar_tese_cache(s, "PETR4", ttl_horas=24) is None
+    assert tese_svc.buscar_tese_publica(s, "PETR4", ttl_horas=24) is None
 
 
 # --- Reaper de órfãs ---------------------------------------------------------

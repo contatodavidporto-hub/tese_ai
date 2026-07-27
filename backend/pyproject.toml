@@ -18,6 +18,10 @@ dependencies = [
     "structlog>=24.4",
     "slowapi>=0.1.9",
     "redis>=5",
+    # Portaria: valida o access token do GoTrue por JWKS ES256 (extra crypto puxa a
+    # `cryptography`, que assina/verifica EC P-256). Antes só transitivo — não estava
+    # no lock, então CI/produção não instalavam (import jwt quebraria).
+    "pyjwt[crypto]>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -56,6 +60,9 @@ target-version = ["py312"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = [
+    "rls: prova comportamental de isolamento RLS contra Postgres real (pula sem TEST_PG_URL; roda no CI)",
+]
 
 [dependency-groups]
 dev = [

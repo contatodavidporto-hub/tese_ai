@@ -19,6 +19,21 @@ from app.core.config import Settings, get_settings
 _settings = get_settings()
 
 
+def _chave(request: Request) -> str:
+    """Chave do rate-limit: o USUÁRIO autenticado quando houver, senão o IP.
+
+    Missão "A Portaria": com login, a chave passa a ser o `sub` do JWT VERIFICADO
+    (`request.state.identidade`, populado por `core/auth`) — mata o bucket único por
+    egress do proxy da Vercel (usuários atrás do mesmo IP deixam de dividir bucket) e
+    permite lockout por conta. Sem identidade (rotas públicas), cai no IP.
+    """
+    identidade = getattr(request.state, "identidade", None)
+    user_id = getattr(identidade, "user_id", None) if identidade is not None else None
+    if user_id:
+        return f"user:{user_id}"
+    return _chave_por_ip(request)
+
+
 def _chave_por_ip(request: Request) -> str:
     """IP para a chave do rate-limit: o valor MAIS À DIREITA do X-Forwarded-For.
 
@@ -56,7 +71,7 @@ def criar_limiter(settings: Settings) -> Limiter:
         extras["storage_uri"] = settings.redis_url
         extras["in_memory_fallback_enabled"] = True
     return Limiter(
-        key_func=_chave_por_ip,
+        key_func=_chave,
         default_limits=[settings.rate_limit_global] if settings.rate_limit_global else [],
         headers_enabled=True,
         **extras,

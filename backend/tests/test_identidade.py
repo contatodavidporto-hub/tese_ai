@@ -232,24 +232,28 @@ def _tese_fake(ticker: str):
 def _neutralizar_pipeline(monkeypatch: pytest.MonkeyPatch, tese_fake) -> None:
     from app.routers import teses as teses_router
 
-    monkeypatch.setattr(teses_router, "reaper_teses_orfas", lambda s, t: 0)
-    monkeypatch.setattr(teses_router, "buscar_tese_cache", lambda s, t, h: None)
-    monkeypatch.setattr(teses_router, "criar_tese", lambda s, t: tese_fake)
-    monkeypatch.setattr(teses_router, "_run_generation", lambda tid: None)
+    # Cache miss nos dois degraus (público + próprio) para o fluxo chegar em criar_tese.
+    monkeypatch.setattr(teses_router, "buscar_tese_publica", lambda s, t, h: None)
+    monkeypatch.setattr(teses_router, "buscar_tese_do_usuario", lambda s, u, t, h: None)
+    # criar_tese agora exige user_id/visibilidade (kwargs): o stub aceita e ignora.
+    monkeypatch.setattr(teses_router, "criar_tese", lambda s, t, **k: tese_fake)
+    monkeypatch.setattr(teses_router, "_run_generation", lambda *a, **k: None)
 
 
 def _post(monkeypatch: pytest.MonkeyPatch, sessao: _FakeSession, ticker: str):
-    from app.db.session import get_session
+    from app.db import rls
 
     tese = _tese_fake(ticker)
     _neutralizar_pipeline(monkeypatch, tese)
-    app.dependency_overrides[get_session] = lambda: sessao
+    # POST exige conta: a identidade padrão vem do conftest; a sessão (lane user) é
+    # substituída pela fake aqui.
+    app.dependency_overrides[rls.get_session_usuario] = lambda: sessao
     with contextlib.suppress(Exception):
         app.state.limiter.reset()
     try:
         resposta = client.post("/teses", json={"ticker": ticker})
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(rls.get_session_usuario, None)
         with contextlib.suppress(Exception):
             app.state.limiter.reset()
     return resposta, tese
@@ -294,7 +298,7 @@ def test_post_teses_abstencao_preserva_contrato_202(monkeypatch: pytest.MonkeyPa
 
 
 def test_get_tese_inclui_classe_ativo_quando_existir() -> None:
-    from app.db.session import get_session
+    from app.db import rls
 
     tid = uuid.uuid4()
     envelope = {"markdown": "## Tese", "citacoes": [], "fontes": [], "lacunas": []}
@@ -305,6 +309,8 @@ def test_get_tese_inclui_classe_ativo_quando_existir() -> None:
         status = "ready"
         criado_em = None
         classe_ativo = "renda_fixa"
+        visibilidade = "publica"  # tese do acervo: renderiza para qualquer um (vitrine)
+        user_id = None
 
     class _FakeVersao:
         conteudo = json.dumps(envelope, ensure_ascii=False)
@@ -320,17 +326,17 @@ def test_get_tese_inclui_classe_ativo_quando_existir() -> None:
 
             return _R()
 
-    app.dependency_overrides[get_session] = lambda: _SessaoGet()
+    app.dependency_overrides[rls.get_session_leitura] = lambda: _SessaoGet()
     try:
         resposta = client.get(f"/teses/{tid}")
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(rls.get_session_leitura, None)
     assert resposta.status_code == 200
     assert resposta.json()["classe_ativo"] == "renda_fixa"
 
 
 def test_get_tese_legada_sem_atributo_classe_devolve_none() -> None:
-    from app.db.session import get_session
+    from app.db import rls
 
     tid = uuid.uuid4()
 
@@ -339,6 +345,8 @@ def test_get_tese_legada_sem_atributo_classe_devolve_none() -> None:
         ticker = "PETR4"
         status = "processing"
         criado_em = None
+        visibilidade = "publica"
+        user_id = None
 
     class _SessaoGet:
         def get(self, _model, _id):
@@ -351,10 +359,10 @@ def test_get_tese_legada_sem_atributo_classe_devolve_none() -> None:
 
             return _R()
 
-    app.dependency_overrides[get_session] = lambda: _SessaoGet()
+    app.dependency_overrides[rls.get_session_leitura] = lambda: _SessaoGet()
     try:
         resposta = client.get(f"/teses/{tid}")
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(rls.get_session_leitura, None)
     assert resposta.status_code == 200
     assert resposta.json()["classe_ativo"] is None

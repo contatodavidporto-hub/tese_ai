@@ -33,7 +33,8 @@ def main(ticker: str) -> int:
 
     session = SessionLocal()
     try:
-        tese = criar_tese(session, ticker)
+        # Script operacional: gera para o acervo do SISTEMA (público, sem dono).
+        tese = criar_tese(session, ticker, user_id=None, visibilidade="publica")
         print(f"tese criada: {tese.id} (status={tese.status}) — gerando...")
         gerar_tese(session, tese.id)
         session.expire_all()

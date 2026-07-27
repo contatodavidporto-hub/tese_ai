@@ -61,7 +61,6 @@ from app.services import metricas_setor as metricas_svc
 from app.services import tecnica as tecnica_svc
 from app.services import valuation as valuation_svc
 from app.services.avaliacao import avaliar_tese
-from app.services.demo_user import get_or_create_demo_user
 from app.services.fontes import get_or_create_fonte
 
 _DISCLAIMER = "> Não é recomendação de investimento. Tese estruturada a partir de dados públicos."
@@ -1671,6 +1670,7 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         versao = TeseVersao(
             tese_id=tese.id,
             user_id=tese.user_id,
+            visibilidade=tese.visibilidade,  # herda da tese-mãe (CHECK de coerência)
             conteudo=json.dumps(envelope, ensure_ascii=False),
             modelo=settings.tese_model_synthesis,
             prompt_hash=prompt_hash,
@@ -1680,7 +1680,15 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
         # Âncora por classe (CHECK ck_elos_ancora): empresa_id para ação;
         # ativo_codigo (ticker FII / código TD) quando não há empresa.
         empresa_id, ativo_codigo = perfil.ancora_elos(ativo)
-        correlacao.persistir_elos(session, empresa_id, elos, versao.id, ativo_codigo=ativo_codigo)
+        correlacao.persistir_elos(
+            session,
+            empresa_id,
+            elos,
+            versao.id,
+            ativo_codigo=ativo_codigo,
+            user_id=tese.user_id,
+            visibilidade=tese.visibilidade,
+        )
         tese.status = "error" if laudo["bloqueante"] else "ready"
         session.commit()
         logger.info(
@@ -1707,6 +1715,7 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
                 TeseVersao(
                     tese_id=tese.id,
                     user_id=tese.user_id,
+                    visibilidade=tese.visibilidade,
                     conteudo=json.dumps({"erro": _mensagem_estavel(exc)}, ensure_ascii=False),
                     modelo=None,
                     prompt_hash=None,
@@ -1715,12 +1724,13 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
             session.commit()
 
 
-def buscar_tese_cache(session: Session, ticker: str, ttl_horas: int) -> Tese | None:
-    """Última tese `ready` do ticker dentro da janela de cache — ou None.
+def buscar_tese_publica(session: Session, ticker: str, ttl_horas: int) -> Tese | None:
+    """Última tese PÚBLICA (acervo do sistema) `ready` do ticker na janela — ou None.
 
-    Cache de "tese pública": todas as teses pertencem ao demo_user, então uma tese
-    `ready` recente do mesmo ticker pode ser reaproveitada em vez de gastar o LLM de
-    novo (idempotência + custo). `ttl_horas <= 0` desliga (sempre regenera).
+    Cache da vitrine: o acervo do sistema (`user_id IS NULL`, `visibilidade='publica'`)
+    é compartilhado por desenho — abre a mesma tese pública para qualquer um sem gastar
+    LLM. `ttl_horas <= 0` desliga. Substitui a antiga `buscar_tese_cache` (que era
+    cross-user por ticker e vazaria tese privada de outro usuário como HIT).
     """
     if ttl_horas <= 0:
         return None
@@ -1728,7 +1738,37 @@ def buscar_tese_cache(session: Session, ticker: str, ttl_horas: int) -> Tese | N
     limite = dt.datetime.now(dt.UTC) - dt.timedelta(hours=ttl_horas)
     return session.execute(
         select(Tese)
-        .where(Tese.ticker == alvo, Tese.status == "ready", Tese.criado_em >= limite)
+        .where(
+            Tese.ticker == alvo,
+            Tese.visibilidade == "publica",
+            Tese.user_id.is_(None),
+            Tese.status == "ready",
+            Tese.criado_em >= limite,
+        )
+        .order_by(Tese.criado_em.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def buscar_tese_do_usuario(
+    session: Session, user_id: uuid.UUID, ticker: str, ttl_horas: int
+) -> Tese | None:
+    """Última tese PRIVADA `ready` do PRÓPRIO usuário para o ticker — ou None.
+
+    Idempotência por-usuário: reaproveita a tese recente do dono (nunca a de outro).
+    """
+    if ttl_horas <= 0:
+        return None
+    alvo = ticker.upper().strip()
+    limite = dt.datetime.now(dt.UTC) - dt.timedelta(hours=ttl_horas)
+    return session.execute(
+        select(Tese)
+        .where(
+            Tese.ticker == alvo,
+            Tese.user_id == user_id,
+            Tese.status == "ready",
+            Tese.criado_em >= limite,
+        )
         .order_by(Tese.criado_em.desc())
         .limit(1)
     ).scalar_one_or_none()
@@ -1755,6 +1795,7 @@ def reaper_teses_orfas(session: Session, timeout_min: int) -> int:
             TeseVersao(
                 tese_id=tese.id,
                 user_id=tese.user_id,
+                visibilidade=tese.visibilidade,
                 conteudo=json.dumps(
                     {"erro": "geração expirou (timeout) — nenhuma versão produzida."},
                     ensure_ascii=False,
@@ -1769,19 +1810,24 @@ def reaper_teses_orfas(session: Session, timeout_min: int) -> int:
     return len(orfas)
 
 
-def criar_tese(session: Session, ticker: str) -> Tese:
-    """Cria a `Tese` (status processing) com dono real (RLS). Não gera ainda.
+def criar_tese(
+    session: Session, ticker: str, *, user_id: uuid.UUID | None, visibilidade: str
+) -> Tese:
+    """Cria a `Tese` (status processing). Não gera ainda.
 
-    Resolve a classe do ativo AQUI (fonte única): scripts que chamam direto
-    (warm_cache, gerar_e_avaliar) geram FII/renda fixa sem depender do router.
-    NULL = 'acao' (legado byte-idêntico); identidade não resolvida deixa NULL e
-    o motor de ação abstém com a mensagem estável de dado não encontrado.
+    Missão "A Portaria": `user_id`/`visibilidade` são EXPLÍCITOS (sem default — esquecer
+    um default público seria vazamento). `user_id=None`+`visibilidade='publica'` = acervo
+    do sistema (warm-cache/vitrine); `user_id=<uuid>`+`'privada'` = tese do usuário. O
+    CHECK `ck_teses_publica_sistema` recusa combinações incoerentes.
+
+    Resolve a classe do ativo AQUI (fonte única): scripts que chamam direto (warm_cache,
+    gerar_e_avaliar) geram FII/renda fixa sem depender do router. NULL = 'acao' (legado
+    byte-idêntico); identidade não resolvida deixa NULL e o motor de ação abstém.
     """
     from app.services.ativos.identidade import resolver_classe  # import tardio (sem ciclo)
 
     codigo = ticker.upper().strip()
-    user_id = get_or_create_demo_user()
-    tese = Tese(user_id=uuid.UUID(user_id), ticker=codigo, status="processing")
+    tese = Tese(user_id=user_id, visibilidade=visibilidade, ticker=codigo, status="processing")
     try:
         classe, _payload = resolver_classe(codigo, session)
         if classe != "acao":

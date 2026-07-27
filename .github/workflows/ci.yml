@@ -52,6 +52,46 @@ jobs:
       - name: pip-audit (deps Python)
         run: .venv/bin/pip-audit --progress-spinner off --skip-editable
 
+  rls-isolation:
+    # Prova COMPORTAMENTAL de isolamento da RLS entre dois usuários (P0 nº 2 da
+    # Fortaleza): aplica as migrações num Postgres real e verifica, sob SET ROLE +
+    # claims, que um usuário não lê/edita dado de outro. Postgres 17 + pgvector
+    # porque a 0001 usa `vector(1536)`.
+    name: RLS isolation (Postgres real)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies (pinned from uv.lock)
+        run: uv sync --locked --extra dev
+
+      - name: Pytest (isolamento RLS — marker `rls`)
+        env:
+          TEST_PG_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: .venv/bin/pytest -m rls -q
+
   security:
     name: Secrets + SAST + Vuln + SBOM
     runs-on: ubuntu-latest
