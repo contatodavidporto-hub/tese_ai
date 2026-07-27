@@ -1460,6 +1460,12 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
     )
 
     # Subconjunto INEGOCIÁVEL — nunca pode ser servido como tese pronta.
+    # `fontes and not citacoes`: uma tese factual COM documentos-fonte mas ZERO
+    # citações ancoradas é ungrounded por definição — invariante nº1 ("todo fato
+    # com fonte ou abstém"). Antes só derrubava `aprovado` (não-bloqueante), então
+    # uma síntese degenerada (0 citações) era servida como `ready`. Agora bloqueia
+    # no mesmo espírito de `fontes_sem_url`/`elos_sem_fonte` (achado Fortaleza,
+    # dim IA + motor de tese). Sem fontes (tese totalmente abstida) não é este caso.
     bloqueante = (
         bool(violacoes)
         or bool(alertas_geo)
@@ -1470,6 +1476,7 @@ def avaliar_tese(envelope: dict, classe: str = "acao") -> dict:
         or bool(violacoes_tecnica)
         or bool(violacoes_valuation)
         or bool(consenso_sem_atribuicao)
+        or (bool(fontes) and not citacoes)
     )
 
     motivos: list[str] = []

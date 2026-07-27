@@ -28,6 +28,8 @@
 - RLS ON em toda tabela exposta; policies `(select auth.uid()) is not null and (select auth.uid()) = user_id`.
 - `service_role` **só no backend**, nunca no frontend (sem `NEXT_PUBLIC_`).
 - Segredos só em `.env`/secret manager. Rode a skill `revisao-seguranca` antes de PR/commit/deploy.
+- **Documentação viva de segurança** (`docs/security/`): `threat-model.md` (STRIDE), `compliance-asvs-owasp-nist.md` (OWASP/ASVS/NIST — ver banner de re-baseline), `plano-resposta-incidentes-lgpd.md` (IR + LGPD), `observabilidade-seguranca.md`, `SECURITY.md` (divulgação responsável). Scan diário de CVE: `.github/workflows/security-scheduled.yml` (abre issue `security`).
+- **Auditoria + endurecimento "Fortaleza" (2026-07-21):** relatório, scorecard (OWASP/ASVS/SSDF/SLSA/SRE/CIS), ADRs, roadmap e pentest em `docs/fortaleza/`. Ler antes de mexer em `core/limits.py` (semáforo), no gate (`avaliacao.py`) ou no CI.
 
 ## Não faça
 Recomendação personalizada de investimento · dado sem fonte · segredo no código ·

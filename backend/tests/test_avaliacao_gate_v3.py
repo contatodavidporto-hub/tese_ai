@@ -839,3 +839,25 @@ def test_hotfix3_f_data_iso_e_janela_nao_contam_como_numero_de_claim():
     laudo = avaliar_tese(env, classe="acao")
     assert laudo["termos_vetados"] == [], laudo["termos_vetados"]
     assert laudo["bloqueante"] is False, laudo["motivos"]
+
+
+# ===========================================================================
+# Fortaleza — grounding duro: tese COM fontes e ZERO citações é BLOQUEANTE.
+# Antes só derrubava `aprovado` (não-bloqueante), então uma síntese degenerada
+# (0 citações) era servida como `ready`. Invariante nº1: fato com fonte ou abstém.
+# ===========================================================================
+
+
+def test_fortaleza_zero_citacoes_com_fontes_bloqueia():
+    md = "## 1. Fundamentos\nO lucro foi de R$ 110.605.000.000,00 no exercício."
+    laudo = avaliar_tese(_envelope(md, com_citacao=False))
+    assert laudo["bloqueante"] is True, laudo["motivos"]
+    assert laudo["citacoes_total"] == 0
+    assert "nenhuma citação ancorada à fonte" in laudo["motivos"]
+
+
+def test_fortaleza_citacao_valida_remove_motivo_de_grounding():
+    md = "## 1. Fundamentos\nLucro R$ 110.605.000.000,00 no exercício."
+    laudo = avaliar_tese(_envelope(md, com_citacao=True))
+    assert laudo["citacoes_total"] == 1
+    assert "nenhuma citação ancorada à fonte" not in laudo["motivos"]

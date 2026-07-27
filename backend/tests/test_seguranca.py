@@ -136,6 +136,29 @@ def test_slot_geracao_esgota_e_bloqueia() -> None:
         pass
 
 
+def test_slot_geracao_nao_vaza_vaga_em_sobreposicao() -> None:
+    """Regressão do achado CRÍTICO (Fortaleza): um flag de instância
+    compartilhado (`_adquirido`) na instância-módulo `GENERATION_SLOTS` fazia
+    gerações SOBREPOSTAS vazarem vaga — a 2ª saída via o flag já zerado pela 1ª
+    e não liberava; o semáforo caía monotonicamente a 0 e travava TODA geração
+    (ConcorrenciaExcedida permanente) até o restart do processo. Forçamos a
+    sobreposição (dois `__enter__` antes de qualquer `__exit__`) e provamos que
+    a capacidade total é restaurada."""
+    slot = limits._SlotGeracao(vagas=2)
+    slot.__enter__()  # vaga 1
+    slot.__enter__()  # vaga 2 (ambas ocupadas)
+    with pytest.raises(limits.ConcorrenciaExcedida):
+        slot.__enter__()  # esgotado
+    slot.__exit__()  # libera a 1ª
+    slot.__exit__()  # libera a 2ª — com o bug antigo NÃO liberava (flag já zerado)
+    # Capacidade deve voltar a 2 vagas inteiras (com o bug voltaria só 1).
+    with slot:
+        with slot:
+            with pytest.raises(limits.ConcorrenciaExcedida):
+                with slot:
+                    pass
+
+
 # --- Anti zip-bomb / resposta ilimitada no download -------------------------
 def test_download_zip_aborta_acima_do_teto() -> None:
     def handler(request: httpx.Request) -> httpx.Response:

@@ -34,24 +34,30 @@ class TetoCustoExcedido(RuntimeError):
 
 
 class _SlotGeracao:
-    """Semáforo de concorrência com aquisição não-bloqueante (context manager)."""
+    """Semáforo de concorrência com aquisição não-bloqueante (context manager).
+
+    Sem estado Python por-aquisição: o ``BoundedSemaphore`` é a ÚNICA fonte de
+    verdade. Um flag de instância (``_adquirido``) seria compartilhado entre
+    threads na instância-módulo `GENERATION_SLOTS` e **vazaria vagas** em
+    gerações sobrepostas — a 2ª saída veria o flag já zerado pela 1ª e não
+    liberaria (o semáforo caía monotonicamente até 0 e travava TODA geração
+    até o restart). ``__exit__`` só roda após um ``__enter__`` bem-sucedido
+    (contrato do ``with``), então liberar incondicionalmente é balanceado.
+    """
 
     def __init__(self, vagas: int) -> None:
         self._sem = threading.BoundedSemaphore(max(1, vagas))
-        self._adquirido = False
 
     def __enter__(self) -> _SlotGeracao:
         # Não-bloqueante: se não há vaga, falha rápido (o caller abstém) em vez de
-        # empilhar requisições e travar o processo.
+        # empilhar requisições e travar o processo. Ao levantar aqui, o `with` NÃO
+        # chama __exit__ — nenhuma release espúria acontece.
         if not self._sem.acquire(blocking=False):
             raise ConcorrenciaExcedida("limite de gerações simultâneas atingido")
-        self._adquirido = True
         return self
 
     def __exit__(self, *exc: object) -> None:
-        if self._adquirido:
-            self._sem.release()
-            self._adquirido = False
+        self._sem.release()
 
 
 class CustoDiarioTracker:
