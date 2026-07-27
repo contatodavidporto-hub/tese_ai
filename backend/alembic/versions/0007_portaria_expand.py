@@ -147,8 +147,11 @@ begin
   end loop;
 end $$;
 
--- ---------- Grants explícitos (RLS != grant; default do Supabase migrando p/ revoke) ----------
-grant select on teses, tese_versoes, elos to anon, authenticated;
+-- ---------- Grants explícitos (RLS != grant; o GRANT é o portão grosso, a policy decide
+-- QUAIS linhas). No Supabase, anon/authenticated já têm esses grants por padrão; num
+-- Postgres puro (CI) não — sem eles, o INSERT do dono nem chega na policy (42501). ----------
+grant select on teses, tese_versoes, elos to anon;
+grant select, insert, update, delete on teses, tese_versoes, elos to authenticated;
 grant select, insert, update, delete on historico_itens to authenticated;
 
 -- ---------- FORCE RLS (um ALTER por tabela) ----------

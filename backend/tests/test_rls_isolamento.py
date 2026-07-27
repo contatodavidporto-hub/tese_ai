@@ -197,20 +197,21 @@ def test_restrictive_barra_publica_por_authenticated(conn) -> None:
 
 def test_elos_nao_vazam_fragmento_de_tese(conn) -> None:
     # Elo privado de A (denormalizado) — invisível a B; elo público — visível a anon.
+    # ativo_codigo satisfaz o CHECK ck_elos_ancora (empresa_id OU ativo_codigo).
     _commit_as(
         conn,
         "app_worker",
         None,
-        "insert into elos (empresa_id, origem_label, destino_label, user_id, visibilidade) "
-        "values (null,'o','d',%s,'privada')",
+        "insert into elos (ativo_codigo, origem_label, destino_label, user_id, visibilidade) "
+        "values ('PETR4','o','d',%s,'privada')",
         (A,),
     )
     _commit_as(
         conn,
         "app_worker",
         None,
-        "insert into elos (empresa_id, origem_label, destino_label, user_id, visibilidade) "
-        "values (null,'o','d',null,'publica')",
+        "insert into elos (ativo_codigo, origem_label, destino_label, user_id, visibilidade) "
+        "values ('VALE3','o','d',null,'publica')",
     )
     # B não vê o elo privado de A; anon vê o público, não o privado.
     assert _as(conn, "authenticated", B, "select count(*) from elos where user_id=%s", (A,)) == [
