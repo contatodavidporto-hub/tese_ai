@@ -50,7 +50,20 @@ class Settings(BaseSettings):
 
     # Usuário-demo do slice: as teses (RLS owner-only) precisam de um dono real em
     # `auth.users`. Resolvido sob demanda via Admin API do Supabase (service_role).
+    # DEPRECADO pela missão "A Portaria": aposentado do caminho da request; o acervo
+    # público passa a ter `user_id` NULL (sistema). Mantido só até o contract final.
     demo_user_email: str = "demo@tese-ai.local"
+
+    # --- Portaria (contas + JWT) ------------------------------------------------
+    # Segredo de perímetro entre o BFF (Vercel) e o backend (Railway): o Railway é
+    # público e um JWT roubado poderia ser reproduzido direto no FastAPI pulando o
+    # rate-limit do BFF. Verificado por `hmac.compare_digest`. FAIL-CLOSED em
+    # produção (ausente => a app não sobe — ver core/perimetro). Nunca no bundle.
+    portaria_secret: str | None = None
+    # Audiência esperada no access token do GoTrue (padrão do Supabase).
+    supabase_jwt_audience: str = "authenticated"
+    # Folga (segundos) na validação de exp/nbf do JWT (clock skew). Pequena.
+    jwt_leeway_segundos: int = 30
 
     # Observabilidade (Langfuse) — opcional; cliente vira no-op se ausente.
     langfuse_public_key: str | None = None
