@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { backendUrl } from "@/lib/backend";
+import { cabecalhosAutenticados, backendUrl } from "@/lib/backend";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { TICKER_RE } from "@/lib/tickers";
 
 // Proxy SERVER-SIDE para o backend FastAPI.
@@ -18,6 +19,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
       { status: 502 },
+    );
+  }
+
+  // Gate de conta (missão "A Portaria"): gerar tese nova EXIGE login. Sem sessão,
+  // 401 → o cliente redireciona para /entrar?seguir=/tese. A vitrine pública (GET)
+  // segue sem conta. Segurança real está no backend (JWT + RLS); isto é o gate de UX
+  // + o repasse do token.
+  const sessao = await sessaoAtual();
+  if (!sessao) {
+    return NextResponse.json(
+      { detail: "Entre na sua conta para gerar uma tese." },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -73,6 +86,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         ...(xff ? { "x-forwarded-for": xff } : {}),
+        ...cabecalhosAutenticados(sessao.accessToken), // Bearer + X-Portaria
       },
       body: JSON.stringify({ ticker: normalizado }),
       cache: "no-store",

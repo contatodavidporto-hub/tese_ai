@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { backendUrl } from "@/lib/backend";
+import { cabecalhosAutenticados, backendUrl } from "@/lib/backend";
+import { sessaoAtual } from "@/lib/auth/sessao";
 
 // Proxy SERVER-SIDE para GET /teses/{id} do backend FastAPI.
 // No Next 16, `params` do Route Handler é uma Promise — precisa de await.
@@ -30,12 +31,18 @@ export async function GET(
   // Repassa o x-forwarded-for para log/auditoria no backend (a chave do
   // rate-limit usa o hop confiável — ver app/core/ratelimit.py).
   const xff = request.headers.get("x-forwarded-for");
+  // Leitura público-ou-do-dono: se logado, repassa o Bearer (o backend deixa o dono
+  // ler a PRÓPRIA tese privada); anônimo lê só o acervo público. X-Portaria sempre.
+  const sessao = await sessaoAtual().catch(() => null);
 
   try {
     const upstream = await fetch(
       `${apiUrl}/teses/${encodeURIComponent(id)}`,
       {
-        headers: { ...(xff ? { "x-forwarded-for": xff } : {}) },
+        headers: {
+          ...(xff ? { "x-forwarded-for": xff } : {}),
+          ...cabecalhosAutenticados(sessao?.accessToken ?? null),
+        },
         cache: "no-store",
         // Sem timeout a função serverless ficaria pendurada até o maxDuration.
         signal: AbortSignal.timeout(10_000),
