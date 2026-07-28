@@ -280,7 +280,7 @@ def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) 
     import json
     import uuid
 
-    from app.db.session import get_session
+    from app.db import rls
     from app.routers import teses as teses_router
 
     tid = uuid.uuid4()
@@ -297,6 +297,8 @@ def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) 
         ticker = "PETR4"
         status = "error"
         criado_em = None
+        visibilidade = "publica"  # pública (passa a camada B); o status=error corta o markdown
+        user_id = None
 
     class _FakeVersao:
         conteudo = json.dumps(envelope, ensure_ascii=False)
@@ -312,12 +314,12 @@ def test_get_tese_reprovada_nao_serve_markdown(monkeypatch: pytest.MonkeyPatch) 
 
             return _R()
 
-    app.dependency_overrides[get_session] = lambda: _FakeSession()
+    app.dependency_overrides[rls.get_session_leitura] = lambda: _FakeSession()
     monkeypatch.setattr(teses_router, "Tese", _FakeTese)
     try:
         r = client.get(f"/teses/{tid}")
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(rls.get_session_leitura, None)
     assert r.status_code == 200
     corpo = r.json()
     assert corpo["status"] == "error"
@@ -337,26 +339,27 @@ def test_rate_limit_criar_tese_dispara_429(monkeypatch: pytest.MonkeyPatch) -> N
     import contextlib
     import uuid
 
-    from app.db.session import get_session
+    from app.db import rls
     from app.routers import teses as teses_router
 
     class _FakeTese:
         id = uuid.uuid4()
         ticker = "PETR4"
         status = "processing"
+        classe_ativo = None
 
-    monkeypatch.setattr(teses_router, "criar_tese", lambda s, t: _FakeTese())
-    monkeypatch.setattr(teses_router, "_run_generation", lambda tid: None)
-    # Neutraliza reaper/cache (tocam a sessão) — este teste só valida o 429.
-    monkeypatch.setattr(teses_router, "reaper_teses_orfas", lambda s, t: 0)
-    monkeypatch.setattr(teses_router, "buscar_tese_cache", lambda s, t, h: None)
-    app.dependency_overrides[get_session] = lambda: iter([None])
+    # criar_tese/geração são stubs; caches em miss (kwargs novos ignorados no stub).
+    monkeypatch.setattr(teses_router, "criar_tese", lambda s, t, **k: _FakeTese())
+    monkeypatch.setattr(teses_router, "_run_generation", lambda *a, **k: None)
+    monkeypatch.setattr(teses_router, "buscar_tese_publica", lambda s, t, h: None)
+    monkeypatch.setattr(teses_router, "buscar_tese_do_usuario", lambda s, u, t, h: None)
+    app.dependency_overrides[rls.get_session_usuario] = lambda: None
     with contextlib.suppress(Exception):
         app.state.limiter.reset()
     try:
         codigos = [client.post("/teses", json={"ticker": "PETR4"}).status_code for _ in range(32)]
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(rls.get_session_usuario, None)
         with contextlib.suppress(Exception):
             app.state.limiter.reset()
     assert codigos[0] == 202  # partida limpa

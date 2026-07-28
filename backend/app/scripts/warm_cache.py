@@ -44,7 +44,7 @@ from collections.abc import Callable, Sequence
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.models.models import TeseVersao
-from app.services.tese import buscar_tese_cache, criar_tese, gerar_tese
+from app.services.tese import buscar_tese_publica, criar_tese, gerar_tese
 
 logger = get_logger(__name__)
 
@@ -152,7 +152,7 @@ def aquecer(
             # --force: pula o cache e regenera mesmo com HIT (a nova `ready`
             # supera a antiga no GET /teses, que ordena por criado_em desc).
             if not force:
-                em_cache = buscar_tese_cache(session, ticker, settings.tese_cache_horas)
+                em_cache = buscar_tese_publica(session, ticker, settings.tese_cache_horas)
                 if em_cache is not None:
                     log(
                         f"{ticker}: cache HIT (tese {em_cache.id} de {em_cache.criado_em})"
@@ -160,7 +160,8 @@ def aquecer(
                     )
                     prontas += 1
                     continue
-            tese = criar_tese(session, ticker)
+            # Acervo do SISTEMA (vitrine pública): sem dono, visibilidade pública.
+            tese = criar_tese(session, ticker, user_id=None, visibilidade="publica")
             log(f"{ticker}: gerando (tese {tese.id})...")
             gerar_tese(session, tese.id)
             session.expire_all()

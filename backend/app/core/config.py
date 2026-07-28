@@ -27,8 +27,15 @@ class Settings(BaseSettings):
     # Origens permitidas para CORS (separadas por vírgula).
     cors_origins: str = "http://localhost:3000"
 
-    # Banco (Supabase Postgres + pgvector). None até ser provido no .env.
+    # Banco de SISTEMA (Supabase Postgres + pgvector): migrações, ingest de
+    # referência, scheduler/reaper. Conecta como role com bypassrls (postgres).
+    # None até ser provido no .env.
     database_url: str | None = None
+    # Lane de RLS ENFORÇADA (missão "A Portaria"): role `app_backend` (LOGIN,
+    # NOINHERIT, NOBYPASSRLS) que faz `SET LOCAL ROLE authenticated|anon|app_worker`
+    # + claims por transação. None => lane RLS indisponível (dev/test sem o role);
+    # o caminho de sistema segue no `database_url`. Mesmo normalizador de driver.
+    database_url_rls: str | None = None
 
     # Supabase — valores públicos (seguros no cliente).
     supabase_url: str | None = None
@@ -50,7 +57,20 @@ class Settings(BaseSettings):
 
     # Usuário-demo do slice: as teses (RLS owner-only) precisam de um dono real em
     # `auth.users`. Resolvido sob demanda via Admin API do Supabase (service_role).
+    # DEPRECADO pela missão "A Portaria": aposentado do caminho da request; o acervo
+    # público passa a ter `user_id` NULL (sistema). Mantido só até o contract final.
     demo_user_email: str = "demo@tese-ai.local"
+
+    # --- Portaria (contas + JWT) ------------------------------------------------
+    # Segredo de perímetro entre o BFF (Vercel) e o backend (Railway): o Railway é
+    # público e um JWT roubado poderia ser reproduzido direto no FastAPI pulando o
+    # rate-limit do BFF. Verificado por `hmac.compare_digest`. FAIL-CLOSED em
+    # produção (ausente => a app não sobe — ver core/perimetro). Nunca no bundle.
+    portaria_secret: str | None = None
+    # Audiência esperada no access token do GoTrue (padrão do Supabase).
+    supabase_jwt_audience: str = "authenticated"
+    # Folga (segundos) na validação de exp/nbf do JWT (clock skew). Pequena.
+    jwt_leeway_segundos: int = 30
 
     # Observabilidade (Langfuse) — opcional; cliente vira no-op se ausente.
     langfuse_public_key: str | None = None
@@ -156,7 +176,7 @@ class Settings(BaseSettings):
     def consenso_allowed_domains_list(self) -> list[str]:
         return [d.strip() for d in self.consenso_allowed_domains.split(",") if d.strip()]
 
-    @field_validator("database_url")
+    @field_validator("database_url", "database_url_rls")
     @classmethod
     def _normalize_db_driver(cls, v: str | None) -> str | None:
         """Força o driver psycopg (v3) no SQLAlchemy.

@@ -12,8 +12,6 @@ import pytest
 
 from app.services import tese as tese_svc
 
-_USER_ID = "00000000-0000-0000-0000-000000000001"
-
 
 class _FakeSession:
     def add(self, obj) -> None:  # noqa: ANN001
@@ -26,25 +24,24 @@ class _FakeSession:
         pass
 
 
-@pytest.fixture()
-def _demo_user(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(tese_svc, "get_or_create_demo_user", lambda: _USER_ID)
+def _criar(ticker: str):
+    # Scripts (warm_cache/gerar_e_avaliar) geram o acervo do SISTEMA (público, sem dono);
+    # estes casos só checam a resolução de classe, então a visibilidade é irrelevante.
+    return tese_svc.criar_tese(_FakeSession(), ticker, user_id=None, visibilidade="publica")
 
 
-def test_criar_tese_td_resolve_renda_fixa(_demo_user: None) -> None:
-    tese = tese_svc.criar_tese(_FakeSession(), "td-ipca-2035")
+def test_criar_tese_td_resolve_renda_fixa() -> None:
+    tese = _criar("td-ipca-2035")
     assert tese.ticker == "TD-IPCA-2035"
     assert tese.classe_ativo == "renda_fixa"
 
 
-def test_criar_tese_acao_mantem_null_legado(_demo_user: None) -> None:
-    tese = tese_svc.criar_tese(_FakeSession(), "PETR4")
+def test_criar_tese_acao_mantem_null_legado() -> None:
+    tese = _criar("PETR4")
     assert tese.classe_ativo is None  # NULL = 'acao' (caminho legado byte-idêntico)
 
 
-def test_criar_tese_identidade_nao_resolvida_deixa_null(
-    _demo_user: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_criar_tese_identidade_nao_resolvida_deixa_null(monkeypatch: pytest.MonkeyPatch) -> None:
     """Sufixo 11 sem cadastro nenhum: loga e segue (motor de ação abstém depois)."""
     from app.services.ativos import identidade
     from app.services.dados import DadoNaoEncontrado
@@ -53,5 +50,5 @@ def test_criar_tese_identidade_nao_resolvida_deixa_null(
         raise DadoNaoEncontrado(f"ticker {codigo} não encontrado")
 
     monkeypatch.setattr(identidade, "resolver_classe", _explode)
-    tese = tese_svc.criar_tese(_FakeSession(), "XXXX11")
+    tese = _criar("XXXX11")
     assert tese.classe_ativo is None

@@ -38,7 +38,15 @@ const nextConfig: NextConfig = {
   // Não revelar o framework no header `X-Powered-By`.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // Missão "A Portaria": a área da conta traz dado sensível (e-mail e, na Onda 3,
+      // segurança/LGPD). Páginas RSC dinâmicas saem `no-cache` por padrão, não
+      // `no-store` — forçamos `no-store` explícito aqui (o `redir()` já cobre os route
+      // handlers; isto cobre as PÁGINAS). NÃO toca o proxy.ts (CSP diff-zero).
+      { source: "/conta", headers: [{ key: "Cache-Control", value: "no-store" }] },
+      { source: "/conta/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+    ];
   },
 };
 

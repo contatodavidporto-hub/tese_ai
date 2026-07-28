@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { backendUrl } from "@/lib/backend";
+import { cabecalhosAutenticados, backendUrl } from "@/lib/backend";
+import { mesmaOrigem } from "@/lib/auth/csrf";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { TICKER_RE } from "@/lib/tickers";
 
 // Proxy SERVER-SIDE para o backend FastAPI.
@@ -12,12 +14,33 @@ import { TICKER_RE } from "@/lib/tickers";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  // CSRF: este é o handler mutante mais caro (dispara geração + custo de LLM). Mesma
+  // defesa dos handlers de auth — o SameSite=Lax é a 1ª camada; o Origin-check é a 2ª.
+  if (!mesmaOrigem(request)) {
+    return NextResponse.json(
+      { detail: "origem inválida" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const apiUrl = backendUrl();
   if (!apiUrl) {
     console.error("api/teses: API_URL ausente no ambiente do servidor");
     return NextResponse.json(
       { detail: "Serviço temporariamente indisponível — tente novamente em instantes." },
       { status: 502 },
+    );
+  }
+
+  // Gate de conta (missão "A Portaria"): gerar tese nova EXIGE login. Sem sessão,
+  // 401 → o cliente redireciona para /entrar?seguir=/tese. A vitrine pública (GET)
+  // segue sem conta. Segurança real está no backend (JWT + RLS); isto é o gate de UX
+  // + o repasse do token.
+  const sessao = await sessaoAtual();
+  if (!sessao) {
+    return NextResponse.json(
+      { detail: "Entre na sua conta para gerar uma tese." },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -73,6 +96,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         ...(xff ? { "x-forwarded-for": xff } : {}),
+        ...cabecalhosAutenticados(sessao.accessToken), // Bearer + X-Portaria
       },
       body: JSON.stringify({ ticker: normalizado }),
       cache: "no-store",

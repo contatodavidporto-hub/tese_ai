@@ -20,6 +20,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -232,20 +233,40 @@ class Elo(Base):
     tese_versao_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tese_versoes.id", ondelete="SET NULL")
     )
+    # Dono/visibilidade DENORMALIZADOS da tese-mãe (missão "A Portaria"): a policy de
+    # `elos` por join sairia cara e deixaria órfãos (FK tese_versao_id é SET NULL)
+    # inclassificáveis. NULL = acervo do sistema (CHECK ck_elos_publica_sistema).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    visibilidade: Mapped[str] = mapped_column(
+        Text, nullable=False, default="privada", server_default="privada"
+    )
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 
 class Tese(Base):
-    """Dado do usuário — protegido por RLS (owner-only)."""
+    """Tese — do usuário (owner-only, RLS) OU do sistema (acervo público).
+
+    Missão "A Portaria": `user_id` NULL = acervo do SISTEMA (vitrine pública);
+    `user_id` preenchido = privada do dono. O CHECK `ck_teses_publica_sistema`
+    (migração 0007) amarra `(user_id IS NULL) = (visibilidade='publica')`, então
+    o estado incoerente é impossível no banco.
+    """
 
     __tablename__ = "teses"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    # NULLABLE desde a 0007: NULL = acervo do sistema (público). Antes, apontava
+    # sempre para o demo_user (aposentado).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    # 'publica' (acervo do sistema, user_id NULL) | 'privada' (do dono). Default
+    # seguro = privada (esquecer o parâmetro nunca torna algo público).
+    visibilidade: Mapped[str] = mapped_column(
+        Text, nullable=False, default="privada", server_default="privada"
+    )
     # Ticker B3 (PETR4/HGLG11) ou código RF (TD-IPCA-2035) — varchar(32) na 0005.
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     # Classe do ativo ('acao'|'fii'|'renda_fixa'); NULL = acao (legado).
@@ -269,7 +290,11 @@ class TeseVersao(Base):
     tese_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("teses.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # NULLABLE + visibilidade: herdam da tese-mãe (CHECK ck_versoes_publica_sistema).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    visibilidade: Mapped[str] = mapped_column(
+        Text, nullable=False, default="privada", server_default="privada"
+    )
     conteudo: Mapped[str | None] = mapped_column(Text)
     modelo: Mapped[str | None] = mapped_column(Text)
     prompt_hash: Mapped[str | None] = mapped_column(Text)
@@ -586,6 +611,81 @@ class ConsensoAnalista(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     fonte_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fontes.id"), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class HistoricoItem(Base):
+    """Histórico/favoritos POR USUÁRIO — vínculo (link) para uma tese (RLS owner-only).
+
+    Missão "A Portaria": o `/historico` deixa de ser só `localStorage`. Tese pública
+    entra como LINK (não cópia), então os UUIDs do acervo continuam válidos. FK
+    CASCADE cobre a exclusão de conta (LGPD).
+    """
+
+    __tablename__ = "historico_itens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    tese_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("teses.id", ondelete="CASCADE"), nullable=False
+    )
+    # 'gerada' (o usuário disparou) | 'favoritada' (marcou uma pública).
+    origem: Mapped[str] = mapped_column(
+        Text, nullable=False, default="gerada", server_default="gerada"
+    )
+    favorito: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CodigoRecuperacao(Base):
+    """Cofre dos códigos de recuperação de 2FA (missão "A Portaria", Onda 3).
+
+    Deny-all (RLS ON, zero policies): só o FastAPI toca, pela conexão de sistema,
+    escopando por `user_id` do JWT verificado. `codigo_hash` = SHA-256 do código
+    (80 bits CSPRNG) calculado NA APLICAÇÃO — o plaintext nunca entra em SQL/log.
+    Single-use: consumo via UPDATE ... WHERE usado_em IS NULL RETURNING.
+    """
+
+    __tablename__ = "codigos_recuperacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    codigo_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, unique=True)
+    lote: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    usado_em: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TeseCacheConteudo(Base):
+    """Cache de CONTEÚDO de tese (envelope), chaveado por (ticker, prompt_hash).
+
+    Worker-only (RLS ON, policy só para `app_worker`): invisível a anon/authenticated.
+    Um miss de tese privada consulta este cache — hit copia o envelope para uma tese
+    PRIVADA do usuário a custo LLM zero, preservando "o que é do usuário é só dele"
+    sem regenerar. NUNCA guarda envelope com erro.
+    """
+
+    __tablename__ = "tese_cache_conteudo"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    classe_ativo: Mapped[str | None] = mapped_column(Text)
+    prompt_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    conteudo: Mapped[str] = mapped_column(Text, nullable=False)
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

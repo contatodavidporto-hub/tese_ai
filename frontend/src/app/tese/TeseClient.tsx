@@ -252,6 +252,15 @@ export function TeseClient({ tickerInicial, autoIniciar, idInicial }: Props) {
           | { detail?: string }
           | null;
 
+        // Gate de conta (missão "A Portaria"): 401 = precisa entrar. Leva ao login
+        // preservando o ticker (volta para /tese com ele pré-preenchido).
+        if (res.status === 401) {
+          if (runIdRef.current !== runId) return;
+          const destino = `/tese?ticker=${encodeURIComponent(normalizado)}`;
+          window.location.assign(`/entrar?seguir=${encodeURIComponent(destino)}`);
+          return;
+        }
+
         if (!res.ok || !data || !("id" in data) || !data.id) {
           if (runIdRef.current !== runId) return;
           // 429 (rate-limit do backend) devolve {"error": ...}, não {"detail"}:

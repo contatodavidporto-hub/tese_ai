@@ -30,6 +30,10 @@ const NAV = [
   { href: "/glossario", label: "Glossário" },
   { href: "/sobre", label: "Sobre" },
   { href: "/historico", label: "Histórico" },
+  // "Conta" (missão "A Portaria", Onda 2): link estático, ZERO JS e ZERO leitura de
+  // cookie no Header (mantém as páginas públicas sem variar por sessão). /conta
+  // redireciona quem não está logado para /entrar — o rótulo serve os dois estados.
+  { href: "/conta", label: "Conta" },
 ] as const;
 
 const MESES = [

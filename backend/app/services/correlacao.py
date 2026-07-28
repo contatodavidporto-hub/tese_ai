@@ -445,6 +445,8 @@ def persistir_elos(
     tese_versao_id: uuid.UUID | None = None,
     *,
     ativo_codigo: str | None = None,
+    user_id: uuid.UUID | None = None,
+    visibilidade: str = "privada",
 ) -> None:
     """Grava os elos validados (trilha de auditoria do raciocínio).
 
@@ -452,6 +454,9 @@ def persistir_elos(
     para ação; ``ativo_codigo`` (ticker de FII / código TD) quando não há
     empresa. Um dos dois é OBRIGATÓRIO — falha rápido aqui em vez de deixar o
     banco rejeitar no commit (elo órfão nunca é gravado).
+
+    ``user_id``/``visibilidade`` são DENORMALIZADOS da tese-mãe (missão "A Portaria",
+    CHECK ``ck_elos_publica_sistema``): NULL+'publica' = acervo do sistema.
     """
     if elos and empresa_id is None and ativo_codigo is None:
         raise ValueError("elo sem âncora: informe empresa_id OU ativo_codigo (ck_elos_ancora)")
@@ -473,6 +478,8 @@ def persistir_elos(
                 hedge=e.hedge,
                 validada=e.validada,
                 tese_versao_id=tese_versao_id,
+                user_id=user_id,
+                visibilidade=visibilidade,
             )
         )
 

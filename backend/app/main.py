@@ -16,14 +16,19 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
+from app.core.perimetro import PerimetroMiddleware, verificar_perimetro_no_startup
 from app.core.ratelimit import limiter
 from app.observability.langfuse_client import get_langfuse
+from app.routers import conta as conta_router
 from app.routers import teses as teses_router
 from app.services.scheduler import scheduler_loop
 
 settings = get_settings()
 configure_logging(settings.app_env)
 logger = get_logger(__name__)
+
+# Fail-closed: em produção, sem PORTARIA_SECRET a app NÃO sobe (perímetro Vercel↔Railway).
+verificar_perimetro_no_startup(settings)
 
 
 # Headers de segurança em TODA resposta da API (defesa em profundidade — o frontend
@@ -157,6 +162,9 @@ app.add_middleware(SlowAPIMiddleware)
 # Ordem importa: middlewares adicionados por último rodam primeiro. Body-size antes
 # de tudo (barra payload gigante cedo); headers de segurança envolvem a resposta.
 app.add_middleware(SecurityHeadersMiddleware)
+# Perímetro X-Portaria: no-op sem PORTARIA_SECRET (dev/test); enforça quando setado.
+# Depois do body-size (payload gigante é barrado antes do check do header).
+app.add_middleware(PerimetroMiddleware, settings=settings)
 app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
 
 # CORS explícito: só as origens configuradas, métodos e headers ESTRITOS (não '*').
@@ -184,3 +192,4 @@ def health() -> dict[str, str]:
 
 
 app.include_router(teses_router.router)
+app.include_router(conta_router.router)

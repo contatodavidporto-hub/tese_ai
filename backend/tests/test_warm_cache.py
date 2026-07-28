@@ -31,13 +31,13 @@ def _prepara(monkeypatch, *, em_cache=None) -> None:
 
     monkeypatch.setattr(db_session, "SessionLocal", lambda: _FakeSession())
     monkeypatch.setattr(wc, "get_settings", lambda: SimpleNamespace(tese_cache_horas=24))
-    monkeypatch.setattr(wc, "buscar_tese_cache", lambda _s, _t, _h: em_cache)
+    monkeypatch.setattr(wc, "buscar_tese_publica", lambda _s, _t, _h: em_cache)
 
 
 def test_cache_hit_pula_a_geracao_e_conta_como_pronta(monkeypatch) -> None:
     _prepara(monkeypatch, em_cache=SimpleNamespace(id="t1", criado_em="2026-07-08"))
     chamadas: list[str] = []
-    monkeypatch.setattr(wc, "criar_tese", lambda *_a: chamadas.append("criar"))
+    monkeypatch.setattr(wc, "criar_tese", lambda *_a, **_k: chamadas.append("criar"))
     monkeypatch.setattr(wc, "gerar_tese", lambda *_a: chamadas.append("gerar"))
 
     resumo = wc.aquecer(["VALE3"])
@@ -49,7 +49,7 @@ def test_cache_hit_pula_a_geracao_e_conta_como_pronta(monkeypatch) -> None:
 def test_geracao_ready_soma_custo(monkeypatch) -> None:
     _prepara(monkeypatch, em_cache=None)
     tese = SimpleNamespace(id="t2", status="ready")
-    monkeypatch.setattr(wc, "criar_tese", lambda _s, _t: tese)
+    monkeypatch.setattr(wc, "criar_tese", lambda _s, _t, **_k: tese)
     monkeypatch.setattr(wc, "gerar_tese", lambda _s, _id: None)
     monkeypatch.setattr(wc, "_custo_da_tese", lambda _s, _id: 0.27)
 
@@ -63,7 +63,7 @@ def test_geracao_ready_soma_custo(monkeypatch) -> None:
 def test_ticker_quebrado_nao_derruba_o_lote(monkeypatch) -> None:
     _prepara(monkeypatch, em_cache=None)
 
-    def _criar(_s, ticker):
+    def _criar(_s, ticker, **_k):
         if ticker == "RUIM3":
             raise RuntimeError("fonte fora do ar")
         return SimpleNamespace(id="t3", status="ready")
@@ -82,7 +82,9 @@ def test_geracao_nao_ready_entra_em_falhas(monkeypatch) -> None:
     # Gate reprovou / teto de custo abstém => status != ready: registrado como
     # falha no resumo (vai para o detalhe do ledger), sem exceção.
     _prepara(monkeypatch, em_cache=None)
-    monkeypatch.setattr(wc, "criar_tese", lambda _s, _t: SimpleNamespace(id="t4", status="error"))
+    monkeypatch.setattr(
+        wc, "criar_tese", lambda _s, _t, **_k: SimpleNamespace(id="t4", status="error")
+    )
     monkeypatch.setattr(wc, "gerar_tese", lambda _s, _id: None)
     monkeypatch.setattr(wc, "_custo_da_tese", lambda _s, _id: None)
 
@@ -112,10 +114,10 @@ def test_force_ignora_cache_hit_e_regenera(monkeypatch) -> None:
         return SimpleNamespace(id="hit", criado_em="2026-07-08")
 
     _prepara(monkeypatch)
-    monkeypatch.setattr(wc, "buscar_tese_cache", _cache)
+    monkeypatch.setattr(wc, "buscar_tese_publica", _cache)
     gerados: list[str] = []
     monkeypatch.setattr(
-        wc, "criar_tese", lambda _s, t: SimpleNamespace(id=f"t-{t}", status="ready")
+        wc, "criar_tese", lambda _s, t, **_k: SimpleNamespace(id=f"t-{t}", status="ready")
     )
     monkeypatch.setattr(wc, "gerar_tese", lambda _s, tid: gerados.append(tid))
     monkeypatch.setattr(wc, "_custo_da_tese", lambda _s, _id: 0.34)
@@ -131,7 +133,7 @@ def test_sem_force_cache_hit_continua_pulando(monkeypatch) -> None:
     # Contraste do --force: sem a flag, HIT pula a geração (comportamento fase 1).
     _prepara(monkeypatch, em_cache=SimpleNamespace(id="t1", criado_em="2026-07-08"))
     chamadas: list[str] = []
-    monkeypatch.setattr(wc, "criar_tese", lambda *_a: chamadas.append("criar"))
+    monkeypatch.setattr(wc, "criar_tese", lambda *_a, **_k: chamadas.append("criar"))
     monkeypatch.setattr(wc, "gerar_tese", lambda *_a: chamadas.append("gerar"))
 
     resumo = wc.aquecer(["HGLG11"], force=False)
