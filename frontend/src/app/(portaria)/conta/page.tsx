@@ -4,17 +4,38 @@ import { redirect } from "next/navigation";
 import { LinkCinema } from "@/components/motion/LinkCinema";
 import { sessaoAtual } from "@/lib/auth/sessao";
 
-import { CLASSE_BOTAO_SEC, Masthead, Mensagem } from "../_ui";
+import { Masthead, Mensagem } from "../_ui";
 
-// Hub da conta (rota AUTENTICADA — não é público, então ler o cookie server-side é
-// correto). Onda 2: e-mail + sair. As telas de segurança (2FA), troca de e-mail/senha
-// e LGPD (exportar/excluir) nascem na Onda 3.
+// Hub da conta (rota AUTENTICADA). Onda 3: segurança (senha, 2FA, encerrar sessões) e
+// LGPD (exportar/excluir). `no-store` forçado no next.config.ts (dado sensível: e-mail).
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Sua conta",
-  description: "Gerencie sua conta do Tese AI.",
+  description: "Gerencie sua conta, segurança e dados do Tese AI.",
 };
+
+const OKS: Record<string, string> = {
+  senha: "Senha atualizada com sucesso.",
+  email_pendente: "Troca de e-mail iniciada. Confirme nos DOIS endereços (o atual e o novo).",
+};
+
+function LinhaLink({ href, titulo, desc }: { href: string; titulo: string; desc: string }) {
+  return (
+    <LinkCinema
+      href={href}
+      className="group flex items-center justify-between gap-4 border-b border-line py-3 hover:bg-card"
+    >
+      <span className="flex flex-col gap-0.5">
+        <span className="font-sans text-ui font-semibold text-ink">{titulo}</span>
+        <span className="font-sans text-meta text-ink-3">{desc}</span>
+      </span>
+      <span aria-hidden className="font-mono text-ink-3 group-hover:text-brasa-texto">
+        →
+      </span>
+    </LinkCinema>
+  );
+}
 
 export default async function ContaPage({
   searchParams,
@@ -24,7 +45,7 @@ export default async function ContaPage({
   const sessao = await sessaoAtual();
   if (!sessao) redirect("/entrar?seguir=/conta");
   const sp = await searchParams;
-  const ok = sp.ok === "senha" ? "Senha atualizada com sucesso." : undefined;
+  const ok = typeof sp.ok === "string" ? OKS[sp.ok] : undefined;
 
   return (
     <section aria-labelledby="conta-titulo">
@@ -34,31 +55,51 @@ export default async function ContaPage({
       <dl className="mt-6 border-t border-line">
         <div className="flex items-baseline justify-between gap-4 border-b border-line py-3">
           <dt className="font-sans text-ui text-ink-3">E-mail</dt>
-          <dd className="font-mono text-ui text-ink">{sessao.email ?? "—"}</dd>
+          <dd className="break-all font-mono text-ui text-ink">{sessao.email ?? "—"}</dd>
         </div>
       </dl>
 
-      <div className="mt-6 flex flex-col gap-3">
-        <LinkCinema
-          href="/historico"
+      <h2 className="mt-10 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+        Segurança
+      </h2>
+      <nav className="mt-2 border-t border-line" aria-label="Segurança da conta">
+        <LinhaLink href="/conta/senha" titulo="Trocar senha" desc="Requer a senha atual." />
+        <LinhaLink
+          href="/conta/dois-fatores"
+          titulo="Verificação em dois fatores"
+          desc="Ative o 2FA com um app autenticador."
+        />
+        <LinhaLink href="/conta/email" titulo="Trocar e-mail" desc="Confirmação nos dois endereços." />
+      </nav>
+      <form method="post" action="/api/auth/sessoes" className="mt-4">
+        <button
+          type="submit"
           className="sublinhado-brasa font-sans text-ui font-semibold text-brasa-texto"
         >
-          Ver meu histórico →
-        </LinkCinema>
-      </div>
-
-      {/* Sair — POST-only (por GET, o prefetch do next/link deslogaria ao renderizar).
-          Botão secundário (contorno border-field, ≥4.8:1). */}
-      <form method="post" action="/api/auth/sair" className="mt-10">
-        <button type="submit" className={CLASSE_BOTAO_SEC}>
-          Sair desta conta
+          Encerrar todas as sessões
         </button>
       </form>
 
-      <p className="mt-10 font-mono text-meta text-ink-3">
-        Verificação em dois fatores, troca de e-mail e senha, e exportação/exclusão de dados
-        (LGPD) chegam na próxima etapa.
-      </p>
+      <h2 className="mt-10 font-sans text-label font-semibold uppercase tracking-[0.16em] text-ink-3">
+        Seus dados
+      </h2>
+      <nav className="mt-2 border-t border-line" aria-label="Dados da conta">
+        <LinhaLink
+          href="/conta/dados"
+          titulo="Exportar ou excluir meus dados"
+          desc="Portabilidade e apagamento (LGPD)."
+        />
+        <LinhaLink href="/historico" titulo="Meu histórico" desc="Teses que você gerou." />
+      </nav>
+
+      <form method="post" action="/api/auth/sair" className="mt-10">
+        <button
+          type="submit"
+          className="w-full border border-field bg-card px-4 py-3 text-center font-sans text-ui font-semibold text-ink transition-colors hover:border-ink-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
+        >
+          Sair desta conta
+        </button>
+      </form>
     </section>
   );
 }

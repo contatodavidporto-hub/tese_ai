@@ -28,3 +28,20 @@ export function cabecalhosAutenticados(accessToken: string | null): Record<strin
   if (seg) h["X-Portaria"] = seg;
   return h;
 }
+
+// Chamada server-to-server ao FastAPI, autenticada (Bearer + X-Portaria) + no-store.
+// Lança se a URL do backend não estiver configurada (quem chama trata).
+export async function chamarBackend(
+  path: string,
+  accessToken: string | null,
+  init: RequestInit = {},
+): Promise<Response> {
+  const apiUrl = backendUrl();
+  if (!apiUrl) throw new Error("API_URL ausente");
+  return fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers: { ...(init.headers ?? {}), ...cabecalhosAutenticados(accessToken) },
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+}
