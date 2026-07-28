@@ -54,8 +54,7 @@ def _policy_aal2(tabela: str) -> str:
     """
 
 
-UPGRADE_SQL = (
-    r"""
+_SQL_COFRE_E_FUNCAO = r"""
 -- ---------- Cofre dos códigos de recuperação (deny-all: só o FastAPI/sistema) ----------
 create table if not exists codigos_recuperacao (
     id            uuid primary key default gen_random_uuid(),
@@ -82,13 +81,14 @@ grant execute on function public.tem_fator_totp_verified(uuid) to authenticated;
 
 -- ---------- Step-up aal2 (restrictive; POR ÚLTIMO) ----------
 """
-    + "\n".join(_policy_aal2(t) for t in _TABELAS_AAL2)
-)
+
+# S608 é FALSO-POSITIVO aqui: os nomes de tabela vêm de `_TABELAS_AAL2` (lista FIXA
+# interna, hardcoded), NUNCA de input — não há vetor de injeção.
+UPGRADE_SQL = _SQL_COFRE_E_FUNCAO + "\n".join(_policy_aal2(t) for t in _TABELAS_AAL2)  # noqa: S608
 
 
 DOWNGRADE_SQL = (
-    "\n".join(f"drop policy if exists aal2_{t} on public.{t};" for t in _TABELAS_AAL2)
-    + r"""
+    "\n".join(f"drop policy if exists aal2_{t} on public.{t};" for t in _TABELAS_AAL2) + r"""
 drop function if exists public.tem_fator_totp_verified(uuid);
 drop table if exists codigos_recuperacao;
 """
