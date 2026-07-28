@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { recusa, redir } from "@/lib/auth/http";
 import { chamarBackend } from "@/lib/backend";
-import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
+import { sessaoAtual } from "@/lib/auth/sessao";
+import { envAuth } from "@/lib/auth/supabaseServer";
 
 // LGPD (portabilidade): baixa TODOS os dados do usuário em JSON. GET (leitura, sem
 // efeito colateral) via <a download>. Sem sessão → login. O FastAPI exige aal2 (para
@@ -11,11 +12,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (!envAuth()) return recusa("serviço de contas indisponível", 503);
-  const supabase = await criarClienteAuth();
-  const { data: s } = await supabase.auth.getSession();
-  if (!s.session) return redir(request, "/entrar?seguir=/conta/dados");
+  // Authz por getClaims (invariante do projeto), NUNCA getSession cru.
+  const sessao = await sessaoAtual();
+  if (!sessao) return redir(request, "/entrar?seguir=/conta/dados");
   try {
-    const r = await chamarBackend("/conta/exportar", s.session.access_token, {});
+    const r = await chamarBackend("/conta/exportar", sessao.accessToken, {});
     if (!r.ok) {
       if (r.status === 403) return redir(request, "/conta/dados?erro=aal2");
       return recusa("não foi possível exportar seus dados", 502);

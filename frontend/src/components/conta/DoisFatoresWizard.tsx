@@ -6,7 +6,7 @@
 // tela. Fetch same-origin (CSP `connect-src 'self'` permite); o QR é data-URI SVG
 // (`img-src data:` no proxy.ts). Sem style inline (CSP), só classes.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // classes de campo/botão importadas como STRINGS (não componentes) — ok em client.
 import { CLASSE_BOTAO } from "@/app/(portaria)/_ui";
@@ -25,6 +25,13 @@ export function DoisFatoresWizard() {
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
+  const sucessoRef = useRef<HTMLDivElement>(null);
+
+  // A11y: ao ATIVAR (troca para "codigos"), leva o foco ao bloco de sucesso — senão o
+  // leitor de tela não anuncia que o 2FA foi ligado nem que os códigos estão na tela.
+  useEffect(() => {
+    if (passo === "codigos") sucessoRef.current?.focus();
+  }, [passo]);
 
   async function iniciar() {
     setErro(null);
@@ -111,7 +118,11 @@ export function DoisFatoresWizard() {
           </code>
         </div>
         {erro ? (
-          <p role="alert" className="border border-aviso-borda bg-aviso-fundo px-3 py-2 text-ui text-ink">
+          <p
+            id="qr-erro"
+            role="alert"
+            className="border border-aviso-borda bg-aviso-fundo px-3 py-2 text-ui text-ink"
+          >
             {erro}
           </p>
         ) : null}
@@ -127,6 +138,8 @@ export function DoisFatoresWizard() {
             pattern="[0-9]*"
             autoComplete="one-time-code"
             required
+            aria-describedby={erro ? "qr-erro" : undefined}
+            aria-invalid={erro ? true : undefined}
             className={CAMPO}
           />
         </div>
@@ -139,7 +152,7 @@ export function DoisFatoresWizard() {
 
   // passo === "codigos"
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={sucessoRef} tabIndex={-1} role="status" className="flex flex-col gap-6 outline-none">
       <p className="border border-aviso-borda bg-aviso-fundo px-3 py-2 text-ui text-ink">
         Verificação em dois fatores ATIVADA. Guarde os códigos de recuperação abaixo em local
         seguro — cada um serve UMA vez, e são a única forma de entrar se você perder o app.

@@ -72,9 +72,10 @@ export default async function ContaPage({
         <LinhaLink href="/conta/email" titulo="Trocar e-mail" desc="Confirmação nos dois endereços." />
       </nav>
       <form method="post" action="/api/auth/sessoes" className="mt-4">
+        {/* inline-block + py-2 = alvo de toque ~35px (≥24px, SC 2.5.8). */}
         <button
           type="submit"
-          className="sublinhado-brasa font-sans text-ui font-semibold text-brasa-texto"
+          className="sublinhado-brasa inline-block py-2 font-sans text-ui font-semibold text-brasa-texto"
         >
           Encerrar todas as sessões
         </button>

@@ -60,6 +60,7 @@ export default async function DoisFatoresPage({
                 autoComplete="one-time-code"
                 required
                 aria-describedby={erro ? "dois-fatores-erro" : undefined}
+                aria-invalid={erro ? true : undefined}
                 className="w-full border border-field bg-card px-3.5 py-2.5 text-body text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
               />
             </div>

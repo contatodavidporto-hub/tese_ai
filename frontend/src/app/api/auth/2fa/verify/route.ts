@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { mesmaOrigem } from "@/lib/auth/csrf";
 import { chamarBackend } from "@/lib/backend";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 
 // Confirma o enroll do TOTP (challenge+verify na MESMA invocação → aal2) e, com o token
@@ -15,6 +16,7 @@ function j(body: unknown, status = 200) {
 export async function POST(request: NextRequest) {
   if (!mesmaOrigem(request)) return j({ ok: false, erro: "origem" }, 403);
   if (!envAuth()) return j({ ok: false, erro: "indisponível" }, 503);
+  if (!(await sessaoAtual())) return j({ ok: false, erro: "sessao" }, 401); // gate explícito
   const { factorId, code } = (await request.json().catch(() => ({}))) as {
     factorId?: string;
     code?: string;

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { mesmaOrigem } from "@/lib/auth/csrf";
 import { recusa } from "@/lib/auth/http";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 
 // Inicia o enroll de um fator TOTP (GoTrue MFA, server-side). Devolve o QR (data-URI
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   if (!mesmaOrigem(request)) return recusa("origem inválida", 403);
   if (!envAuth()) return recusa("serviço de contas indisponível", 503);
+  if (!(await sessaoAtual())) return recusa("sessão necessária", 401); // gate explícito
 
   const supabase = await criarClienteAuth();
   const { data: fatores } = await supabase.auth.mfa.listFactors();

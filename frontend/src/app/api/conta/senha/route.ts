@@ -28,6 +28,25 @@ export async function POST(request: NextRequest) {
   if (!email) return redir(request, "/entrar");
   const { error: eAuth } = await supabase.auth.signInWithPassword({ email, password: atual });
   if (eAuth) return redir(request, "/conta/senha?erro=atual");
+
+  // Step-up 2FA (correção da revisão de segurança): se há fator verificado, exige o
+  // código TOTP ANTES de trocar — senão quem tem só a senha (o exato cenário que o 2FA
+  // deveria deter) trocaria a senha sozinho, derrubando a conta.
+  const { data: fatores } = await supabase.auth.mfa.listFactors();
+  const totp = (fatores?.totp ?? []).find((f) => f.status === "verified");
+  if (totp) {
+    const code = String(form.get("code") ?? "").trim();
+    if (!code) return redir(request, "/conta/senha?erro=2fa");
+    const { data: ch } = await supabase.auth.mfa.challenge({ factorId: totp.id });
+    if (!ch) return redir(request, "/conta/senha?erro=2fa");
+    const { error: eMfa } = await supabase.auth.mfa.verify({
+      factorId: totp.id,
+      challengeId: ch.id,
+      code,
+    });
+    if (eMfa) return redir(request, "/conta/senha?erro=codigo");
+  }
+
   const { error } = await supabase.auth.updateUser({ password: nova });
   if (error) return redir(request, "/conta/senha?erro=troca");
   return redir(request, "/conta?ok=senha");

@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 import { mesmaOrigem } from "@/lib/auth/csrf";
 import { recusa, redir } from "@/lib/auth/http";
 import { validaSeguir } from "@/lib/auth/seguir";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 
 // Desafio de login em 2 fatores: challenge+verify do TOTP verificado (mesma invocação →
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const code = String(form.get("code") ?? "").trim();
   const seguir = validaSeguir(form.get("seguir"), "/historico");
+  // Gate: o desafio só faz sentido numa sessão (aal1) recém-estabelecida.
+  if (!(await sessaoAtual())) return redir(request, `/entrar?seguir=${encodeURIComponent(seguir)}`);
   const qs = `?seguir=${encodeURIComponent(seguir)}`;
 
   const supabase = await criarClienteAuth();

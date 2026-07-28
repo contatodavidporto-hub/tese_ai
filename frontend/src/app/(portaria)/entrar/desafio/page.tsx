@@ -58,6 +58,7 @@ export default async function DesafioPage({
               autoComplete="off"
               required
               aria-describedby={erro ? "desafio-erro" : undefined}
+              aria-invalid={erro ? true : undefined}
               className="w-full border border-field bg-card px-3.5 py-2.5 font-mono text-body tracking-wide text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
             />
           </div>
@@ -102,6 +103,7 @@ export default async function DesafioPage({
             autoComplete="one-time-code"
             required
             aria-describedby={erro ? "desafio-erro" : undefined}
+            aria-invalid={erro ? true : undefined}
             className={CAMPO_OTP}
           />
         </div>

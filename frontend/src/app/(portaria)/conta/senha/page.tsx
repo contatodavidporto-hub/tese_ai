@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { sessaoAtual } from "@/lib/auth/sessao";
+import { criarClienteAuth } from "@/lib/auth/supabaseServer";
 
 import { Campo, CLASSE_BOTAO, Masthead, Mensagem } from "../../_ui";
 
@@ -14,6 +15,8 @@ const ERROS: Record<string, string> = {
   curta: "A nova senha precisa ter pelo menos 10 caracteres.",
   vazada: "Essa senha apareceu em vazamentos públicos. Escolha outra.",
   troca: "Não foi possível trocar a senha. Tente novamente.",
+  "2fa": "Informe o código do seu app autenticador.",
+  codigo: "Código de dois fatores incorreto.",
 };
 
 export default async function SenhaPage({
@@ -22,6 +25,9 @@ export default async function SenhaPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!(await sessaoAtual())) redirect("/entrar?seguir=/conta/senha");
+  const supabase = await criarClienteAuth();
+  const { data: fatores } = await supabase.auth.mfa.listFactors();
+  const tem2fa = (fatores?.totp ?? []).some((f) => f.status === "verified");
   const sp = await searchParams;
   const codigo = typeof sp.erro === "string" ? sp.erro : undefined;
   const erro = codigo ? ERROS[codigo] : undefined;
@@ -45,6 +51,25 @@ export default async function SenhaPage({
           descrevePorId={codigo === "atual" ? "senha-erro" : undefined}
           invalido={codigo === "atual"}
         />
+        {tem2fa ? (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="code" className="font-sans text-ui font-medium text-ink-2">
+              Código do app autenticador (2FA)
+            </label>
+            <input
+              id="code"
+              name="code"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
+              required
+              aria-describedby={codigo === "2fa" || codigo === "codigo" ? "senha-erro" : undefined}
+              aria-invalid={codigo === "2fa" || codigo === "codigo" ? true : undefined}
+              className="w-full border border-field bg-card px-3.5 py-2.5 text-body text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
+            />
+          </div>
+        ) : null}
         <Campo
           id="nova"
           name="nova"

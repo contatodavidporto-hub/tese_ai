@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { mesmaOrigem } from "@/lib/auth/csrf";
 import { recusa, redir } from "@/lib/auth/http";
+import { sessaoAtual } from "@/lib/auth/sessao";
 import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 
 // Desativa o 2FA. Step-up imediato: exige um código TOTP FRESCO (challenge+verify → aal2)
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   if (!mesmaOrigem(request)) return recusa("origem inválida", 403);
   if (!envAuth()) return recusa("serviço de contas indisponível", 503);
+  if (!(await sessaoAtual())) return redir(request, "/entrar?seguir=/conta/dois-fatores");
 
   const form = await request.formData();
   const code = String(form.get("code") ?? "").trim();
