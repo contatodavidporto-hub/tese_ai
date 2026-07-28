@@ -8,12 +8,33 @@
 > tenho acesso ao Railway nem ao Google Cloud Console); os **[EU]** eu executo por MCP/gh
 > assim que os anteriores estiverem prontos.
 
-## 0. Estado atual
+## ⚠ ATUALIZAÇÃO 2026-07-28 — INCIDENTE: merge/deploy fora de ordem, remediado em parte
+O código de `feat/portaria` (Ondas 1–3) foi **mergeado em master e deployado ANTES** dos
+pré-requisitos deste runbook (Vercel/Railway/role). Resultado: **código novo rodando sobre
+schema velho (0006)** — o Postgres logava `column "visibilidade" does not exist` e as leituras/
+geração de tese ficaram quebradas (a vitrine estática + `/health` seguiram de pé, mascarando).
+
+**O que EU já fiz (28/07, por MCP Supabase — parte programável):**
+- Apliquei `0007`→`0008`→`0009` em produção e acertei `alembic_version = 0009`. Verificado:
+  `visibilidade` existe; role `app_worker` criado; 327 teses viraram acervo público
+  (`user_id NULL`, backup reversível em `_portaria_backup_demo`, 654 linhas); cofre
+  `codigos_recuperacao` deny-all; `tem_fator_totp_verified` SECURITY DEFINER; 5 policies aal2.
+- **Pré-criei o role `app_backend`** com os grants (`anon, authenticated, app_worker`) +
+  `statement_timeout=30s`, porém **NOLOGIN e sem senha** — a senha é segredo e não passa por mim.
+
+**O que FALTA (só você — Railway/Vercel/SQL editor/dashboard):** ver passos 3/4/1 abaixo. Enquanto
+não forem feitos, **auth + geração + leitura de tese via lane RLS seguem fora do ar** (a vitrine
+pública e o `/health` funcionam). Um advisor novo a tratar na Onda 4: `tem_fator_totp_verified` é
+chamável por `authenticated` via `/rest/v1/rpc/...` com `uid` arbitrário → oráculo (baixo) de quem
+tem 2FA; não dá pra revogar EXECUTE (a policy aal2 precisa) — fix é esconder de schema, não agora.
+
+## 0. Estado atual (pós-remediação 28/07)
 - PR **#47** (`feat/portaria`) verde no que é meu: **backend + rls-isolation** (prova de
   isolamento e de step-up aal2 contra Postgres real). `frontend`/`security` do CI seguem
   vermelhos por dívida PRÉ-EXISTENTE do master (`npm audit`/`trivy` no `next`/`sharp` —
   fila do Dependabot, não é desta branch).
-- Produção hoje: frontend `4790479` (Vercel), backend vivo (Railway), Supabase migrado até `0006`.
+- Produção hoje: frontend novo (Vercel, /entrar renderiza), backend novo vivo (Railway),
+  **Supabase migrado até `0009`** (era 0006 até 28/07). Falta só o wiring de runtime (role+envs).
 
 ## 1. [HUMANO] Segredos e envs (antes de qualquer deploy)
 1. **Gere o segredo de perímetro:** `openssl rand -hex 32` → guarde como `PORTARIA_SECRET`.
@@ -27,19 +48,21 @@
    - `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (já existem; confira).
    - `DATABASE_URL_RLS=` — **deixe em branco por enquanto** (o role ainda não existe; passo 3).
 
-## 2. [EU] Migração expand (0007) — aditiva, reversível, compatível com o código atual
+## 2. [EU] Migração expand (0007) — ✅ FEITO 28/07
 Aplico `0007_portaria_expand` no Supabase de produção (cria a coluna `visibilidade`,
 `user_id` nullable, o role **`app_worker`**, `historico_itens`, o cofre `codigos_recuperacao`,
 policies e FORCE RLS). É backward-compatible: o código velho (conexão `postgres`, bypassrls)
 segue funcionando. **Não deploya nada ainda.**
 
-## 3. [HUMANO] Criar o role de login `app_backend` (depois do 0007)
-No **SQL Editor** do dashboard (a senha NÃO pode ir a migração/código):
+## 3. [HUMANO] Dar LOGIN+senha ao role `app_backend` (já pré-criado em 28/07)
+O role **já existe** (NOLOGIN, com os grants e o `statement_timeout`). No **SQL Editor** do
+dashboard, só falta injetar a senha (que NÃO pode ir a migração/código):
 ```sql
-create role app_backend with login noinherit nobypassrls password '<SENHA-FORTE>';
-grant anon, authenticated, app_worker to app_backend;
-alter role app_backend set statement_timeout = '30s';
+alter role app_backend with login password '<SENHA-FORTE>';
 ```
+(Se preferir recriar do zero: `create role app_backend with login noinherit nobypassrls
+password '<SENHA-FORTE>'; grant anon, authenticated, app_worker to app_backend; alter role
+app_backend set statement_timeout = '30s';`)
 **Preflight OBRIGATÓRIO** (relatos reais de "Tenant or user not found" com role custom no
 Supavisor): de um terminal com `psql`,
 ```
@@ -66,7 +89,7 @@ Depois, no **Railway**: `DATABASE_URL_RLS=postgresql+psycopg://app_backend.rjpqa
 - (Opcional) "Require current password when changing password" **ON**.
 - **Leaked Password Protection** é Pro — deixe OFF (compensamos com HIBP em app).
 
-## 5. [EU] Migrações backfill (0008) e 2FA (0009)
+## 5. [EU] Migrações backfill (0008) e 2FA (0009) — ✅ FEITO 28/07 (327 teses migradas)
 Com o role e o código prestes a subir: aplico `0008_portaria_backfill` (as 314 teses do
 demo viram acervo público; backup reversível `_portaria_backup_demo`) e `0009_portaria_2fa`
 (cofre, `tem_fator_totp_verified`, step-up aal2). ⚠ **0008 roda DEPOIS do deploy do código
