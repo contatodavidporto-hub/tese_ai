@@ -20,6 +20,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -642,6 +643,29 @@ class HistoricoItem(Base):
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class CodigoRecuperacao(Base):
+    """Cofre dos códigos de recuperação de 2FA (missão "A Portaria", Onda 3).
+
+    Deny-all (RLS ON, zero policies): só o FastAPI toca, pela conexão de sistema,
+    escopando por `user_id` do JWT verificado. `codigo_hash` = SHA-256 do código
+    (80 bits CSPRNG) calculado NA APLICAÇÃO — o plaintext nunca entra em SQL/log.
+    Single-use: consumo via UPDATE ... WHERE usado_em IS NULL RETURNING.
+    """
+
+    __tablename__ = "codigos_recuperacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    codigo_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, unique=True)
+    lote: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    usado_em: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TeseCacheConteudo(Base):

@@ -45,6 +45,13 @@ create table if not exists auth.users (
     id uuid primary key default gen_random_uuid(),
     email text unique
 );
+-- mínimo p/ a função tem_fator_totp_verified (a 0009 a lê); o Supabase real já a tem.
+create table if not exists auth.mfa_factors (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid,
+    factor_type text,
+    status text
+);
 create or replace function auth.uid() returns uuid language sql stable as $$
   select coalesce(
     nullif(current_setting('request.jwt.claim.sub', true), ''),
@@ -73,6 +80,7 @@ grant select on auth.users to anon, authenticated, service_role;
 
 A = "11111111-1111-1111-1111-111111111111"
 B = "22222222-2222-2222-2222-222222222222"
+C = "33333333-3333-3333-3333-333333333333"  # usuário COM 2FA (step-up aal2)
 
 
 def _run_alembic() -> None:
@@ -104,29 +112,29 @@ def conn():
         yield c
 
 
-def _lane(cur, role: str, sub: str | None) -> None:
+def _lane(cur, role: str, sub: str | None, aal: str | None = None) -> None:
     cur.execute(f"set local role {role}")
     if sub is not None:
-        cur.execute(
-            "select set_config('request.jwt.claims', %s, true)",
-            (json.dumps({"sub": sub, "role": "authenticated"}),),
-        )
+        claims = {"sub": sub, "role": "authenticated"}
+        if aal is not None:
+            claims["aal"] = aal
+        cur.execute("select set_config('request.jwt.claims', %s, true)", (json.dumps(claims),))
 
 
-def _as(conn, role: str, sub: str | None, sql: str, params=()):
+def _as(conn, role: str, sub: str | None, sql: str, params=(), aal: str | None = None):
     """Roda uma consulta sob a lane (transação isolada, sempre revertida)."""
     cur = conn.cursor()
     try:
-        _lane(cur, role, sub)
+        _lane(cur, role, sub, aal)
         cur.execute(sql, params)
         return cur.fetchall() if cur.description else None
     finally:
         conn.rollback()
 
 
-def _commit_as(conn, role: str, sub: str | None, sql: str, params=()):
+def _commit_as(conn, role: str, sub: str | None, sql: str, params=(), aal: str | None = None):
     cur = conn.cursor()
-    _lane(cur, role, sub)
+    _lane(cur, role, sub, aal)
     cur.execute(sql, params)
     row = cur.fetchone() if cur.description else None
     conn.commit()
@@ -223,3 +231,40 @@ def test_elos_nao_vazam_fragmento_de_tese(conn) -> None:
     assert _as(conn, "anon", None, "select count(*) from elos where visibilidade='privada'") == [
         (0,)
     ]
+
+
+def test_step_up_aal2_para_quem_tem_2fa(conn) -> None:
+    # C tem um fator TOTP verificado (Onda 3): o dado PRIVADO dele exige aal2.
+    cur = conn.cursor()
+    cur.execute("insert into auth.users (id, email) values (%s,'c@t') on conflict do nothing", (C,))
+    cur.execute(
+        "insert into auth.mfa_factors (user_id, factor_type, status) values (%s,'totp','verified')",
+        (C,),
+    )
+    conn.commit()
+
+    # C cria a própria privada em aal2 (login com 2FA completo).
+    tese_c = _commit_as(
+        conn,
+        "authenticated",
+        C,
+        "insert into teses (user_id, visibilidade, ticker, status) "
+        "values (%s,'privada','ITSA4','ready') returning id",
+        (C,),
+        aal="aal2",
+    )[0]
+    pub = _commit_as(
+        conn,
+        "app_worker",
+        None,
+        "insert into teses (user_id, visibilidade, ticker, status) "
+        "values (null,'publica','WEGE3','ready') returning id",
+    )[0]
+
+    q = "select count(*) from teses where id=%s"
+    # aal1 (2FA pendente): NÃO enxerga a própria privada — step-up exigido.
+    assert _as(conn, "authenticated", C, q, (tese_c,), aal="aal1") == [(0,)]
+    # aal2: enxerga.
+    assert _as(conn, "authenticated", C, q, (tese_c,), aal="aal2") == [(1,)]
+    # Escape: a vitrine pública NUNCA é gateada por aal2 (nem em aal1).
+    assert _as(conn, "authenticated", C, q, (pub,), aal="aal1") == [(1,)]

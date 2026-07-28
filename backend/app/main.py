@@ -19,6 +19,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.perimetro import PerimetroMiddleware, verificar_perimetro_no_startup
 from app.core.ratelimit import limiter
 from app.observability.langfuse_client import get_langfuse
+from app.routers import conta as conta_router
 from app.routers import teses as teses_router
 from app.services.scheduler import scheduler_loop
 
@@ -191,3 +192,4 @@ def health() -> dict[str, str]:
 
 
 app.include_router(teses_router.router)
+app.include_router(conta_router.router)

@@ -15,6 +15,10 @@ Exceções documentadas (fora do escopo do guard, threat model diferente):
   (`settings.supabase_url`, autenticado com `service_role`) — não é um
   conector público keyless de terceiro; a URL vem de config confiável do
   operador, não de entrada externa. Pré-existente à Fase "Tese Profunda".
+- `mfa.py` (missão "A Portaria", Onda 3): MESMO threat model do `demo_user.py`
+  — Admin API do próprio projeto Supabase (`settings.supabase_url` +
+  `service_role`) para o break-glass de 2FA e a exclusão de conta (LGPD).
+  Não é conector de terceiro; URL de config confiável.
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from pathlib import Path
 
 _SERVICES_DIR = Path(__file__).resolve().parent.parent / "app" / "services"
 
-_ISENTOS = {"http_client.py", "demo_user.py"}
+_ISENTOS = {"http_client.py", "demo_user.py", "mfa.py"}
 
 # Chamada de rede direta via módulo `httpx` (não via `app.services.http_client`).
 _PADRAO_HTTPX_DIRETO = re.compile(
