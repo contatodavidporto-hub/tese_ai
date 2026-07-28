@@ -53,7 +53,7 @@ export default async function RedefinirPage({
         titulo="Nova senha"
         sub="Escolha uma senha que você não use em outro lugar."
       />
-      <Mensagem texto={erro} />
+      <Mensagem texto={erro} id="redefinir-erro" />
 
       <form
         method="post"
@@ -69,6 +69,8 @@ export default async function RedefinirPage({
           label="Nova senha"
           type="password"
           autoComplete="new-password"
+          descrevePorId={erro ? "redefinir-erro" : undefined}
+          invalido={!!erro}
         />
         <p className="-mt-2 font-mono text-meta text-ink-3">Mínimo de 10 caracteres.</p>
         <button type="submit" className={`mt-2 ${CLASSE_BOTAO}`}>

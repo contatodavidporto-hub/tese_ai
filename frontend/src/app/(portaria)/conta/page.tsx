@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { LinkCinema } from "@/components/motion/LinkCinema";
 import { sessaoAtual } from "@/lib/auth/sessao";
 
-import { Masthead, Mensagem } from "../_ui";
+import { CLASSE_BOTAO_SEC, Masthead, Mensagem } from "../_ui";
 
 // Hub da conta (rota AUTENTICADA — não é público, então ler o cookie server-side é
 // correto). Onda 2: e-mail + sair. As telas de segurança (2FA), troca de e-mail/senha
@@ -48,12 +48,9 @@ export default async function ContaPage({
       </div>
 
       {/* Sair — POST-only (por GET, o prefetch do next/link deslogaria ao renderizar).
-          Botão secundário (contorno), não a brasa primária. */}
+          Botão secundário (contorno border-field, ≥4.8:1). */}
       <form method="post" action="/api/auth/sair" className="mt-10">
-        <button
-          type="submit"
-          className="w-full border border-line-strong bg-card px-4 py-2.5 text-center font-sans text-ui font-semibold text-ink transition-colors hover:border-ink-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
-        >
+        <button type="submit" className={CLASSE_BOTAO_SEC}>
           Sair desta conta
         </button>
       </form>

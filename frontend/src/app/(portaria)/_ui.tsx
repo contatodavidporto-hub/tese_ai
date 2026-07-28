@@ -9,10 +9,17 @@ export const CLASSE_CAMPO =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 " +
   "focus-visible:outline-brasa";
 
-// Botão primário (brasa) com foco visível.
+// Botão primário (brasa) com foco visível. py-3 (alvo de toque ~44px, meta da casa).
 export const CLASSE_BOTAO =
-  "w-full bg-brasa px-4 py-2.5 text-center font-sans text-ui font-semibold text-sobre-brasa " +
+  "w-full bg-brasa px-4 py-3 text-center font-sans text-ui font-semibold text-sobre-brasa " +
   "transition-colors hover:bg-brasa-forte focus-visible:outline focus-visible:outline-2 " +
+  "focus-visible:outline-offset-2 focus-visible:outline-brasa";
+
+// Botão SECUNDÁRIO (contorno): borda `border-field` (≥4.8:1 vs card/página, passa SC
+// 1.4.11 — `border-line-strong` reprovava a 1.68:1) + foco visível.
+export const CLASSE_BOTAO_SEC =
+  "w-full border border-field bg-card px-4 py-3 text-center font-sans text-ui font-semibold " +
+  "text-ink transition-colors hover:border-ink-3 focus-visible:outline focus-visible:outline-2 " +
   "focus-visible:outline-offset-2 focus-visible:outline-brasa";
 
 export function Masthead({
@@ -40,17 +47,33 @@ export function Masthead({
   );
 }
 
-// Região de mensagem: altura mínima RESERVADA (CLS zero) + role=alert quando há texto.
-// `tom` decide o estilo (erro = tarja de aviso; ok = discreto).
-export function Mensagem({ texto, tom = "erro" }: { texto?: string; tom?: "erro" | "ok" }) {
-  const estilo =
-    tom === "erro"
-      ? "border border-aviso-borda bg-aviso-fundo text-ink"
-      : "border border-line bg-card text-ink-2";
+// Região de mensagem: altura mínima RESERVADA (CLS zero). `id` permite ligar o campo
+// que falhou (aria-describedby). No erro, recebe foco no load (tabIndex=-1 + autoFocus):
+// como o fluxo é PRG sem JS, um role=alert já presente no DOM ao carregar nem sempre é
+// anunciado — mover o foco garante o anúncio (CSP-safe, sem JS de submit).
+export function Mensagem({
+  texto,
+  tom = "erro",
+  id,
+}: {
+  texto?: string;
+  tom?: "erro" | "ok";
+  id?: string;
+}) {
+  const erro = tom === "erro";
+  const estilo = erro
+    ? "border border-aviso-borda bg-aviso-fundo text-ink"
+    : "border border-line bg-card text-ink-2";
   return (
-    <div aria-live="polite" className="mt-6 min-h-[1.75rem]">
+    <div className="mt-6 min-h-[1.75rem]">
       {texto ? (
-        <p role={tom === "erro" ? "alert" : undefined} className={`${estilo} px-3 py-2 text-ui`}>
+        <p
+          id={id}
+          role={erro ? "alert" : "status"}
+          tabIndex={erro ? -1 : undefined}
+          autoFocus={erro || undefined}
+          className={`${estilo} px-3 py-2 text-ui outline-none`}
+        >
           {texto}
         </p>
       ) : null}
@@ -68,6 +91,8 @@ export function Campo({
   required = true,
   defaultValue,
   extra,
+  descrevePorId,
+  invalido,
 }: {
   id: string;
   name: string;
@@ -77,6 +102,10 @@ export function Campo({
   required?: boolean;
   defaultValue?: string;
   extra?: ReactNode;
+  // Liga o campo à mensagem de erro (aria-describedby) e o marca inválido, para o
+  // leitor de tela anunciar a razão ao chegar no campo.
+  descrevePorId?: string;
+  invalido?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -93,6 +122,8 @@ export function Campo({
         autoComplete={autoComplete}
         required={required}
         defaultValue={defaultValue}
+        aria-describedby={descrevePorId}
+        aria-invalid={invalido || undefined}
         className={CLASSE_CAMPO}
       />
     </div>

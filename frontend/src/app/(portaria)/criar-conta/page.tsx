@@ -23,7 +23,10 @@ export default async function CriarContaPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const erro = typeof sp.erro === "string" ? ERROS[sp.erro] : undefined;
+  const codigo = typeof sp.erro === "string" ? sp.erro : undefined;
+  const erro = codigo ? ERROS[codigo] : undefined;
+  const emailInvalido = codigo === "email";
+  const senhaInvalida = codigo === "curta" || codigo === "vazada";
 
   return (
     <section aria-labelledby="criar-titulo">
@@ -32,16 +35,26 @@ export default async function CriarContaPage({
         titulo="Criar conta"
         sub="Leva um minuto. Você confirma o e-mail e já pode gerar sua primeira tese."
       />
-      <Mensagem texto={erro} />
+      <Mensagem texto={erro} id="criar-erro" />
 
       <form method="post" action="/api/auth/criar-conta" className="mt-4 flex flex-col gap-6">
-        <Campo id="email" name="email" label="E-mail" type="email" autoComplete="email" />
+        <Campo
+          id="email"
+          name="email"
+          label="E-mail"
+          type="email"
+          autoComplete="email"
+          descrevePorId={emailInvalido ? "criar-erro" : undefined}
+          invalido={emailInvalido}
+        />
         <Campo
           id="senha"
           name="senha"
           label="Senha"
           type="password"
           autoComplete="new-password"
+          descrevePorId={senhaInvalida ? "criar-erro" : undefined}
+          invalido={senhaInvalida}
         />
         {/* Política honesta: comprimento acima de tudo (verificação contra vazamentos
             no envio). Sem teatro de "1 maiúscula e 1 símbolo". */}

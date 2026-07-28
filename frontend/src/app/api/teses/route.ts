@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { cabecalhosAutenticados, backendUrl } from "@/lib/backend";
+import { mesmaOrigem } from "@/lib/auth/csrf";
 import { sessaoAtual } from "@/lib/auth/sessao";
 import { TICKER_RE } from "@/lib/tickers";
 
@@ -13,6 +14,15 @@ import { TICKER_RE } from "@/lib/tickers";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  // CSRF: este é o handler mutante mais caro (dispara geração + custo de LLM). Mesma
+  // defesa dos handlers de auth — o SameSite=Lax é a 1ª camada; o Origin-check é a 2ª.
+  if (!mesmaOrigem(request)) {
+    return NextResponse.json(
+      { detail: "origem inválida" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const apiUrl = backendUrl();
   if (!apiUrl) {
     console.error("api/teses: API_URL ausente no ambiente do servidor");

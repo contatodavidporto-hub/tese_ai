@@ -17,7 +17,12 @@ export function mesmaOrigem(request: NextRequest): boolean {
   if (site && !["same-origin", "none"].includes(site)) return false;
 
   const origem = request.headers.get("origin");
-  if (!origem) return site === "none" || site === "same-origin" || site === null;
+  if (!origem) {
+    // FAIL-CLOSED (correção do red-team): sem Origin, só aceita se o Sec-Fetch-Site
+    // CONFIRMAR same-origin/none. Ambos ausentes (proxy/extensão que estripa headers)
+    // => recusa, nunca aceita por omissão.
+    return site === "none" || site === "same-origin";
+  }
   try {
     const o = new URL(origem);
     const host = request.headers.get("host");

@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
   const supabase = await criarClienteAuth();
   const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
   if (error) {
-    if (error.code === "email_not_confirmed") return redir(request, "/confirmar/pendente");
+    // ANTI-ENUMERAÇÃO (correção do red-team): NÃO distinguir "e-mail não confirmado" de
+    // "credenciais erradas" — o redirect distinto revelava que o e-mail existe. Sempre
+    // genérico; a mensagem de /entrar traz um lembrete de confirmação para TODOS.
     return redir(request, "/entrar?erro=credenciais");
   }
 

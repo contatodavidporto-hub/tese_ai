@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LinkCinema } from "@/components/motion/LinkCinema";
 import { validaSeguir } from "@/lib/auth/seguir";
 
-import { Campo, CLASSE_BOTAO, Masthead, Mensagem } from "../_ui";
+import { Campo, CLASSE_BOTAO, CLASSE_BOTAO_SEC, Masthead, Mensagem } from "../_ui";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,9 @@ export const metadata: Metadata = {
 };
 
 const ERROS: Record<string, string> = {
-  credenciais: "E-mail ou senha incorretos.",
+  // Mensagem genérica (anti-enumeração) + lembrete de confirmação para TODOS — não
+  // revela se o e-mail existe nem se está confirmado.
+  credenciais: "E-mail ou senha incorretos. Se você acabou de criar a conta, confirme o e-mail que enviamos antes de entrar.",
   campos: "Preencha e-mail e senha.",
   oauth: "Não foi possível entrar com o Google. Tente novamente.",
 };
@@ -35,17 +37,27 @@ export default async function EntrarPage({
         titulo="Entrar"
         sub="Acesse sua conta para gerar teses e acompanhar seu histórico."
       />
-      <Mensagem texto={erro} />
+      <Mensagem texto={erro} id="entrar-erro" />
 
       <form method="post" action="/api/auth/entrar" className="mt-4 flex flex-col gap-6">
         <input type="hidden" name="seguir" value={seguir} />
-        <Campo id="email" name="email" label="E-mail" type="email" autoComplete="email" />
+        <Campo
+          id="email"
+          name="email"
+          label="E-mail"
+          type="email"
+          autoComplete="email"
+          descrevePorId={erro ? "entrar-erro" : undefined}
+          invalido={!!erro}
+        />
         <Campo
           id="senha"
           name="senha"
           label="Senha"
           type="password"
           autoComplete="current-password"
+          descrevePorId={erro ? "entrar-erro" : undefined}
+          invalido={!!erro}
           extra={
             <LinkCinema href="/recuperar" className="sublinhado-brasa font-mono text-meta text-brasa-texto">
               Esqueci a senha
@@ -64,11 +76,9 @@ export default async function EntrarPage({
       </div>
 
       {/* OAuth SEMPRE por <a> GET (nunca form POST — o Chrome bloquearia o 303 para
-          supabase.co pela form-action). Navegação top-level é permitida pela CSP. */}
-      <a
-        href={`/api/auth/oauth/google${seguirQS}`}
-        className="mt-6 flex items-center justify-center gap-2 border border-line-strong bg-card px-4 py-2.5 font-sans text-ui text-ink transition-colors hover:border-ink-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brasa"
-      >
+          supabase.co pela form-action). Navegação top-level é permitida pela CSP.
+          Borda `border-field` (≥4.8:1) via CLASSE_BOTAO_SEC — passa SC 1.4.11. */}
+      <a href={`/api/auth/oauth/google${seguirQS}`} className={`mt-6 block ${CLASSE_BOTAO_SEC}`}>
         Entrar com Google
       </a>
 
