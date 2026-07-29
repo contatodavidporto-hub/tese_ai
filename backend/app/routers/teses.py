@@ -17,6 +17,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.auth import Identidade, usuario_atual
@@ -67,6 +68,45 @@ def _run_generation(tese_id: uuid.UUID, user_id: uuid.UUID | None = None) -> Non
     logger.warning("sem_banco_para_job", tese_id=str(tese_id))
 
 
+def _resolver_classe_referencia(ticker: str) -> str | None:
+    """Resolve a classe do ativo numa sessão de REFERÊNCIA, separada da lane do usuário.
+
+    A desambiguação de sufixos 11-13 (unit x cota de FII) lê ``cvm_cadastro``/``fii_cadastro``
+    — dados PÚBLICOS que a lane ``authenticated`` não enxerga por menor-privilégio (migração
+    0010). Rodar isso na sessão do usuário levantaria 42501 e poluiria a transação da criação.
+    Por isso usa a lane ``worker`` (que tem os grants de referência) ou o engine de sistema
+    (dev/CI). Erro de infra/permissão -> ``None`` (o job reconfirma a classe na geração, lane
+    worker); ``DadoNaoEncontrado`` (abstenção legítima) propaga para o caller tratar.
+    """
+    # Caminho comum (ação sufixo 3-8, TD-*): decide só pela gramática, sem tocar o banco.
+    try:
+        classe, _payload = resolver_classe(ticker, None)
+        return classe
+    except DadoNaoEncontrado:
+        pass  # sufixo 11-13 (unit x FII) ou desconhecido: só o cadastro desambigua.
+
+    # Consulta o cadastro numa sessão de REFERÊNCIA separada da lane do usuário.
+    try:
+        if rls.SessionRLS is not None:
+            with rls.nova_sessao_worker() as ref:
+                classe, _payload = resolver_classe(ticker, ref)
+                return classe
+        if SessionLocal is not None:
+            ref = SessionLocal()
+            try:
+                classe, _payload = resolver_classe(ticker, ref)
+                return classe
+            finally:
+                ref.close()
+    except SQLAlchemyError as exc:
+        logger.warning("classe_ativo_erro_referencia", ticker=ticker, detalhe=str(exc))
+        return None
+
+    # Sem banco disponível (offline): repassa a abstenção — não há como desambiguar.
+    classe, _payload = resolver_classe(ticker, None)
+    return classe
+
+
 @router.post("", response_model=TeseCreateOut, status_code=202)
 @_rate_limit_criar()
 def post_tese(
@@ -92,10 +132,12 @@ def post_tese(
         return TeseCreateOut(id=propria.id, ticker=propria.ticker, status=propria.status)
 
     # Identidade do ativo (D4/etapa 6): resolve a classe p/ gravar as classes NOVAS.
-    # Abstenção (DadoNaoEncontrado) NÃO muda o contrato do POST (o job abstém).
+    # LÊ referência PÚBLICA (cvm_cadastro/fii_cadastro) que a lane `authenticated` não
+    # enxerga (menor-privilégio 0010) — por isso resolve numa sessão de referência SEPARADA
+    # (worker), nunca na do usuário. Abstenção não muda o contrato do POST (o job abstém).
     classe: str | None = None
     try:
-        classe, _payload = resolver_classe(body.ticker, session)
+        classe = _resolver_classe_referencia(body.ticker)
     except DadoNaoEncontrado as exc:
         logger.warning("classe_ativo_nao_resolvida", ticker=body.ticker, detalhe=str(exc))
 
