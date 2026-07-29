@@ -16,3 +16,9 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    ignore:
+      # TypeScript 7 é o compilador nativo (port em Go) — major com quebras de
+      # tipos/ferramentas (eslint-config-next, next build). Decisão do dono:
+      # SEGURAR o major até validação dedicada. Patches/minors do 5.x seguem.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
