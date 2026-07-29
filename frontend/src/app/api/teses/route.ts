@@ -107,13 +107,16 @@ export async function POST(request: NextRequest) {
     const text = await upstream.text();
     const data = text ? safeParse(text) : null;
 
+    // no-store (consistência com o GET /api/teses/[id]): a resposta pode ecoar
+    // a tese recém-criada, dado do dono.
     return NextResponse.json(data ?? { detail: text }, {
       status: upstream.status,
+      headers: { "Cache-Control": "no-store" },
     });
   } catch {
     return NextResponse.json(
       { detail: "Não foi possível contatar o backend de teses." },
-      { status: 502 },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

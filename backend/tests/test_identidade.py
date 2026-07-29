@@ -61,6 +61,9 @@ class _FakeSession:
     def commit(self) -> None:
         self.commits += 1
 
+    def close(self) -> None:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Renda fixa: gramática TD-* + mapa STN completo (recon delta 5)
@@ -245,6 +248,13 @@ def _post(monkeypatch: pytest.MonkeyPatch, sessao: _FakeSession, ticker: str):
 
     tese = _tese_fake(ticker)
     _neutralizar_pipeline(monkeypatch, tese)
+    # A resolução de classe roda numa sessão de REFERÊNCIA separada da lane do usuário
+    # (fix 0010: authenticated não lê cvm_cadastro/fii_cadastro). Sem RLS engine no teste,
+    # ela cai no SessionLocal — aponta para a mesma fake (que também é a lane user).
+    from app.routers import teses as teses_router
+
+    monkeypatch.setattr(rls, "SessionRLS", None)
+    monkeypatch.setattr(teses_router, "SessionLocal", lambda: sessao)
     # POST exige conta: a identidade padrão vem do conftest; a sessão (lane user) é
     # substituída pela fake aqui.
     app.dependency_overrides[rls.get_session_usuario] = lambda: sessao

@@ -93,10 +93,14 @@ def apagar_codigos(session: Session, user_id: uuid.UUID) -> None:
 
 
 def tem_fator_totp_verificado(session: Session, user_id: uuid.UUID) -> bool:
-    """Usa a função SECURITY DEFINER (fonte única; a policy aal2 usa a mesma)."""
+    """Usa a função SECURITY DEFINER (fonte única; a policy aal2 usa a mesma).
+
+    A função vive no schema `private` (migração 0011 — fora do PostgREST; achado LIVE-2).
+    O caller precisa de USAGE em `private` + EXECUTE (concedidos na 0011).
+    """
     return bool(
         session.execute(
-            text("select public.tem_fator_totp_verified(:uid)"), {"uid": str(user_id)}
+            text("select private.tem_fator_totp_verified(:uid)"), {"uid": str(user_id)}
         ).scalar()
     )
 
