@@ -33,6 +33,14 @@ class TetoCustoExcedido(RuntimeError):
     """O teto de custo de LLM do dia foi atingido — abster nesta geração."""
 
 
+class TetoCustoUsuarioExcedido(TetoCustoExcedido):
+    """O orçamento de LLM do dia de UM usuário foi atingido — abster só para ele.
+
+    Subclasse de `TetoCustoExcedido` para herdar o mesmo tratamento de abstenção no
+    caller; o teto GLOBAL segue como circuit-breaker e os demais usuários seguem gerando.
+    """
+
+
 class _SlotGeracao:
     """Semáforo de concorrência com aquisição não-bloqueante (context manager).
 
@@ -67,35 +75,55 @@ class CustoDiarioTracker:
         self._lock = threading.Lock()
         self._dia: dt.date | None = None
         self._acumulado_usd = 0.0
+        self._por_usuario: dict[str, float] = {}  # user_id -> USD gasto no dia (UTC)
 
     def _hoje(self) -> dt.date:
         return dt.datetime.now(dt.UTC).date()
+
+    def _rotacionar(self, hoje: dt.date) -> None:
+        """Zera os acumuladores (global e por-usuário) na virada do dia. SEMPRE sob lock."""
+        if self._dia != hoje:
+            self._dia = hoje
+            self._acumulado_usd = 0.0
+            self._por_usuario = {}
 
     def verificar(self, teto_usd: float) -> None:
         """Levanta `TetoCustoExcedido` se o dia já atingiu o teto. Teto 0 = desligado."""
         if teto_usd <= 0:
             return
         with self._lock:
-            hoje = self._hoje()
-            if self._dia != hoje:  # virou o dia -> zera
-                self._dia = hoje
-                self._acumulado_usd = 0.0
+            self._rotacionar(self._hoje())
             if self._acumulado_usd >= teto_usd:
                 raise TetoCustoExcedido(
                     f"teto de custo diário de LLM atingido ({self._acumulado_usd:.2f} "
                     f">= {teto_usd:.2f} USD)"
                 )
 
-    def registrar(self, custo_usd: float | None) -> None:
-        """Soma o custo de uma geração ao acumulado do dia."""
+    def verificar_usuario(self, user_id: object, teto_usd: float) -> None:
+        """Levanta `TetoCustoUsuarioExcedido` se ESTE usuário já atingiu o teto por-usuário
+        do dia. teto 0 ou `user_id` None (tese pública/sistema) = sem limite por-usuário."""
+        if teto_usd <= 0 or user_id is None:
+            return
+        chave = str(user_id)
+        with self._lock:
+            self._rotacionar(self._hoje())
+            if self._por_usuario.get(chave, 0.0) >= teto_usd:
+                raise TetoCustoUsuarioExcedido(
+                    f"orçamento diário de LLM do usuário atingido "
+                    f"({self._por_usuario[chave]:.2f} >= {teto_usd:.2f} USD)"
+                )
+
+    def registrar(self, custo_usd: float | None, user_id: object = None) -> None:
+        """Soma o custo de uma geração ao acumulado do dia (global e, se houver, por usuário)."""
         if not custo_usd or custo_usd <= 0:
             return
         with self._lock:
             hoje = self._hoje()
-            if self._dia != hoje:
-                self._dia = hoje
-                self._acumulado_usd = 0.0
+            self._rotacionar(hoje)
             self._acumulado_usd += custo_usd
+            if user_id is not None:
+                chave = str(user_id)
+                self._por_usuario[chave] = self._por_usuario.get(chave, 0.0) + custo_usd
             logger.info("custo_llm_acumulado_dia", dia=str(hoje), usd=round(self._acumulado_usd, 4))
 
 

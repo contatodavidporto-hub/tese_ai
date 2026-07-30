@@ -343,7 +343,18 @@ _R11_TERMO_RE = re.compile(
 _R11_DIRETIVA_RE = re.compile(
     r"\b(compr\w*|vend\w*|aproveite\w*|entrada|"
     r"oportunidade\s+de\s+(?:compra|venda)|"
-    r"desconto\s+de\s+\d+%\s*(?:—|→|=|,)?\s*(?:compr\w*|oportunidad\w*))\b",
+    r"desconto\s+de\s+\d+%\s*(?:—|→|=|,)?\s*(?:compr\w*|oportunidad\w*)|"
+    # LLM-GATE-01: enquadramentos IMPLÍCITOS de subvalorização/atratividade. Como
+    # vivem no R11, só bloqueiam COMBINADOS com um termo de valuation (valor/preço
+    # justo, valor intrínseco) na MESMA frase — uso solto ("setor atrativo") não
+    # dispara. (Termos ambíguos de mais para léxico — "barato/caro", "margem de
+    # segurança" — ficam para o juiz de postura/fidelidade, roadmap.)
+    r"subvaloriz\w*|sub[\s-]?precific\w*|atrativ\w*|"
+    r"assimetria\s+(?:favor[áa]vel|positiva)|(?:clara|boa)\s+oportunidade|"
+    r"espa[çc]o\s+para\s+(?:valoriza[çc][ãa]o|aprecia[çc][ãa]o))\b"
+    # "descontad[oa]" (subvalorizado) SEM pegar "fluxo de caixa descontado" (FCD/DCF,
+    # que é MÉTODO de valuation, não postura) — lookbehind exclui "caixa "/"fluxo ".
+    r"|(?<!caixa\s)(?<!fluxo\s)\bdescontad[oa]s?\b",
     re.IGNORECASE,
 )
 

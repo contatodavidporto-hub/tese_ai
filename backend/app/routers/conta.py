@@ -8,8 +8,10 @@ do perímetro X-Portaria + JWT verificado.
   (um access token aal1 roubado não troca senha nem apaga a conta). Quem não tem 2FA
   passa com aal1 (é o nível máximo dele) — mesma lógica da policy `tem_fator_totp_verified`.
 
-Sessão = engine de SISTEMA (postgres): o cofre é deny-all (só bypassrls acessa) e a
-exportação é uma operação de servidor confiável escopada pelo `user_id` do JWT verificado.
+Sessão: o cofre (códigos/break-glass) e a exclusão via Admin API usam o engine de
+SISTEMA (postgres, bypassrls) — o cofre é deny-all, só bypassrls acessa. Já a EXPORTAÇÃO
+LGPD roda sob a lane de usuário (RLS `authenticated`, AC-01): a RLS filtra por dono
+(camada A) e o `WHERE user_id` explícito é a camada B (belt+suspenders).
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from app.core.auth import Identidade, usuario_atual
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.ratelimit import limiter
+from app.db import rls
 from app.db.session import get_session
 from app.models.models import HistoricoItem, Tese, TeseVersao
 from app.schemas.conta import CodigosOut, OkOut, RecuperacaoIn
@@ -102,9 +105,13 @@ def break_glass(
 @router.get("/exportar")
 def exportar_dados(
     identidade: Annotated[Identidade, Depends(usuario_atual)],
-    session: Annotated[Session, Depends(get_session)],
+    session: Annotated[Session, Depends(rls.get_session_usuario)],
 ) -> dict[str, Any]:
-    """LGPD (portabilidade): devolve TODOS os dados pessoais do usuário em JSON."""
+    """LGPD (portabilidade): devolve TODOS os dados pessoais do usuário em JSON.
+
+    Roda sob a lane RLS `authenticated` (AC-01): a RLS já restringe ao dono; o
+    `WHERE user_id == uid` abaixo é a segunda camada (belt+suspenders), não o único guardião.
+    """
     exigir_aal2(identidade, session)
     uid = _uid(identidade)
     teses = session.execute(select(Tese).where(Tese.user_id == uid)).scalars().all()
