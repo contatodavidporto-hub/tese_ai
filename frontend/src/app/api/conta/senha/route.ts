@@ -9,7 +9,7 @@ import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 // HIBP na nova. Operação sensível — a reautenticação é a trava.
 export const dynamic = "force-dynamic";
 
-const MIN_SENHA = 10;
+const MIN_SENHA = 12; // ASVS V2.1.1 (piso de senha 12)
 
 export async function POST(request: NextRequest) {
   if (!mesmaOrigem(request)) return recusa("origem inválida", 403);
@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
   // Step-up 2FA (correção da revisão de segurança): se há fator verificado, exige o
   // código TOTP ANTES de trocar — senão quem tem só a senha (o exato cenário que o 2FA
   // deveria deter) trocaria a senha sozinho, derrubando a conta.
-  const { data: fatores } = await supabase.auth.mfa.listFactors();
+  const { data: fatores, error: eFatores } = await supabase.auth.mfa.listFactors();
+  // MFA-01 (fail-CLOSED): nunca inferir "sem 2FA" de uma chamada que FALHOU — senão um
+  // erro transitório de listFactors pularia o step-up e deixaria trocar a senha com aal1.
+  if (eFatores) return redir(request, "/conta/senha?erro=2fa_indisponivel");
   const totp = (fatores?.totp ?? []).find((f) => f.status === "verified");
   if (totp) {
     const code = String(form.get("code") ?? "").trim();

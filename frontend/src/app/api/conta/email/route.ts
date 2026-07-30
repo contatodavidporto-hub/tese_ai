@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
   if (eAuth) return redir(request, "/conta/email?erro=senha");
 
   // Step-up 2FA (correção da revisão): trocar e-mail com só a senha anula o 2FA.
-  const { data: fatores } = await supabase.auth.mfa.listFactors();
+  const { data: fatores, error: eFatores } = await supabase.auth.mfa.listFactors();
+  // MFA-01 (fail-CLOSED): erro em listFactors não pode virar "sem 2FA" (pular o step-up).
+  if (eFatores) return redir(request, "/conta/email?erro=2fa_indisponivel");
   const totp = (fatores?.totp ?? []).find((f) => f.status === "verified");
   if (totp) {
     const code = String(form.get("code") ?? "").trim();

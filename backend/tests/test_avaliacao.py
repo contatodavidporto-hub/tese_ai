@@ -840,3 +840,33 @@ def test_faithfulness_piso_nao_muda_comportamento_de_acao():
     assert laudo["faithfulness_numerica"] < laudo["faithfulness_piso"]
     assert laudo["aprovado"] is True
     assert laudo["bloqueante"] is False
+
+
+# --- LLM-GATE-01: enquadramento IMPLÍCITO de subvalorização (postura) ----------
+def test_gate01_valuation_com_enquadramento_implicito_bloqueia():
+    # Termo de valuation + enquadramento implícito na MESMA frase = compra implícita.
+    frases = [
+        "O valor intrínseco de R$ 80 deixa o papel claramente descontado.",
+        "O preço justo mostra a ação subvalorizada.",
+        "O valor justo revela assimetria favorável e espaço para valorização.",
+        "O valor intrínseco sugere uma clara oportunidade no papel.",
+        "O valor justo torna o ativo atrativo.",
+    ]
+    for frase in frases:
+        md = f"# Tese\n> Não é recomendação de investimento.\n## 1. Análise\n{frase}\n"
+        laudo = avaliar_tese(_envelope(md))
+        assert laudo["bloqueante"] is True, frase
+
+
+def test_gate01_dcf_e_conceito_nao_sao_falso_positivo():
+    # Regressão: FCD/fluxo de caixa DESCONTADO (método) e 'atrativo' SOLTO (sem termo de
+    # valuation na frase) NÃO bloqueiam — senão o gate abstém de tese legítima.
+    frases = [
+        "O fluxo de caixa descontado aponta um valor intrínseco de R$ 80 por ação.",
+        "O dividend yield do setor está atrativo neste trimestre.",
+        "A margem de segurança do modelo de FCD é de 15%.",
+    ]
+    for frase in frases:
+        md = f"# Tese\n> Não é recomendação de investimento.\n## 1. Análise\n{frase}\n"
+        laudo = avaliar_tese(_envelope(md))
+        assert laudo["bloqueante"] is False, frase

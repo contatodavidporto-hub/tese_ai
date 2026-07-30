@@ -1519,6 +1519,12 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
 
         # Teto de custo diário (defesa de custo, por processo): excedido => abster.
         CUSTO_DIARIO.verificar(settings.tese_teto_custo_usd_dia)
+        # Orçamento por-usuário (LLM-COST-01): esgotar o próprio teto abstém só este
+        # usuário; os outros seguem gerando. Tese pública/sistema (user_id None) fica
+        # só sob o teto global acima.
+        CUSTO_DIARIO.verificar_usuario(
+            tese.user_id, getattr(settings, "tese_teto_custo_usd_dia_por_usuario", 0.0)
+        )
 
         # Cap de concorrência: falha rápido (o caller grava status=error) se todas as
         # vagas de geração estão ocupadas — protege pool de conexões e custo.
@@ -1594,7 +1600,8 @@ def gerar_tese(session: Session, tese_id: uuid.UUID) -> None:
                 settings.tese_model_synthesis,
                 usage,
                 web_search_requests=blocos_novos.web_search_requests,
-            )
+            ),
+            user_id=tese.user_id,
         )
         # Garante o disclaimer NO PRÓPRIO conteúdo (não confia só no LLM).
         if "não é recomendação" not in markdown.lower():

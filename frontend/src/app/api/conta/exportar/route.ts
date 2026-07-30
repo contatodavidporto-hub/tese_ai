@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { recusa, redir } from "@/lib/auth/http";
 import { chamarBackend } from "@/lib/backend";
-import { sessaoAtual } from "@/lib/auth/sessao";
+import { sessaoConfirmada } from "@/lib/auth/sessao";
 import { envAuth } from "@/lib/auth/supabaseServer";
 
 // LGPD (portabilidade): baixa TODOS os dados do usuário em JSON. GET (leitura, sem
@@ -12,8 +12,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (!envAuth()) return recusa("serviço de contas indisponível", 503);
-  // Authz por getClaims (invariante do projeto), NUNCA getSession cru.
-  const sessao = await sessaoAtual();
+  // SESS-01: exportar é dado LGPD (ALTO VALOR) — confirma por getUser (CIENTE DE
+  // REVOGAÇÃO), não só getClaims (que valida a assinatura mas não vê "encerrar todas as
+  // sessões" até o exp). sessaoConfirmada() bate no GoTrue e traz o token p/ o backend.
+  const sessao = await sessaoConfirmada();
   if (!sessao) return redir(request, "/entrar?seguir=/conta/dados");
   try {
     const r = await chamarBackend("/conta/exportar", sessao.accessToken, {});

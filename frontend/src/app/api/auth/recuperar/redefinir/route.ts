@@ -11,7 +11,7 @@ import { criarClienteAuth, envAuth } from "@/lib/auth/supabaseServer";
 // consumir o token em GET (scanner queima o single-use).
 export const dynamic = "force-dynamic";
 
-const MIN_SENHA = 10;
+const MIN_SENHA = 12; // ASVS V2.1.1 (piso de senha 12)
 
 export async function POST(request: NextRequest) {
   if (!mesmaOrigem(request)) return recusa("origem inválida", 403);

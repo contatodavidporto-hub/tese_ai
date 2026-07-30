@@ -107,6 +107,11 @@ class Settings(BaseSettings):
     # maior (~16k) + consenso (Haiku+web_search) sobem o custo/tese a
     # ~US$0,60-0,70 (correção A14); 25 cobre o warm-cache frio (12 ativos) com folga.
     tese_teto_custo_usd_dia: float = 25.0
+    # Orçamento de custo de LLM por USUÁRIO/dia (USD, por processo — LLM-COST-01).
+    # Impede que UMA conta esgote o teto global e bloqueie todos: atingido o teto do
+    # usuário A, só ele abstém; B segue gerando. ~US$0,60-0,70/tese => 5.0 ≈ 7/dia.
+    # 0 desliga o limite por-usuário (fica só o global). Tese pública/sistema não conta.
+    tese_teto_custo_usd_dia_por_usuario: float = 5.0
     # Tamanho máximo do corpo de requisição (bytes). Acima disso => 413.
     max_request_bytes: int = 64 * 1024
 
