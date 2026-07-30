@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
   if (eAuth) return redir(request, "/conta/excluir?erro=senha");
 
   // Step-up 2FA (se houver fator verificado): o FastAPI exige aal2 para excluir.
-  const { data: fatores } = await supabase.auth.mfa.listFactors();
+  const { data: fatores, error: eFatores } = await supabase.auth.mfa.listFactors();
+  // MFA-01 (fail-CLOSED): erro em listFactors não pode pular o step-up (o backstop aal2 do
+  // FastAPI ainda pega, mas não confiamos numa camada só).
+  if (eFatores) return redir(request, "/conta/excluir?erro=2fa_indisponivel");
   const totp = (fatores?.totp ?? []).find((f) => f.status === "verified");
   if (totp) {
     if (!code) return redir(request, "/conta/excluir?erro=2fa");

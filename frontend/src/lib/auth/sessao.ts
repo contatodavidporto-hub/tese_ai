@@ -38,3 +38,20 @@ export async function usuarioConfirmado(): Promise<{ id: string; email: string |
   if (error || !data.user) return null;
   return { id: data.user.id, email: data.user.email ?? null };
 }
+
+// Sessão CONFIRMADA pelo GoTrue (`getUser` — CIENTE DE REVOGAÇÃO) + o access token para
+// repassar ao backend. Para operações de ALTO VALOR (exportar LGPD — SESS-01): `getClaims`
+// valida a assinatura mas NÃO enxerga revogação até o exp; `getUser` bate no GoTrue e vê o
+// "encerrar todas as sessões" na hora.
+export async function sessaoConfirmada(): Promise<Sessao | null> {
+  const supabase = await criarClienteAuth();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  const { data: s } = await supabase.auth.getSession();
+  return {
+    userId: data.user.id,
+    email: data.user.email ?? null,
+    aal: null, // não usado aqui — o backstop aal2 é imposto pelo FastAPI no /conta/exportar
+    accessToken: s.session?.access_token ?? null,
+  };
+}

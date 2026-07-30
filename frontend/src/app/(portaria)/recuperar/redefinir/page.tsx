@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 const ERROS: Record<string, string> = {
-  curta: "A senha precisa ter pelo menos 10 caracteres.",
+  curta: "A senha precisa ter pelo menos 12 caracteres.",
   vazada: "Essa senha apareceu em vazamentos públicos. Escolha outra.",
 };
 
@@ -72,7 +72,7 @@ export default async function RedefinirPage({
           descrevePorId={erro ? "redefinir-erro" : undefined}
           invalido={!!erro}
         />
-        <p className="-mt-2 font-mono text-meta text-ink-3">Mínimo de 10 caracteres.</p>
+        <p className="-mt-2 font-mono text-meta text-ink-3">Mínimo de 12 caracteres.</p>
         <button type="submit" className={`mt-2 ${CLASSE_BOTAO}`}>
           Redefinir senha
         </button>

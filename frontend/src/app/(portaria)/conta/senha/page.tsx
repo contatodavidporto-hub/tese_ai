@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Trocar senha", description: "Altere 
 
 const ERROS: Record<string, string> = {
   atual: "A senha atual está incorreta.",
-  curta: "A nova senha precisa ter pelo menos 10 caracteres.",
+  curta: "A nova senha precisa ter pelo menos 12 caracteres.",
   vazada: "Essa senha apareceu em vazamentos públicos. Escolha outra.",
   troca: "Não foi possível trocar a senha. Tente novamente.",
   "2fa": "Informe o código do seu app autenticador.",
@@ -79,7 +79,7 @@ export default async function SenhaPage({
           descrevePorId={codigo === "curta" || codigo === "vazada" ? "senha-erro" : undefined}
           invalido={codigo === "curta" || codigo === "vazada"}
         />
-        <p className="-mt-2 font-mono text-meta text-ink-3">Mínimo de 10 caracteres.</p>
+        <p className="-mt-2 font-mono text-meta text-ink-3">Mínimo de 12 caracteres.</p>
         <button type="submit" className={`mt-2 ${CLASSE_BOTAO}`}>
           Salvar nova senha
         </button>

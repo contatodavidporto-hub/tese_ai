@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 const ERROS: Record<string, string> = {
   email: "Informe um e-mail válido.",
-  curta: "A senha precisa ter pelo menos 10 caracteres.",
+  curta: "A senha precisa ter pelo menos 12 caracteres.",
   vazada: "Essa senha apareceu em vazamentos públicos. Escolha outra que você não use em outro lugar.",
 };
 
@@ -59,7 +59,7 @@ export default async function CriarContaPage({
         {/* Política honesta: comprimento acima de tudo (verificação contra vazamentos
             no envio). Sem teatro de "1 maiúscula e 1 símbolo". */}
         <p className="-mt-2 font-mono text-meta text-ink-3">
-          Mínimo de 10 caracteres. Prefira uma frase longa que só você saiba.
+          Mínimo de 12 caracteres. Prefira uma frase longa que só você saiba.
         </p>
         <button type="submit" className={`mt-2 ${CLASSE_BOTAO}`}>
           Criar conta
