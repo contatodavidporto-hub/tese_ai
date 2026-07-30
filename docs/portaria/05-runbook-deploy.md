@@ -8,6 +8,33 @@
 > tenho acesso ao Railway nem ao Google Cloud Console); os **[EU]** eu executo por MCP/gh
 > assim que os anteriores estiverem prontos.
 
+## ⚠ ATUALIZAÇÃO 2026-07-30 — esteira verde, lane RLS provada, achados de código fechados
+Estado real (ver `07-fechamento-codigo-onda5.md` para o detalhe e os vereditos):
+- **Esteira VERDE**: `master` compila; CI verde nos 4 jobs + Vercel (o build quebrava por
+  `react-dom@19.2.8` vs `react@19.2.7` — corrigido; TS7 segurado; postcss/sharp remediados).
+- **app_backend** agora tem **LOGIN + senha** (setada por MCP). **Preflight da lane RLS
+  PROVADO** pelo pooler **`aws-1-sa-east-1`** (⚠ NÃO `aws-0` — este dá *"tenant/user not
+  found"*; os passos 1/3 abaixo ainda dizem `aws-0`, **use `aws-1`**). NOBYPASSRLS; vê 327
+  públicas / 0 privadas; cofre e `service_role` negados (42501).
+- **Migrações até `0011`** aplicadas em produção (`alembic_version=0011`): **0010**
+  (menor-privilégio LIVE-1 + FORCE RLS cofre/backup LIVE-3) e **0011** (oráculo 2FA
+  `tem_fator_totp_verified` movido p/ schema `private`, fora do PostgREST — LIVE-2/MFA-04).
+  **Reversibilidade provada** (round-trip down→up em transação revertida).
+- **Achados de código fechados** (AC-01, MFA-01, SESS-01 código, piso senha 12, HIBP,
+  LLM-COST-01, LLM-GATE-01) — PRs mergeados, testes verdes e crescendo.
+- **Segredos** `PORTARIA_SECRET` e a senha do `app_backend` foram **gerados e entregues ao
+  dono** (cofre pessoal) — NÃO estão no repo/bundle/log/Vault.
+
+**O que FALTA para o login funcionar de ponta a ponta** (precisa das suas credenciais):
+1. **Vercel** (token): `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PORTARIA_SECRET` em
+   Production+Preview (sem `NEXT_PUBLIC_`).
+2. **Railway** (token): `PORTARIA_SECRET` (o mesmo) + `DATABASE_URL_RLS` (host **aws-1**) →
+   deploy do backend novo (fail-closed) **só após a fiação provada**.
+3. **Supabase** (PAT): MFA/TOTP + templates pt-BR + **medir** TTL do access token (SESS-01),
+   rate-limits do GoTrue (AUTH-01) e cap do SMTP.
+4. **Google OAuth**: client no Cloud Console → Auth→Providers→Google. Depois: smoke + ciclo
+   de login real (2 usuários) + campanha de ataque §6.
+
 ## ⚠ ATUALIZAÇÃO 2026-07-28 — INCIDENTE: merge/deploy fora de ordem, remediado em parte
 O código de `feat/portaria` (Ondas 1–3) foi **mergeado em master e deployado ANTES** dos
 pré-requisitos deste runbook (Vercel/Railway/role). Resultado: **código novo rodando sobre

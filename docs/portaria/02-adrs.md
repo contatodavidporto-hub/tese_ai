@@ -274,3 +274,34 @@ inalterado), **zero glow**, **CLS 0**.
 - `documentos`/`chunks` do demo: contagem real (esperado 0); se >0, decidir destino antes do contract.
 - 2FA opcional desde o dia 1 (presumido) vs obrigatório para exclusão de conta.
 - Limite de conexões do Supavisor no Free (dimensionar os dois pools) — conferir antes do deploy.
+
+## Decisões da Onda 5 (2026-07-29/30) — fechamento de código (ratificadas por prova)
+
+- **Host do pooler = `aws-1-sa-east-1`** (NÃO `aws-0`): provado no preflight — `aws-0` devolve
+  *"tenant/user not found"*. Vale p/ `DATABASE_URL` e `DATABASE_URL_RLS`.
+- **LIVE-1/LIVE-3 (0010):** `REVOKE ALL` de anon/authenticated + re-grant mínimo; FORCE RLS no
+  cofre/backup; `alembic_version` fica FORA do FORCE (lido pela conexão de sistema).
+- **LIVE-2/MFA-04 (0011):** `tem_fator_totp_verified` movida `public→private` (fora do PostgREST),
+  EXECUTE mantido a `authenticated`, USAGE concedido; policies aal2 referenciam por OID
+  (sobrevivem). Reversível (round-trip provado).
+- **Classe de ativo no create sai da lane do usuário:** `authenticated` perdeu o grant em
+  `cvm_cadastro`/`fii_cadastro` (0010); `post_tese` resolve a classe numa sessão de referência
+  SEPARADA (worker/sistema) — criar tese de FII/unit deixa de arriscar 500.
+- **AC-01:** exportar LGPD sob a lane `authenticated` (RLS camada A + `WHERE` camada B); cofre e
+  excluir seguem no engine de sistema.
+- **MFA-01:** step-up FAIL-CLOSED (lê o `error` de `listFactors`; erro não vira "sem 2FA").
+- **SESS-01:** exportar confirma por `getUser` (revogação-ciente). Encurtar o TTL do access token
+  p/ ~600s fica no dashboard (pendente PAT).
+- **HIBP fail-open — RESOLVE a "Questão em Aberto" acima:** ratificado FAIL-OPEN (defesa-em-
+  profundidade; primário = piso 12 + anti-enumeração) + 1 retry curto. Falhar fechado travaria
+  TODO cadastro numa queda de terceiro — pior que o risco marginal.
+- **Piso de senha 10 → 12** (ASVS V2.1.1).
+- **LLM-COST-01:** orçamento de custo por-usuário/dia (`5.0` USD) além do global; contador
+  multi-worker (Redis) = roadmap (como o teto global).
+- **LLM-GATE-01:** léxico de postura no R11 (só bloqueia com termo de valuation na MESMA frase;
+  `descontado` exclui DCF por lookbehind). "barato/caro" e "margem de segurança" → juiz de
+  postura (roadmap) por serem falso-positivo-prone para léxico.
+- **AUTH-01:** limiter de aplicação declarado — primário = limites nativos do GoTrue (a MEDIR com
+  PAT); limiter de edge durável precisa de KV (plano Pro) → roadmap.
+- **Higiene:** teses-lixo do `demo_user` (warm-cache do backend antigo, `status=error`) apagadas;
+  acervo 327/0. Backup `_portaria_backup_demo` mantido até o soak.
